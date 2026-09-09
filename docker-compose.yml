@@ -33,7 +33,6 @@ services:
       POSTGRES_USER: metheon
       POSTGRES_PASSWORD: metheon
       REDIS_HOST: redis
-    restart: unless-stopped
 
 volumes:
   postgres_data:

@@ -69,18 +69,10 @@ jobs:
       - name: Build the worker image
         run: docker build -t metheon-worker ./backend
 
-      - name: Check the worker starts and reports a missing queue
-        # With no Redis reachable the worker must log the outage and stay up,
-        # rather than crash on startup.
-        run: |
-          docker run --rm --name metheon-worker-check -d \
-            -e REDIS_HOST=127.0.0.1 -e QUEUE_BLOCK_TIMEOUT_SECONDS=1 \
-            metheon-worker
-          sleep 5
-          logs=$(docker logs metheon-worker-check 2>&1)
-          docker stop metheon-worker-check >/dev/null
-          echo "$logs"
-          echo "$logs" | grep -q "worker started" \
-            || { echo "::error::the worker did not start"; exit 1; }
-          echo "$logs" | grep -q "queue unavailable" \
-            || { echo "::error::the worker did not report the missing queue"; exit 1; }
+      - name: Check the worker imports with runtime dependencies only
+        # The image installs requirements.txt, while the tests run with the
+        # larger requirements-dev.txt. Importing the worker inside the image
+        # is what catches a dependency that exists only in the development
+        # set, or a file the Dockerfile forgot to copy. The worker's runtime
+        # behaviour is covered by tests/test_worker.py, not here.
+        run: docker run --rm metheon-worker python -c "import app.worker"

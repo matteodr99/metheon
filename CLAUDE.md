@@ -351,8 +351,10 @@ worse than a red one.
 `.github/workflows/ci.yml` runs on every push and pull request to `main`:
 
 - `Tests` — the full suite against a `postgres:16` service container
-- `Worker image` — builds `backend/Dockerfile` and checks the worker starts
-  and reports a missing queue instead of crashing
+- `Worker image` — builds `backend/Dockerfile` and imports the worker inside
+  it. The image installs `requirements.txt` while the tests run with
+  `requirements-dev.txt`, so this is what catches a runtime dependency that
+  only exists in the development set. Worker behaviour belongs in pytest.
 
 Keep the workflow honest: a check that cannot fail is not a check.
 

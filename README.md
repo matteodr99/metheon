@@ -541,7 +541,7 @@ skipped half the suite would be worse than a red one.
 | Job | What it does |
 | --- | --- |
 | `Tests` | Runs the full suite against a `postgres:16` service container |
-| `Worker image` | Builds `backend/Dockerfile`, starts the worker with no Redis reachable, and checks it comes up and reports the outage instead of crashing |
+| `Worker image` | Builds `backend/Dockerfile` and imports the worker inside it, checking that `requirements.txt` alone is enough to run it |
 
 Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
 kept in `tests/fixtures/` and normalized in full, so the tests stay honest about
