@@ -352,6 +352,49 @@ curl "http://127.0.0.1:8000/api/datasets/1/imports?limit=1"
 recorded per run, so changing `USGS_FEED_URL` between runs stays visible in the
 history.
 
+### `GET /api/datasets/{id}/earthquakes/summary`
+
+Aggregates the matching events without returning them. Takes the **same
+filters** as the listing, so a filtered view can describe exactly what it
+shows.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/summary?min_magnitude=4"
+```
+
+```json
+{
+  "dataset_id": 1,
+  "filters": {"min_magnitude": 4.0},
+  "total": 17,
+  "magnitude": {"min": 4.0, "max": 5.3, "average": 4.66, "unknown": 0},
+  "occurred_at": {
+    "first": "2026-09-08T09:12:44.310000",
+    "last": "2026-09-09T10:31:02.980000"
+  },
+  "by_event_type": [{"event_type": "earthquake", "count": 17}],
+  "by_day": [
+    {"day": "2026-09-08", "count": 13},
+    {"day": "2026-09-09", "count": 4}
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `total` | Events matching the filters |
+| `magnitude.unknown` | Matching events whose magnitude is null |
+| `by_event_type` | Counts per type, largest first |
+| `by_day` | Counts per UTC calendar day, chronological |
+
+`magnitude.average` is the average over the events that have one, so
+`unknown` says how many were left out rather than hiding them in the total.
+`by_day` is ordered by day because that is how a chart consumes it.
+
+On an empty result the totals are `null` and the groupings are empty lists.
+`total` here always agrees with the `total` the listing reports for the same
+filters — both are built from one shared `WHERE` clause.
+
 ### `POST /api/datasets/{id}/ingest`
 
 Queues an ingestion run and returns `202` immediately. A worker picks the job
@@ -489,6 +532,7 @@ metheon/
 │   │   ├── test_filters.py
 │   │   ├── test_jobs.py
 │   │   ├── test_repository.py
+│   │   ├── test_summary.py
 │   │   ├── test_runner.py
 │   │   ├── test_usgs_fetch.py
 │   │   ├── test_usgs_normalization.py
@@ -598,8 +642,8 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [x] **Phase 2 — Data pipeline:** USGS source, asynchronous ingestion through
   a Redis queue and a background worker, with validation, normalization, status
   transitions and a recorded history of every run
-- [ ] **Phase 3 — Analytics:** pagination and filtering are done on the
-  earthquakes endpoint; the React + TypeScript dashboard, aggregations and
+- [ ] **Phase 3 — Analytics:** pagination, filtering and aggregations are
+  done on the earthquakes endpoint; the React + TypeScript dashboard and its
   charts are still open
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses

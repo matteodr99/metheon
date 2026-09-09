@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from app.db.database import get_connection
 from app.db import repository
@@ -31,19 +31,51 @@ def _get_dataset_or_404(connection, dataset_id: int):
     return dataset
 
 
-def _reject_inverted_range(lower: Any, upper: Any, label: str) -> None:
-    """Refuse a range whose bounds are the wrong way round.
+class EarthquakeFilters:
+    """The filters shared by the listing and the summary.
 
-    Such a range silently matches nothing, which reads as "no data" rather
-    than as the mistake it is.
+    Declared once so the two endpoints cannot drift apart: a summary that
+    accepted different filters than the listing it describes would be
+    misleading.
     """
-    if lower is not None and upper is not None and lower > upper:
-        raise HTTPException(
-            status_code=422,
-            detail="The {0} range is inverted: {1} is greater than {2}".format(
-                label, lower, upper
-            ),
-        )
+
+    def __init__(
+        self,
+        min_magnitude: Optional[float] = Query(None),
+        max_magnitude: Optional[float] = Query(None),
+        start_time: Optional[datetime] = Query(None),
+        end_time: Optional[datetime] = Query(None),
+        event_type: Optional[str] = Query(None),
+    ):
+        self._reject_inverted(min_magnitude, max_magnitude, "magnitude")
+        self._reject_inverted(start_time, end_time, "time")
+
+        self.values = {
+            "min_magnitude": min_magnitude,
+            "max_magnitude": max_magnitude,
+            "start_time": start_time,
+            "end_time": end_time,
+            "event_type": event_type,
+        }
+
+    @staticmethod
+    def _reject_inverted(lower: Any, upper: Any, label: str) -> None:
+        """Refuse a range whose bounds are the wrong way round.
+
+        Such a range silently matches nothing, which reads as "no data"
+        rather than as the mistake it is.
+        """
+        if lower is not None and upper is not None and lower > upper:
+            raise HTTPException(
+                status_code=422,
+                detail="The {0} range is inverted: {1} is greater than {2}".format(
+                    label, lower, upper
+                ),
+            )
+
+    def applied(self):
+        """Only the filters the caller actually set, for echoing back."""
+        return {name: value for name, value in self.values.items() if value is not None}
 
 
 def _set_status(dataset_id: int, status: str) -> None:
@@ -94,11 +126,7 @@ def get_dataset_earthquakes(
     dataset_id: int,
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
-    min_magnitude: Optional[float] = Query(None),
-    max_magnitude: Optional[float] = Query(None),
-    start_time: Optional[datetime] = Query(None),
-    end_time: Optional[datetime] = Query(None),
-    event_type: Optional[str] = Query(None),
+    filters: EarthquakeFilters = Depends(),
 ):
     """Return a page of the earthquakes stored for a dataset.
 
@@ -109,21 +137,11 @@ def get_dataset_earthquakes(
     `total` counts the events matching the filters, not the whole dataset,
     so a client can page through the filtered result.
     """
-    filters = {
-        "min_magnitude": min_magnitude,
-        "max_magnitude": max_magnitude,
-        "start_time": start_time,
-        "end_time": end_time,
-        "event_type": event_type,
-    }
-    _reject_inverted_range(min_magnitude, max_magnitude, "magnitude")
-    _reject_inverted_range(start_time, end_time, "time")
-
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
-        total = repository.count_earthquakes(connection, dataset_id, filters)
+        total = repository.count_earthquakes(connection, dataset_id, filters.values)
         items = repository.list_earthquakes(
-            connection, dataset_id, limit, offset, filters
+            connection, dataset_id, limit, offset, filters.values
         )
 
     return {
@@ -131,8 +149,33 @@ def get_dataset_earthquakes(
         "total": total,
         "limit": limit,
         "offset": offset,
-        "filters": {name: value for name, value in filters.items() if value is not None},
+        "filters": filters.applied(),
         "items": items,
+    }
+
+
+@app.get("/api/datasets/{dataset_id}/earthquakes/summary")
+def get_dataset_earthquake_summary(
+    dataset_id: int,
+    filters: EarthquakeFilters = Depends(),
+):
+    """Aggregate the matching earthquakes, without returning the events.
+
+    Takes the same filters as the listing, so a client showing a filtered
+    view can describe exactly what it is showing.
+
+    Days are UTC calendar days, matching how event times are stored.
+    """
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        summary = repository.summarize_earthquakes(
+            connection, dataset_id, filters.values
+        )
+
+    return {
+        "dataset_id": dataset_id,
+        "filters": filters.applied(),
+        **summary,
     }
 
 

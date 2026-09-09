@@ -439,3 +439,74 @@ def start_import(connection, import_id: int) -> None:
             """,
             (STATUS_PROCESSING, import_id),
         )
+
+
+def summarize_earthquakes(
+    connection,
+    dataset_id: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Aggregate the matching earthquakes.
+
+    Uses the same WHERE clause as the listing, so a summary always describes
+    exactly the events the listing would return.
+
+    Days are UTC calendar days: event times are stored as naive UTC, so no
+    conversion is applied.
+    """
+    where, parameters = _earthquake_where(dataset_id, filters)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT count(*),
+                   count(*) FILTER (WHERE magnitude IS NULL),
+                   min(magnitude), max(magnitude), avg(magnitude),
+                   min(occurred_at), max(occurred_at)
+            FROM earthquakes
+            WHERE {0}
+            """.format(where),
+            parameters,
+        )
+        totals = cursor.fetchone()
+
+        cursor.execute(
+            """
+            SELECT event_type, count(*)
+            FROM earthquakes
+            WHERE {0}
+            GROUP BY event_type
+            ORDER BY count(*) DESC, event_type
+            """.format(where),
+            parameters,
+        )
+        by_event_type = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT occurred_at::date AS day, count(*)
+            FROM earthquakes
+            WHERE {0}
+            GROUP BY day
+            ORDER BY day
+            """.format(where),
+            parameters,
+        )
+        by_day = cursor.fetchall()
+
+    average = _to_float(totals[4])
+
+    return {
+        "total": totals[0],
+        "magnitude": {
+            "min": _to_float(totals[2]),
+            "max": _to_float(totals[3]),
+            "average": round(average, 2) if average is not None else None,
+            "unknown": totals[1],
+        },
+        "occurred_at": {"first": totals[5], "last": totals[6]},
+        "by_event_type": [
+            {"event_type": row[0], "count": row[1]} for row in by_event_type
+        ],
+        "by_day": [{"day": row[0], "count": row[1]} for row in by_day],
+    }

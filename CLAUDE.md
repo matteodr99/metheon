@@ -204,6 +204,19 @@ Aggregations and charts remain part of Phase 3.
 Returns the import history of a dataset, most recent run first, with the same
 `limit` and `offset` parameters as the earthquakes endpoint.
 
+### GET /api/datasets/{id}/earthquakes/summary
+
+Aggregates the matching events: totals, magnitude bounds and average, time
+span, counts per event type and per UTC day.
+
+Takes the same filters as the listing, through the shared `EarthquakeFilters`
+dependency in `main.py`, and uses the same `WHERE` clause. The two endpoints
+must never disagree about the same filter; a test asserts they do not.
+
+`magnitude.average` covers only the events that have a magnitude, and
+`magnitude.unknown` counts the ones left out. `by_day` is ordered by day
+because a chart consumes it in that order.
+
 ### POST /api/datasets/{id}/ingest
 
 Records a queued run in `imports`, pushes its id onto the Redis queue and
@@ -504,7 +517,7 @@ Prefer structured AI responses where practical, for example:
 - [ ] Dashboard
 - [x] Filters
 - [x] Pagination
-- [ ] Aggregations
+- [x] Aggregations
 - [ ] Charts
 
 ### Phase 4 — AI
