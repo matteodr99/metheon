@@ -222,3 +222,117 @@ def list_earthquakes(
         }
         for row in rows
     ]
+
+
+def create_import(connection, dataset_id: int, feed_url: str) -> int:
+    """Open an import run and return its id.
+
+    The row is written before any work starts, so a run that never finishes
+    still leaves a trace at `processing`.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO imports (dataset_id, status, feed_url)
+            VALUES (%s, %s, %s)
+            RETURNING id
+            """,
+            (dataset_id, STATUS_PROCESSING, feed_url),
+        )
+        row = cursor.fetchone()
+
+    return row[0]
+
+
+def complete_import(
+    connection,
+    import_id: int,
+    fetched: int,
+    valid: int,
+    invalid: int,
+    inserted: int,
+    updated: int,
+) -> None:
+    """Close an import run that succeeded, recording its counts."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE imports
+            SET status = %s,
+                finished_at = CURRENT_TIMESTAMP,
+                fetched = %s,
+                valid = %s,
+                invalid = %s,
+                inserted = %s,
+                updated = %s
+            WHERE id = %s
+            """,
+            (STATUS_COMPLETED, fetched, valid, invalid, inserted, updated, import_id),
+        )
+
+
+def fail_import(connection, import_id: int, error: str) -> None:
+    """Close an import run that failed, recording why."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE imports
+            SET status = %s,
+                finished_at = CURRENT_TIMESTAMP,
+                error = %s
+            WHERE id = %s
+            """,
+            (STATUS_FAILED, error, import_id),
+        )
+
+
+def count_imports(connection, dataset_id: int) -> int:
+    """Return how many import runs a dataset has."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM imports WHERE dataset_id = %s",
+            (dataset_id,),
+        )
+        row = cursor.fetchone()
+
+    return row[0] if row is not None else 0
+
+
+def list_imports(
+    connection,
+    dataset_id: int,
+    limit: int,
+    offset: int,
+) -> List[Dict[str, Any]]:
+    """Return a page of import runs, most recent first."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, dataset_id, status, feed_url, started_at, finished_at,
+                   fetched, valid, invalid, inserted, updated, error
+            FROM imports
+            WHERE dataset_id = %s
+            ORDER BY started_at DESC, id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (dataset_id, limit, offset),
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "dataset_id": row[1],
+            "status": row[2],
+            "feed_url": row[3],
+            "started_at": row[4],
+            "finished_at": row[5],
+            "fetched": row[6],
+            "valid": row[7],
+            "invalid": row[8],
+            "inserted": row[9],
+            "updated": row[10],
+            "error": row[11],
+        }
+        for row in rows
+    ]

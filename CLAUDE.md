@@ -181,6 +181,11 @@ Query parameters: `limit` (default 50, between 1 and 500) and `offset`
 
 Filtering and richer pagination belong to Phase 3.
 
+### GET /api/datasets/{id}/imports
+
+Returns the import history of a dataset, most recent run first, with the same
+`limit` and `offset` parameters as the earthquakes endpoint.
+
 ### POST /api/datasets/{id}/ingest
 
 Downloads the USGS GeoJSON feed, validates and normalizes it, and stores the
@@ -243,6 +248,28 @@ CREATE TABLE IF NOT EXISTS earthquakes (
 
 Timestamps are stored as naive UTC, converted from the epoch milliseconds the
 feed provides. `magnitude` is nullable because the feed legitimately omits it.
+
+Table: `imports`
+
+```sql
+CREATE TABLE IF NOT EXISTS imports (
+    id SERIAL PRIMARY KEY,
+    dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'processing',
+    feed_url TEXT NOT NULL,
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMP,
+    fetched INTEGER NOT NULL DEFAULT 0,
+    valid INTEGER NOT NULL DEFAULT 0,
+    invalid INTEGER NOT NULL DEFAULT 0,
+    inserted INTEGER NOT NULL DEFAULT 0,
+    updated INTEGER NOT NULL DEFAULT 0,
+    error TEXT
+);
+```
+
+One row per ingestion run, written before the work starts so an interrupted run
+still leaves a trace. The dataset `status` mirrors the status of its latest run.
 
 ## Current local data
 
@@ -402,7 +429,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Implement ingestion
 - [x] Validation
 - [x] Normalization
-- [ ] Import/job model
+- [x] Import/job model
 - [ ] Redis
 - [ ] Background worker
 - [x] Proper status transitions

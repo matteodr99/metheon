@@ -43,6 +43,16 @@ def _set_status(dataset_id: int, status: str) -> None:
         repository.set_dataset_status(connection, dataset_id, status)
 
 
+def _fail_import(dataset_id: int, import_id: int, error: str) -> None:
+    """Record a failed run on both the import row and the dataset.
+
+    Committed separately from the work that failed, so the failure survives.
+    """
+    with get_connection() as connection:
+        repository.fail_import(connection, import_id, error)
+    _set_status(dataset_id, repository.STATUS_FAILED)
+
+
 @app.get("/api/health")
 def health_check():
     with get_connection() as connection:
@@ -97,6 +107,27 @@ def get_dataset_earthquakes(
     }
 
 
+@app.get("/api/datasets/{dataset_id}/imports")
+def get_dataset_imports(
+    dataset_id: int,
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+):
+    """Return the import history of a dataset, most recent run first."""
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        total = repository.count_imports(connection, dataset_id)
+        items = repository.list_imports(connection, dataset_id, limit, offset)
+
+    return {
+        "dataset_id": dataset_id,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": items,
+    }
+
+
 @app.post("/api/datasets/{dataset_id}/ingest")
 def ingest_dataset(dataset_id: int):
     """Fetch the USGS feed and store its earthquakes for this dataset.
@@ -108,10 +139,15 @@ def ingest_dataset(dataset_id: int):
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
 
+    feed_url = usgs.DEFAULT_FEED_URL
+
+    with get_connection() as connection:
+        import_id = repository.create_import(connection, dataset_id, feed_url)
+
     _set_status(dataset_id, repository.STATUS_PROCESSING)
 
     try:
-        payload = usgs.fetch_feed()
+        payload = usgs.fetch_feed(url=feed_url)
         records, errors = usgs.normalize_feed(payload)
         fetched = len(payload.get("features", []))
 
@@ -120,18 +156,30 @@ def ingest_dataset(dataset_id: int):
                 connection, dataset_id, records
             )
     except usgs.IngestionError as exc:
-        _set_status(dataset_id, repository.STATUS_FAILED)
+        _fail_import(dataset_id, import_id, str(exc))
         raise HTTPException(status_code=502, detail=str(exc))
-    except Exception:
-        _set_status(dataset_id, repository.STATUS_FAILED)
+    except Exception as exc:
+        _fail_import(dataset_id, import_id, repr(exc))
         raise
+
+    with get_connection() as connection:
+        repository.complete_import(
+            connection,
+            import_id,
+            fetched=fetched,
+            valid=len(records),
+            invalid=len(errors),
+            inserted=inserted,
+            updated=updated,
+        )
 
     _set_status(dataset_id, repository.STATUS_COMPLETED)
 
     return {
+        "import_id": import_id,
         "dataset_id": dataset_id,
         "status": repository.STATUS_COMPLETED,
-        "feed_url": usgs.DEFAULT_FEED_URL,
+        "feed_url": feed_url,
         "fetched": fetched,
         "valid": len(records),
         "invalid": len(errors),

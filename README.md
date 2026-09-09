@@ -252,6 +252,44 @@ Phase 3; this endpoint is deliberately minimal.
 
 Requesting an unknown dataset returns `404`.
 
+### `GET /api/datasets/{id}/imports`
+
+Returns the import history of a dataset, most recent run first. Every call to
+the ingest endpoint leaves exactly one row here, whether it succeeded or not.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/imports?limit=1"
+```
+
+```json
+{
+  "dataset_id": 1,
+  "total": 3,
+  "limit": 1,
+  "offset": 0,
+  "items": [
+    {
+      "id": 2,
+      "dataset_id": 1,
+      "status": "failed",
+      "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/nope.geojson",
+      "started_at": "2026-09-09T10:18:46.495936",
+      "finished_at": "2026-09-09T10:18:46.865259",
+      "fetched": 0,
+      "valid": 0,
+      "invalid": 0,
+      "inserted": 0,
+      "updated": 0,
+      "error": "The USGS feed is not valid JSON: Extra data: line 1 column 5 (char 4)"
+    }
+  ]
+}
+```
+
+`limit` and `offset` behave as on the earthquakes endpoint. The `feed_url` is
+recorded per run, so changing `USGS_FEED_URL` between runs stays visible in the
+history.
+
 ### `POST /api/datasets/{id}/ingest`
 
 Downloads the USGS feed and stores its earthquakes for the given dataset. The
@@ -264,6 +302,7 @@ curl -X POST http://127.0.0.1:8000/api/datasets/1/ingest
 
 ```json
 {
+  "import_id": 3,
   "dataset_id": 1,
   "status": "completed",
   "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
@@ -292,6 +331,9 @@ unbounded response.
 The dataset `status` follows the run: `processing` while it is in flight, then
 `completed`, or `failed` if the feed cannot be retrieved or parsed. A failure
 returns `502` and leaves the stored data untouched.
+
+Each run is also recorded in the `imports` table and can be read back through
+`GET /api/datasets/{id}/imports`; the returned `import_id` identifies it.
 
 Requesting an unknown dataset returns `404`.
 
@@ -344,6 +386,30 @@ CREATE TABLE IF NOT EXISTS earthquakes (
     ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+Table `imports`, one row per ingestion run:
+
+```sql
+CREATE TABLE IF NOT EXISTS imports (
+    id SERIAL PRIMARY KEY,
+    dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'processing',
+    feed_url TEXT NOT NULL,
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMP,
+    fetched INTEGER NOT NULL DEFAULT 0,
+    valid INTEGER NOT NULL DEFAULT 0,
+    invalid INTEGER NOT NULL DEFAULT 0,
+    inserted INTEGER NOT NULL DEFAULT 0,
+    updated INTEGER NOT NULL DEFAULT 0,
+    error TEXT
+);
+```
+
+The row is written before the work starts, so a run that dies halfway still
+leaves a trace at `processing`. `finished_at` and the counts are filled in when
+the run ends; `error` carries the reason when it failed. Deleting a dataset
+cascades to both its earthquakes and its import history.
 
 The `UNIQUE` constraint on `external_id` is what makes ingestion idempotent:
 writes use `ON CONFLICT DO UPDATE`. Timestamps are stored as naive UTC, converted
@@ -432,8 +498,8 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [x] **Phase 1 — Foundation:** FastAPI application, PostgreSQL via Docker
   Compose, `datasets` table, dataset GET/POST API, reproducible local setup
 - [ ] **Phase 2 — Data pipeline:** USGS source selected, synchronous ingestion,
-  validation, normalization and status transitions are done; the import/job
-  model, Redis and the background worker are still open
+  validation, normalization, status transitions and the import/job model are
+  done; Redis and the background worker are still open
 - [ ] **Phase 3 — Analytics:** React + TypeScript dashboard, filters, pagination,
   aggregations, charts
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
