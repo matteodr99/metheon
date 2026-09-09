@@ -12,11 +12,17 @@ import logging
 import os
 import signal
 import sys
+import time
 
 from app import jobs
 from app.ingestion.runner import UnknownImport, run_import
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+# How long to wait before retrying after Redis refuses a connection. Without
+# it the loop spins as fast as the failures come back, flooding the logs and
+# burning CPU for as long as the outage lasts.
+RETRY_DELAY_SECONDS = float(os.getenv("QUEUE_RETRY_DELAY_SECONDS", "5"))
 
 logger = logging.getLogger("app.worker")
 
@@ -30,6 +36,12 @@ class Worker:
         """Ask the loop to finish the current job and exit."""
         logger.info("shutdown requested, finishing the current job")
         self.running = False
+
+    def wait(self, seconds: float) -> None:
+        """Sleep, but give up early once a shutdown has been requested."""
+        deadline = time.monotonic() + seconds
+        while self.running and time.monotonic() < deadline:
+            time.sleep(min(0.5, max(0.0, deadline - time.monotonic())))
 
     def run_once(self) -> bool:
         """Wait for one job and run it. Returns False on timeout."""
@@ -60,8 +72,14 @@ class Worker:
             try:
                 self.run_once()
             except jobs.QueueError as exc:
-                # Redis being briefly unavailable must not kill the worker.
-                logger.error("queue unavailable: %s", exc)
+                # Redis being briefly unavailable must not kill the worker,
+                # but retrying without a pause would spin at full speed.
+                logger.error(
+                    "queue unavailable, retrying in %ss: %s",
+                    RETRY_DELAY_SECONDS,
+                    exc,
+                )
+                self.wait(RETRY_DELAY_SECONDS)
         logger.info("worker stopped")
 
 

@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch makes the previous run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: metheon
+          POSTGRES_USER: metheon
+          POSTGRES_PASSWORD: metheon
+        ports:
+          - 5432:5432
+        # Without this the steps can start before the server accepts
+        # connections, and the database tests would error on a race.
+        options: >-
+          --health-cmd "pg_isready -U metheon"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: metheon
+      POSTGRES_USER: metheon
+      POSTGRES_PASSWORD: metheon
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Run tests
+        working-directory: backend
+        # GitHub sets CI=true, which turns a missing database from a skip
+        # into a failure: see backend/tests/conftest.py.
+        run: pytest -v
+
+  docker:
+    name: Worker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the worker image
+        run: docker build -t metheon-worker ./backend
+
+      - name: Check the worker starts and reports a missing queue
+        # With no Redis reachable the worker must log the outage and stay up,
+        # rather than crash on startup.
+        run: |
+          docker run --rm --name metheon-worker-check -d \
+            -e REDIS_HOST=127.0.0.1 -e QUEUE_BLOCK_TIMEOUT_SECONDS=1 \
+            metheon-worker
+          sleep 5
+          logs=$(docker logs metheon-worker-check 2>&1)
+          docker stop metheon-worker-check >/dev/null
+          echo "$logs"
+          echo "$logs" | grep -q "worker started" \
+            || { echo "::error::the worker did not start"; exit 1; }
+          echo "$logs" | grep -q "queue unavailable" \
+            || { echo "::error::the worker did not report the missing queue"; exit 1; }

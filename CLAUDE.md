@@ -342,6 +342,20 @@ the development database is never touched. They are marked with
 `get_database_url` is read per connection rather than at import time, which is
 what lets the suite redirect the application to the test database.
 
+When the `CI` environment variable is set, a missing database is a failure
+rather than a skip: a pipeline that silently skipped half the suite would be
+worse than a red one.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+
+- `Tests` — the full suite against a `postgres:16` service container
+- `Worker image` — builds `backend/Dockerfile` and checks the worker starts
+  and reports a missing queue instead of crashing
+
+Keep the workflow honest: a check that cannot fail is not a check.
+
 ## Important Python compatibility rule
 
 The current project uses **Python 3.9**.
@@ -410,6 +424,11 @@ lives in the `imports` table, so there is a single source of truth.
 Redis and the worker run in Docker Compose. The worker image is built from
 `backend/Dockerfile`; rebuild it after code changes with
 `docker compose up -d --build worker`. The API is not containerized yet.
+
+A Redis outage does not kill the worker: it logs the failure and retries
+after `QUEUE_RETRY_DELAY_SECONDS`. Retrying without that pause spins the loop
+at full speed — it produced over 110,000 log lines in five seconds before the
+backoff was added.
 
 Known limitation: a worker killed mid-run leaves its import row at
 `processing`. There is no reaper for stale runs.
@@ -482,13 +501,12 @@ Prefer structured AI responses where practical, for example:
 - [ ] Structured responses
 
 ### Phase 5 — Engineering quality
-- [~] Automated tests (ingestion, API, repository and runner covered; the
-      worker loop is not)
-- [ ] Logging
+- [x] Automated tests
+- [~] Logging (the worker logs; the API does not yet)
 - [ ] Error handling
 - [ ] Health/readiness checks
 - [ ] Docker optimization
-- [ ] GitHub Actions
+- [x] GitHub Actions
 - [ ] Documentation
 
 ### Phase 6 — Kubernetes

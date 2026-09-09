@@ -1,5 +1,7 @@
 # Metheon
 
+[![CI](https://github.com/matteodr99/metheon/actions/workflows/ci.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ci.yml)
+
 A cloud-native platform for ingesting, processing, and analyzing public datasets.
 
 ```text
@@ -165,6 +167,7 @@ project runs out of the box without any configuration.
 | `REDIS_DB` | `0` | Redis database number |
 | `QUEUE_NAME` | `metheon:imports` | Redis list used as the queue |
 | `QUEUE_BLOCK_TIMEOUT_SECONDS` | `5` | How long the worker blocks on the queue |
+| `QUEUE_RETRY_DELAY_SECONDS` | `5` | Pause before retrying after a Redis outage |
 | `LOG_LEVEL` | `INFO` | Worker log level |
 | `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
 
@@ -465,11 +468,15 @@ metheon/
 │   │   ├── test_repository.py
 │   │   ├── test_runner.py
 │   │   ├── test_usgs_fetch.py
-│   │   └── test_usgs_normalization.py
+│   │   ├── test_usgs_normalization.py
+│   │   └── test_worker.py
 │   ├── Dockerfile               # Worker image
 │   ├── pytest.ini
 │   ├── requirements.txt
 │   └── requirements-dev.txt
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # Tests and worker image build
 ├── .env.example
 ├── .gitignore
 ├── CLAUDE.md                    # Detailed architecture and working notes
@@ -523,12 +530,26 @@ and the pure half still runs:
 pytest -rs
 ```
 
+In CI that leniency is switched off: when the `CI` environment variable is set
+a missing database makes the tests fail, because a green pipeline that quietly
+skipped half the suite would be worse than a red one.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request against `main`:
+
+| Job | What it does |
+| --- | --- |
+| `Tests` | Runs the full suite against a `postgres:16` service container |
+| `Worker image` | Builds `backend/Dockerfile`, starts the worker with no Redis reachable, and checks it comes up and reports the outage instead of crashing |
+
 Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
 kept in `tests/fixtures/` and normalized in full, so the tests stay honest about
 the shape the feed actually has.
 
-The worker loop itself — the `BLPOP` cycle in `worker.py` — is the one piece
-still uncovered; the job it runs is tested through the runner.
+The worker loop is covered too: an empty queue, a job that raises, a shutdown
+request and a Redis outage each have a test, with the queue and the job both
+replaced.
 
 ### Rebuilding the worker
 
@@ -558,10 +579,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   aggregations, charts
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
-- [ ] **Phase 5 — Engineering quality:** the ingestion logic, the API, the
-  repository and the runner are covered by tests, and the worker logs its
-  work; structured logging, GitHub Actions and Docker optimization are still
-  open
+- [ ] **Phase 5 — Engineering quality:** the whole backend is covered by
+  tests, CI runs them on every push, and the worker logs its work; structured
+  logging and Docker optimization are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

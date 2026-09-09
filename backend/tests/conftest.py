@@ -89,8 +89,13 @@ def _postgres_is_reachable():
         return False
 
 
+# On a developer machine a missing database is a reason to skip. In CI it is
+# a failure: a green pipeline that silently skipped half the suite would be
+# worse than a red one.
+RUNNING_IN_CI = os.getenv("CI", "").lower() in ("1", "true", "yes")
+
 requires_postgres = pytest.mark.skipif(
-    not _postgres_is_reachable(),
+    not _postgres_is_reachable() and not RUNNING_IN_CI,
     reason="PostgreSQL is not reachable; start it with `docker compose up -d`",
 )
 
