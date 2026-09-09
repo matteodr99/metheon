@@ -331,8 +331,16 @@ pytest
 Test dependencies are kept out of `requirements.txt` and listed in
 `requirements-dev.txt`, so a deployment does not pull pytest.
 
-Tests must not require the network or a running database. `httpx.get` is
-replaced where the feed is fetched; everything else exercises pure functions.
+Tests must never require the network. `httpx.get` is replaced where the feed
+is fetched, and the Redis client is always faked.
+
+Tests that need PostgreSQL use a dedicated `metheon_test` database, built from
+`init.sql` once per session, truncated between tests and dropped at the end:
+the development database is never touched. They are marked with
+`requires_postgres` and are skipped, not failed, when PostgreSQL is down.
+
+`get_database_url` is read per connection rather than at import time, which is
+what lets the suite redirect the application to the test database.
 
 ## Important Python compatibility rule
 
@@ -474,7 +482,8 @@ Prefer structured AI responses where practical, for example:
 - [ ] Structured responses
 
 ### Phase 5 — Engineering quality
-- [~] Automated tests (ingestion covered; API endpoints not yet)
+- [~] Automated tests (ingestion, API, repository and runner covered; the
+      worker loop is not)
 - [ ] Logging
 - [ ] Error handling
 - [ ] Health/readiness checks

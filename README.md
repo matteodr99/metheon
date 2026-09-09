@@ -166,6 +166,7 @@ project runs out of the box without any configuration.
 | `QUEUE_NAME` | `metheon:imports` | Redis list used as the queue |
 | `QUEUE_BLOCK_TIMEOUT_SECONDS` | `5` | How long the worker blocks on the queue |
 | `LOG_LEVEL` | `INFO` | Worker log level |
+| `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
 
 To override them, copy the example file and edit it:
 
@@ -459,7 +460,10 @@ metheon/
 │   ├── tests/
 │   │   ├── conftest.py          # Shared fixtures and feature builder
 │   │   ├── fixtures/            # A real feed response, captured once
+│   │   ├── test_api.py
 │   │   ├── test_jobs.py
+│   │   ├── test_repository.py
+│   │   ├── test_runner.py
 │   │   ├── test_usgs_fetch.py
 │   │   └── test_usgs_normalization.py
 │   ├── Dockerfile               # Worker image
@@ -501,17 +505,30 @@ From the `backend/` directory:
 pytest
 ```
 
-The suite covers the ingestion logic — feed retrieval error handling,
-validation and normalization — and the Redis queue. It needs neither the
-network, nor a database, nor Redis: `httpx.get` and the Redis client are both
-replaced by stand-ins. It runs in well under a second.
+The suite has two halves.
+
+The **pure tests** cover validation, normalization, feed-error handling and the
+Redis queue. They need nothing running: `httpx.get` and the Redis client are
+replaced by stand-ins.
+
+The **database-backed tests** cover the HTTP API, the repository and the import
+runner. They create a `metheon_test` database from `init.sql`, empty it between
+tests and drop it at the end, so the development database is never touched. The
+queue is still faked, so Redis is not required.
+
+If PostgreSQL is not reachable, those tests are **skipped rather than failed**,
+and the pure half still runs:
+
+```bash
+pytest -rs
+```
 
 Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
 kept in `tests/fixtures/` and normalized in full, so the tests stay honest about
 the shape the feed actually has.
 
-The API endpoints, the repository and the worker loop are not covered yet:
-those need a database, and wiring that up is a separate step.
+The worker loop itself — the `BLPOP` cycle in `worker.py` — is the one piece
+still uncovered; the job it runs is tested through the runner.
 
 ### Rebuilding the worker
 
@@ -541,9 +558,10 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   aggregations, charts
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
-- [ ] **Phase 5 — Engineering quality:** the ingestion logic is covered by
-  tests; logging, error handling, readiness checks, API tests and GitHub
-  Actions are still open
+- [ ] **Phase 5 — Engineering quality:** the ingestion logic, the API, the
+  repository and the runner are covered by tests, and the worker logs its
+  work; structured logging, GitHub Actions and Docker optimization are still
+  open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 
