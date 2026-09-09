@@ -84,6 +84,12 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
+To also install the test dependencies:
+
+```bash
+pip install -r backend/requirements-dev.txt
+```
+
 ### 4. Run the API
 
 The application must be started from the `backend/` directory:
@@ -360,7 +366,14 @@ metheon/
 │   │   └── ingestion/
 │   │       ├── __init__.py
 │   │       └── usgs.py          # Feed fetching, validation, normalization
-│   └── requirements.txt
+│   ├── tests/
+│   │   ├── conftest.py          # Shared fixtures and feature builder
+│   │   ├── fixtures/            # A real feed response, captured once
+│   │   ├── test_usgs_fetch.py
+│   │   └── test_usgs_normalization.py
+│   ├── pytest.ini
+│   ├── requirements.txt
+│   └── requirements-dev.txt
 ├── .env.example
 ├── .gitignore
 ├── CLAUDE.md                    # Detailed architecture and working notes
@@ -388,6 +401,26 @@ docker compose down -v && docker compose up -d
 > **Warning:** `down -v` deletes the `postgres_data` volume and every row stored
 > in it. Back up anything you want to keep first.
 
+### Running the tests
+
+From the `backend/` directory:
+
+```bash
+pytest
+```
+
+The suite covers the ingestion logic — feed retrieval error handling,
+validation and normalization — and needs neither the network nor a running
+database: `httpx.get` is replaced in the fetch tests, and the rest exercise pure
+functions. It runs in well under a second.
+
+Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
+kept in `tests/fixtures/` and normalized in full, so the tests stay honest about
+the shape the feed actually has.
+
+The API endpoints are not covered yet: those need a database, and wiring that up
+is a separate step.
+
 ### Inspecting the database directly
 
 ```bash
@@ -405,8 +438,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   aggregations, charts
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
-- [ ] **Phase 5 — Engineering quality:** automated tests, logging, error
-  handling, readiness checks, GitHub Actions
+- [ ] **Phase 5 — Engineering quality:** the ingestion logic is covered by
+  tests; logging, error handling, readiness checks, API tests and GitHub
+  Actions are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

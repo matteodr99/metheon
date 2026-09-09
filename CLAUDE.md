@@ -67,7 +67,14 @@ metheon/
 │   │   └── ingestion/
 │   │       ├── __init__.py
 │   │       └── usgs.py
-│   └── requirements.txt
+│   ├── tests/
+│   │   ├── conftest.py
+│   │   ├── fixtures/
+│   │   ├── test_usgs_fetch.py
+│   │   └── test_usgs_normalization.py
+│   ├── pytest.ini
+│   ├── requirements.txt
+│   └── requirements-dev.txt
 ├── .env.example
 ├── .gitignore
 ├── README.md
@@ -277,6 +284,20 @@ backend/app/db/repository.py
 
 Route handlers call these helpers and must not embed SQL of their own.
 
+## Tests
+
+Pytest lives in `backend/tests/` and runs from `backend/`:
+
+```bash
+pytest
+```
+
+Test dependencies are kept out of `requirements.txt` and listed in
+`requirements-dev.txt`, so a deployment does not pull pytest.
+
+Tests must not require the network or a running database. `httpx.get` is
+replaced where the feed is fetched; everything else exercises pure functions.
+
 ## Important Python compatibility rule
 
 The current project uses **Python 3.9**.
@@ -401,7 +422,7 @@ Prefer structured AI responses where practical, for example:
 - [ ] Structured responses
 
 ### Phase 5 — Engineering quality
-- [ ] Automated tests
+- [~] Automated tests (ingestion covered; API endpoints not yet)
 - [ ] Logging
 - [ ] Error handling
 - [ ] Health/readiness checks
