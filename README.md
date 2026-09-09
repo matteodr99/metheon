@@ -570,6 +570,7 @@ metheon/
 │   │   ├── EarthquakeBrowser.tsx # Filters, table and pagination
 │   │   ├── index.css
 │   │   └── main.tsx
+│   │   └── test/                # Fixtures and the fetch stand-in
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts           # Dev-only proxy to the API
@@ -641,6 +642,7 @@ skipped half the suite would be worse than a red one.
 | Job | What it does |
 | --- | --- |
 | `Tests` | Runs the full suite against a `postgres:16` service container |
+| `Frontend` | Installs from the lockfile, then lints, tests and builds the frontend |
 | `Worker image` | Builds `backend/Dockerfile` and imports the worker inside it, checking that `requirements.txt` alone is enough to run it |
 
 Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
@@ -650,6 +652,10 @@ the shape the feed actually has.
 The worker loop is covered too: an empty queue, a job that raises, a shutdown
 request and a Redis outage each have a test, with the queue and the job both
 replaced.
+
+The frontend has its own suite, run from `frontend/` with `npm test`. It uses
+Vitest and Testing Library in jsdom, with `fetch` replaced, so it needs
+nothing running either.
 
 ### Rebuilding the worker
 
@@ -680,9 +686,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   the charts are still open
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
-- [ ] **Phase 5 — Engineering quality:** the whole backend is covered by
-  tests, CI runs them on every push, and the worker logs its work; structured
-  logging and Docker optimization are still open
+- [ ] **Phase 5 — Engineering quality:** backend and frontend are both
+  covered by tests, CI runs everything on every push, and the worker logs its
+  work; structured logging and Docker optimization are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

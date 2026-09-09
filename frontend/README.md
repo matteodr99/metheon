@@ -18,10 +18,12 @@ nvm use
 Run from this directory:
 
 ```bash
-npm install     # once
-npm run dev     # dev server on http://localhost:5173
-npm run build   # type-check and build into dist/
-npm run lint    # oxlint
+npm install       # once
+npm run dev       # dev server on http://localhost:5173
+npm run build     # type-check and build into dist/
+npm run lint      # oxlint
+npm test          # vitest, once
+npm run test:watch
 ```
 
 ## Talking to the API
@@ -41,9 +43,22 @@ src/
 ├── App.tsx                 # Dataset list and selection
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
 ├── index.css
-└── main.tsx
+├── main.tsx
+└── test/
+    ├── setup.ts            # jest-dom matchers, cleanup between tests
+    └── helpers.ts          # Fixtures and the fetch stand-in
 ```
 
-There are no tests yet. `EarthquakeBrowser` is now the first component with
-real logic — request cancellation, derived loading state, pagination bounds —
-so it is where testing should start.
+## Tests
+
+Vitest with Testing Library, in jsdom. `fetch` is always replaced, so the
+suite never reaches a backend and needs nothing running:
+
+```bash
+npm test
+```
+
+The interesting cases are the ones that are easy to get wrong: filters apply
+on submit rather than per keystroke, a slow response cannot replace a newer
+one, and the caption counts the page on screen rather than the one being
+fetched.

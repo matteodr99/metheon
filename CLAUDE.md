@@ -34,20 +34,20 @@ The project is a personal portfolio/open-source project. It must not use persona
 - Redis 7
 - Docker / Docker Compose
 - React 19 + TypeScript, built with Vite
+- Pytest, Vitest and Testing Library
+- GitHub Actions
 - Git
 
 ### Planned / intended
 
-- Redis for asynchronous jobs
-- Background worker for ingestion
-- Docker Compose for local multi-service development
 - Kubernetes locally via Kind or Minikube
-- GitHub Actions
 - Gemini API for optional AI insights
-- Pytest / frontend tests
 - Public frontend deployment, potentially Cloudflare Pages
 - Public backend deployment, potentially Render
 - Supabase PostgreSQL may be used for a public demo
+
+Deployment and hosting are decided separately and are not to be implemented
+without being asked.
 
 Do not treat planned technologies as already implemented.
 
@@ -387,6 +387,8 @@ worse than a red one.
 `.github/workflows/ci.yml` runs on every push and pull request to `main`:
 
 - `Tests` — the full suite against a `postgres:16` service container
+- `Frontend` — installs from the lockfile with `npm ci`, then lints, tests
+  and builds
 - `Worker image` — builds `backend/Dockerfile` and imports the worker inside
   it. The image installs `requirements.txt` while the tests run with
   `requirements-dev.txt`, so this is what catches a runtime dependency that
@@ -494,8 +496,11 @@ current one, rather than stored, so it cannot drift from what is on screen —
 the caption always counts the rows actually rendered, not the page being
 fetched.
 
-There are no frontend tests yet. `EarthquakeBrowser` is the first component
-with logic worth asserting, so that is where they should start.
+Frontend tests use Vitest and Testing Library in jsdom, run from `frontend/`
+with `npm test`. `fetch` is always replaced: like the backend suite they must
+never reach the network, and unlike it they need no database either.
+
+Fixtures and the fetch stand-in live in `src/test/helpers.ts`.
 
 ## AI principles
 
