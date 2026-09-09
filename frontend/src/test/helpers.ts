@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-import type { Dataset, Earthquake, Page } from '../api'
+import type { Dataset, Earthquake, Page, Summary } from '../api'
 
 export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
   return {
@@ -48,6 +48,19 @@ export function makePage(
   }
 }
 
+export function makeSummary(overrides: Partial<Summary> = {}): Summary {
+  return {
+    dataset_id: 1,
+    filters: {},
+    total: 1,
+    magnitude: { min: 2.3, max: 2.3, average: 2.3, unknown: 0 },
+    occurred_at: { first: '2026-09-09T10:54:00', last: '2026-09-09T10:54:00' },
+    by_event_type: [{ event_type: 'earthquake', count: 1 }],
+    by_day: [{ day: '2026-09-09', count: 1 }],
+    ...overrides,
+  }
+}
+
 /** A promise whose resolution the test controls, for ordering requests. */
 export function deferred<T>() {
   let resolve!: (value: T) => void
@@ -70,7 +83,7 @@ interface FetchCall {
  */
 export function mockFetch(
   respond: (url: string) => unknown | Promise<unknown>,
-  { ok = true, status = 200 } = {},
+  { ok = true, status = 200, summary = makeSummary() } = {},
 ) {
   const calls: FetchCall[] = []
 
@@ -78,7 +91,10 @@ export function mockFetch(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       calls.push({ url, signal: init?.signal ?? undefined })
-      const body = await respond(url)
+      // The summary panel is rendered alongside the table, so it fetches
+      // too. Serving it here keeps every test from having to route a URL it
+      // does not care about; pass `summary` to control it.
+      const body = url.includes('/summary') ? summary : await respond(url)
       if (init?.signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError')
       }

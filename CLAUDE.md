@@ -86,6 +86,8 @@ metheon/
 │   │   ├── api.ts
 │   │   ├── App.tsx
 │   │   ├── EarthquakeBrowser.tsx
+│   │   ├── Summary.tsx
+│   │   ├── BarChart.tsx
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
@@ -502,6 +504,13 @@ never reach the network, and unlike it they need no database either.
 
 Fixtures and the fetch stand-in live in `src/test/helpers.ts`.
 
+Charts are hand-written SVG in `BarChart.tsx`, not a charting library: the
+API returns the numbers already aggregated, and one bar chart does not pay
+for a dependency tree. Only the bars are drawn in the SVG, whose viewBox is
+stretched to the container; text inside it gets distorted by that stretch, so
+the labels are HTML underneath. Reconsider the choice if several chart types
+with axes and tooltips are ever needed.
+
 ## AI principles
 
 AI is an analytical layer, not the core ingestion mechanism.
@@ -556,11 +565,11 @@ Prefer structured AI responses where practical, for example:
 - [x] Proper status transitions
 
 ### Phase 3 — Analytics
-- [~] Dashboard (dataset list and event table; charts still missing)
+- [x] Dashboard
 - [x] Filters
 - [x] Pagination
 - [x] Aggregations
-- [ ] Charts
+- [x] Charts
 
 ### Phase 4 — AI
 - [ ] Gemini integration

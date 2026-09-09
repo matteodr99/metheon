@@ -42,6 +42,8 @@ src/
 ├── api.ts                  # Types and fetch helpers for the API
 ├── App.tsx                 # Dataset list and selection
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
+├── Summary.tsx             # Tiles and charts for the current filters
+├── BarChart.tsx            # Hand-written SVG bar chart
 ├── index.css
 ├── main.tsx
 └── test/
@@ -62,3 +64,14 @@ The interesting cases are the ones that are easy to get wrong: filters apply
 on submit rather than per keystroke, a slow response cannot replace a newer
 one, and the caption counts the page on screen rather than the one being
 fetched.
+
+## Charts
+
+`BarChart` is about seventy lines of SVG rather than a charting library. The
+API already returns the aggregated numbers, so there is nothing to compute in
+the browser, and one bar chart does not pay for a dependency tree.
+
+Only the bars live in the SVG. Its viewBox is stretched to the container
+width, which rectangles survive but glyphs do not: text drawn inside was
+smeared into an unreadable blur, so the labels are plain HTML underneath, on
+the same grid.

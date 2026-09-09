@@ -59,6 +59,21 @@ export const EMPTY_FILTERS: EarthquakeFilters = {
   event_type: '',
 }
 
+export interface Summary {
+  dataset_id: number
+  filters: Record<string, string | number>
+  total: number
+  magnitude: {
+    min: number | null
+    max: number | null
+    average: number | null
+    unknown: number
+  }
+  occurred_at: { first: string | null; last: string | null }
+  by_event_type: { event_type: string | null; count: number }[]
+  by_day: { day: string; count: number }[]
+}
+
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal })
   if (!response.ok) {
@@ -71,6 +86,17 @@ export function fetchDatasets(signal?: AbortSignal): Promise<Dataset[]> {
   return getJson<Dataset[]>('/api/datasets', signal)
 }
 
+export function fetchSummary(
+  datasetId: number,
+  filters: EarthquakeFilters,
+  signal?: AbortSignal,
+): Promise<Summary> {
+  return getJson<Summary>(
+    `/api/datasets/${datasetId}/earthquakes/summary?${queryFor(filters)}`,
+    signal,
+  )
+}
+
 export function fetchEarthquakes(
   datasetId: number,
   filters: EarthquakeFilters,
@@ -78,19 +104,29 @@ export function fetchEarthquakes(
   offset: number,
   signal?: AbortSignal,
 ): Promise<Page<Earthquake>> {
-  const query = new URLSearchParams({
+  const query = queryFor(filters, {
     limit: String(limit),
     offset: String(offset),
   })
-  // An empty field means "no filter": sending it would be rejected as an
-  // unparsable value rather than ignored.
+  return getJson<Page<Earthquake>>(
+    `/api/datasets/${datasetId}/earthquakes?${query}`,
+    signal,
+  )
+}
+
+/**
+ * Turn the form into a query string. An empty field means "no filter":
+ * sending it would be rejected as an unparsable value rather than ignored.
+ */
+function queryFor(
+  filters: EarthquakeFilters,
+  extra: Record<string, string> = {},
+): string {
+  const query = new URLSearchParams(extra)
   for (const [name, value] of Object.entries(filters)) {
     if (value !== '') {
       query.set(name, value)
     }
   }
-  return getJson<Page<Earthquake>>(
-    `/api/datasets/${datasetId}/earthquakes?${query.toString()}`,
-    signal,
-  )
+  return query.toString()
 }

@@ -7,6 +7,7 @@ import {
   type EarthquakeFilters,
   type Page,
 } from './api'
+import { SummaryPanel } from './Summary'
 
 const PAGE_SIZE = 25
 
@@ -142,6 +143,10 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
           </button>
         </div>
       </form>
+
+      {/* Given the applied filters, not the ones being typed, so the
+          numbers always describe the table below. */}
+      <SummaryPanel datasetId={datasetId} filters={applied} />
 
       {error !== null && (
         <p role="alert" className="error">
