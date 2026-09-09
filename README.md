@@ -200,6 +200,52 @@ Request fields:
 `id`, `created_at` and `status` are assigned by the database and must not be
 supplied by the client.
 
+### `GET /api/datasets/{id}/earthquakes`
+
+Returns a page of the earthquakes stored for a dataset, most recent first.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?limit=2"
+```
+
+```json
+{
+  "dataset_id": 1,
+  "total": 254,
+  "limit": 2,
+  "offset": 0,
+  "items": [
+    {
+      "id": 254,
+      "external_id": "hv75031332",
+      "magnitude": 1.98,
+      "magnitude_type": "md",
+      "place": "30 km SE of Pāhala, Hawaii",
+      "event_type": "earthquake",
+      "occurred_at": "2026-09-09T08:43:38",
+      "longitude": -155.2855,
+      "latitude": 18.9995,
+      "depth_km": 49.0,
+      "tsunami": false,
+      "significance": 60,
+      "url": "https://earthquake.usgs.gov/earthquakes/eventpage/hv75031332"
+    }
+  ]
+}
+```
+
+Query parameters:
+
+| Parameter | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `limit` | `50` | 1–500 | Events per page |
+| `offset` | `0` | ≥ 0 | Events to skip |
+
+Out-of-range values return `422`. Filtering and richer pagination belong to
+Phase 3; this endpoint is deliberately minimal.
+
+Requesting an unknown dataset returns `404`.
+
 ### `POST /api/datasets/{id}/ingest`
 
 Downloads the USGS feed and stores its earthquakes for the given dataset. The
@@ -309,7 +355,7 @@ metheon/
 │   │   ├── db/
 │   │   │   ├── __init__.py
 │   │   │   ├── database.py      # Connection helper, env-based configuration
-│   │   │   ├── repository.py    # SQL queries, kept out of route handlers
+│   │   │   ├── repository.py    # All SQL, kept out of route handlers
 │   │   │   └── init.sql         # Schema, executed on first container start
 │   │   └── ingestion/
 │   │       ├── __init__.py

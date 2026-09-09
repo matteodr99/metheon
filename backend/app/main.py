@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from app.db.database import get_connection
 from app.db import repository
@@ -10,6 +10,9 @@ from typing import Optional
 # returned, so a broken feed cannot produce an unbounded response.
 MAX_REPORTED_ERRORS = 10
 
+DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 500
+
 
 class DatasetCreate(BaseModel):
     name: str
@@ -20,68 +23,14 @@ class DatasetCreate(BaseModel):
 app = FastAPI(title="Metheon API")
 
 
-@app.get("/api/health")
-def health_check():
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-
-    return {
-        "status": "ok",
-        "service": "metheon",
-        "database": result[0] == 1
-    }
-
-
-@app.get("/api/datasets")
-def get_datasets():
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, name, source, description, created_at, status
-                FROM datasets
-                ORDER BY id
-                """
-            )
-            rows = cursor.fetchall()
-
-    return [
-        {
-            "id": row[0],
-            "name": row[1],
-            "source": row[2],
-            "description": row[3],
-            "created_at": row[4],
-            "status": row[5],
-        }
-        for row in rows
-    ]
-
-
-@app.post("/api/datasets")
-def create_dataset(dataset: DatasetCreate):
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO datasets (name, source, description)
-                VALUES (%s, %s, %s)
-                RETURNING id, name, source, description, created_at, status
-                """,
-                (dataset.name, dataset.source, dataset.description),
-            )
-            row = cursor.fetchone()
-
-    return {
-        "id": row[0],
-        "name": row[1],
-        "source": row[2],
-        "description": row[3],
-        "created_at": row[4],
-        "status": row[5],
-    }
+def _get_dataset_or_404(connection, dataset_id: int):
+    dataset = repository.get_dataset(connection, dataset_id)
+    if dataset is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset {0} not found".format(dataset_id),
+        )
+    return dataset
 
 
 def _set_status(dataset_id: int, status: str) -> None:
@@ -94,6 +43,60 @@ def _set_status(dataset_id: int, status: str) -> None:
         repository.set_dataset_status(connection, dataset_id, status)
 
 
+@app.get("/api/health")
+def health_check():
+    with get_connection() as connection:
+        database_ok = repository.ping(connection)
+
+    return {
+        "status": "ok",
+        "service": "metheon",
+        "database": database_ok,
+    }
+
+
+@app.get("/api/datasets")
+def get_datasets():
+    with get_connection() as connection:
+        return repository.list_datasets(connection)
+
+
+@app.post("/api/datasets")
+def create_dataset(dataset: DatasetCreate):
+    with get_connection() as connection:
+        return repository.create_dataset(
+            connection,
+            dataset.name,
+            dataset.source,
+            dataset.description,
+        )
+
+
+@app.get("/api/datasets/{dataset_id}/earthquakes")
+def get_dataset_earthquakes(
+    dataset_id: int,
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+):
+    """Return a page of the earthquakes stored for a dataset.
+
+    Results are ordered by event time, most recent first. `limit` is capped
+    so a single request cannot pull the whole table.
+    """
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        total = repository.count_earthquakes(connection, dataset_id)
+        items = repository.list_earthquakes(connection, dataset_id, limit, offset)
+
+    return {
+        "dataset_id": dataset_id,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": items,
+    }
+
+
 @app.post("/api/datasets/{dataset_id}/ingest")
 def ingest_dataset(dataset_id: int):
     """Fetch the USGS feed and store its earthquakes for this dataset.
@@ -103,13 +106,7 @@ def ingest_dataset(dataset_id: int):
     a later step.
     """
     with get_connection() as connection:
-        dataset = repository.get_dataset(connection, dataset_id)
-
-    if dataset is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Dataset {0} not found".format(dataset_id),
-        )
+        _get_dataset_or_404(connection, dataset_id)
 
     _set_status(dataset_id, repository.STATUS_PROCESSING)
 

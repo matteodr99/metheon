@@ -164,6 +164,16 @@ Request model:
 
 `status` is assigned by the database and must not currently be supplied by the client.
 
+### GET /api/datasets/{id}/earthquakes
+
+Returns a page of the earthquakes stored for a dataset, ordered by event time,
+most recent first.
+
+Query parameters: `limit` (default 50, between 1 and 500) and `offset`
+(default 0). Out-of-range values return `422`, an unknown dataset `404`.
+
+Filtering and richer pagination belong to Phase 3.
+
 ### POST /api/datasets/{id}/ingest
 
 Downloads the USGS GeoJSON feed, validates and normalizes it, and stores the
@@ -259,7 +269,13 @@ The connection logic currently lives in:
 backend/app/db/database.py
 ```
 
-Keep database access out of route handlers as the project grows.
+All SQL lives in:
+
+```text
+backend/app/db/repository.py
+```
+
+Route handlers call these helpers and must not embed SQL of their own.
 
 ## Important Python compatibility rule
 

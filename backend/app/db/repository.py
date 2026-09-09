@@ -4,6 +4,7 @@ Route handlers should call these helpers instead of writing SQL inline, so
 queries stay in one place as the project grows.
 """
 
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 STATUS_PENDING = "pending"
@@ -42,6 +43,77 @@ _UPSERT_EARTHQUAKE = """
 """
 
 
+def _to_float(value: Any) -> Optional[float]:
+    """Turn a NUMERIC column into a plain float.
+
+    psycopg returns Decimal for NUMERIC. Converting here keeps the shape of
+    the API responses independent of how the serializer treats Decimal.
+    """
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
+
+
+def ping(connection) -> bool:
+    """Run a trivial query to prove the database answers."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1")
+        row = cursor.fetchone()
+
+    return row is not None and row[0] == 1
+
+
+def list_datasets(connection) -> List[Dict[str, Any]]:
+    """Return every dataset, ordered by id."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, name, source, description, created_at, status
+            FROM datasets
+            ORDER BY id
+            """
+        )
+        rows = cursor.fetchall()
+
+    return [_dataset_from_row(row) for row in rows]
+
+
+def create_dataset(
+    connection,
+    name: str,
+    source: str,
+    description: Optional[str],
+) -> Dict[str, Any]:
+    """Insert a dataset and return it as stored.
+
+    `status` is deliberately left to the column default, so the client
+    cannot choose the initial state of an import.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO datasets (name, source, description)
+            VALUES (%s, %s, %s)
+            RETURNING id, name, source, description, created_at, status
+            """,
+            (name, source, description),
+        )
+        row = cursor.fetchone()
+
+    return _dataset_from_row(row)
+
+
+def _dataset_from_row(row) -> Dict[str, Any]:
+    return {
+        "id": row[0],
+        "name": row[1],
+        "source": row[2],
+        "description": row[3],
+        "created_at": row[4],
+        "status": row[5],
+    }
+
+
 def get_dataset(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
     """Return a single dataset, or None when it does not exist."""
     with connection.cursor() as cursor:
@@ -58,14 +130,7 @@ def get_dataset(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
     if row is None:
         return None
 
-    return {
-        "id": row[0],
-        "name": row[1],
-        "source": row[2],
-        "description": row[3],
-        "created_at": row[4],
-        "status": row[5],
-    }
+    return _dataset_from_row(row)
 
 
 def set_dataset_status(connection, dataset_id: int, status: str) -> None:
@@ -115,3 +180,45 @@ def count_earthquakes(connection, dataset_id: int) -> int:
         row = cursor.fetchone()
 
     return row[0] if row is not None else 0
+
+
+def list_earthquakes(
+    connection,
+    dataset_id: int,
+    limit: int,
+    offset: int,
+) -> List[Dict[str, Any]]:
+    """Return a page of earthquakes, most recent first."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, external_id, magnitude, magnitude_type, place,
+                   event_type, occurred_at, longitude, latitude, depth_km,
+                   tsunami, significance, url
+            FROM earthquakes
+            WHERE dataset_id = %s
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (dataset_id, limit, offset),
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "external_id": row[1],
+            "magnitude": _to_float(row[2]),
+            "magnitude_type": row[3],
+            "place": row[4],
+            "event_type": row[5],
+            "occurred_at": row[6],
+            "longitude": _to_float(row[7]),
+            "latitude": _to_float(row[8]),
+            "depth_km": _to_float(row[9]),
+            "tsunami": row[10],
+            "significance": row[11],
+            "url": row[12],
+        }
+        for row in rows
+    ]
