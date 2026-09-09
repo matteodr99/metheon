@@ -28,6 +28,7 @@ The project is a personal portfolio/open-source project. It must not use persona
 - FastAPI
 - Uvicorn
 - psycopg 3
+- httpx
 - PostgreSQL 16
 - Docker / Docker Compose
 - Git
@@ -58,10 +59,14 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py
-│   │   └── db/
+│   │   ├── db/
+│   │   │   ├── __init__.py
+│   │   │   ├── database.py
+│   │   │   ├── repository.py
+│   │   │   └── init.sql
+│   │   └── ingestion/
 │   │       ├── __init__.py
-│   │       ├── database.py
-│   │       └── init.sql
+│   │       └── usgs.py
 │   └── requirements.txt
 ├── .env.example
 ├── .gitignore
@@ -159,6 +164,18 @@ Request model:
 
 `status` is assigned by the database and must not currently be supplied by the client.
 
+### POST /api/datasets/{id}/ingest
+
+Downloads the USGS GeoJSON feed, validates and normalizes it, and stores the
+events in the `earthquakes` table. The run is synchronous and drives the dataset
+status: `processing`, then `completed` or `failed`.
+
+Writes use `ON CONFLICT (external_id) DO UPDATE`, so re-running an ingestion
+refreshes existing events rather than duplicating them.
+
+Returns `404` for an unknown dataset and `502` when the feed cannot be retrieved
+or parsed; a failure leaves the stored data untouched.
+
 ## Current database schema
 
 Table: `datasets`
@@ -181,7 +198,34 @@ Current status values are conceptually:
 - `completed` — import completed
 - `failed` — import failed
 
-At this stage, the status field exists in PostgreSQL but the complete ingestion state machine has not yet been implemented.
+The ingestion endpoint drives these transitions. Datasets that have never been
+ingested stay at `pending`.
+
+Table: `earthquakes`
+
+```sql
+CREATE TABLE IF NOT EXISTS earthquakes (
+    id SERIAL PRIMARY KEY,
+    dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    external_id VARCHAR(64) NOT NULL UNIQUE,
+    magnitude NUMERIC(5, 2),
+    magnitude_type VARCHAR(20),
+    place TEXT,
+    event_type VARCHAR(50),
+    occurred_at TIMESTAMP NOT NULL,
+    source_updated_at TIMESTAMP,
+    longitude NUMERIC(9, 4) NOT NULL,
+    latitude NUMERIC(8, 4) NOT NULL,
+    depth_km NUMERIC(8, 3),
+    tsunami BOOLEAN NOT NULL DEFAULT FALSE,
+    significance INTEGER,
+    url TEXT,
+    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Timestamps are stored as naive UTC, converted from the epoch milliseconds the
+feed provides. `magnitude` is nullable because the feed legitimately omits it.
 
 ## Current local data
 
@@ -317,14 +361,14 @@ Prefer structured AI responses where practical, for example:
 - [x] Basic dataset status field
 
 ### Phase 2 — Data pipeline
-- [ ] Select first real public dataset source
-- [ ] Implement ingestion
-- [ ] Validation
-- [ ] Normalization
+- [x] Select first real public dataset source (USGS earthquake feeds)
+- [x] Implement ingestion
+- [x] Validation
+- [x] Normalization
 - [ ] Import/job model
 - [ ] Redis
 - [ ] Background worker
-- [ ] Proper status transitions
+- [x] Proper status transitions
 
 ### Phase 3 — Analytics
 - [ ] Dashboard

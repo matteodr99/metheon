@@ -9,9 +9,10 @@ Public Data → Ingestion → Processing → PostgreSQL → API → Analytics �
 Metheon is a personal portfolio / open-source project. It works exclusively with
 public datasets and does not handle personal or sensitive user data.
 
-> **Project status: Phase 1 (Foundation) complete.**
-> A FastAPI backend, a PostgreSQL database and a reproducible local setup are in
-> place. The ingestion pipeline, the frontend and the AI layer are not implemented
+> **Project status: Phase 1 complete, Phase 2 in progress.**
+> A FastAPI backend, a PostgreSQL database, a reproducible local setup and a
+> working synchronous ingestion of USGS earthquake data are in place. Background
+> processing (Redis, worker), the frontend and the AI layer are not implemented
 > yet — see [Roadmap](#roadmap).
 
 ## Tech stack
@@ -21,11 +22,28 @@ Currently implemented:
 - Python 3.9
 - FastAPI + Uvicorn
 - psycopg 3
+- httpx
 - PostgreSQL 16
 - Docker / Docker Compose
 
 Planned technologies (React, Redis, background workers, Kubernetes, Gemini) are
 listed in the roadmap and are **not** part of the current codebase.
+
+## Data source
+
+Metheon ingests the public [USGS earthquake feeds][usgs], which require no
+authentication and contain no personal data:
+
+```text
+https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson
+```
+
+Each event carries a stable USGS id, so ingestion is idempotent: re-running it
+refreshes existing events in place instead of duplicating them. Feeds also
+include non-earthquake events such as quarry blasts and explosions; these are
+stored as well and can be told apart through the `event_type` column.
+
+[usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
 ## Prerequisites
 
@@ -106,6 +124,8 @@ project runs out of the box without any configuration.
 | `POSTGRES_DB` | `metheon` | Database name |
 | `POSTGRES_USER` | `metheon` | Database user |
 | `POSTGRES_PASSWORD` | `metheon` | Database password |
+| `USGS_FEED_URL` | `…/all_day.geojson` | GeoJSON feed used by the ingestion |
+| `USGS_TIMEOUT_SECONDS` | `30` | HTTP timeout for the feed request |
 
 To override them, copy the example file and edit it:
 
@@ -180,6 +200,49 @@ Request fields:
 `id`, `created_at` and `status` are assigned by the database and must not be
 supplied by the client.
 
+### `POST /api/datasets/{id}/ingest`
+
+Downloads the USGS feed and stores its earthquakes for the given dataset. The
+run is **synchronous**: the request stays open until the feed has been fetched,
+validated and written, which usually takes a few seconds.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/datasets/1/ingest
+```
+
+```json
+{
+  "dataset_id": 1,
+  "status": "completed",
+  "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+  "fetched": 254,
+  "valid": 254,
+  "invalid": 0,
+  "inserted": 254,
+  "updated": 0,
+  "errors": []
+}
+```
+
+Response fields:
+
+| Field | Meaning |
+| --- | --- |
+| `fetched` | Features returned by the feed |
+| `valid` | Features that passed validation |
+| `invalid` | Features rejected, with the reason listed in `errors` |
+| `inserted` | Events stored for the first time |
+| `updated` | Events already present and refreshed |
+
+`errors` is capped at the first 10 entries, so a broken feed cannot produce an
+unbounded response.
+
+The dataset `status` follows the run: `processing` while it is in flight, then
+`completed`, or `failed` if the feed cannot be retrieved or parsed. A failure
+returns `502` and leaves the stored data untouched.
+
+Requesting an unknown dataset returns `404`.
+
 ## Database schema
 
 Table `datasets`, created by `backend/app/db/init.sql`:
@@ -204,9 +267,36 @@ The `status` column currently holds one of four conceptual values:
 | `completed` | Import completed |
 | `failed` | Import failed |
 
-Only `pending` is ever set at the moment: the column exists and is exposed by the
-API, but the ingestion state machine that would transition it is part of Phase 2
-and is not implemented yet.
+All four values are set by the ingestion endpoint. Datasets that have never been
+ingested stay at `pending`.
+
+Table `earthquakes`, one row per event, keyed by the USGS id:
+
+```sql
+CREATE TABLE IF NOT EXISTS earthquakes (
+    id SERIAL PRIMARY KEY,
+    dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    external_id VARCHAR(64) NOT NULL UNIQUE,
+    magnitude NUMERIC(5, 2),
+    magnitude_type VARCHAR(20),
+    place TEXT,
+    event_type VARCHAR(50),
+    occurred_at TIMESTAMP NOT NULL,
+    source_updated_at TIMESTAMP,
+    longitude NUMERIC(9, 4) NOT NULL,
+    latitude NUMERIC(8, 4) NOT NULL,
+    depth_km NUMERIC(8, 3),
+    tsunami BOOLEAN NOT NULL DEFAULT FALSE,
+    significance INTEGER,
+    url TEXT,
+    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+The `UNIQUE` constraint on `external_id` is what makes ingestion idempotent:
+writes use `ON CONFLICT DO UPDATE`. Timestamps are stored as naive UTC, converted
+from the epoch milliseconds the feed provides. `magnitude` is nullable — the feed
+legitimately omits it for some events.
 
 ## Project structure
 
@@ -216,10 +306,14 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
-│   │   └── db/
+│   │   ├── db/
+│   │   │   ├── __init__.py
+│   │   │   ├── database.py      # Connection helper, env-based configuration
+│   │   │   ├── repository.py    # SQL queries, kept out of route handlers
+│   │   │   └── init.sql         # Schema, executed on first container start
+│   │   └── ingestion/
 │   │       ├── __init__.py
-│   │       ├── database.py      # Connection helper, env-based configuration
-│   │       └── init.sql         # Schema, executed on first container start
+│   │       └── usgs.py          # Feed fetching, validation, normalization
 │   └── requirements.txt
 ├── .env.example
 ├── .gitignore
@@ -258,8 +352,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 
 - [x] **Phase 1 — Foundation:** FastAPI application, PostgreSQL via Docker
   Compose, `datasets` table, dataset GET/POST API, reproducible local setup
-- [ ] **Phase 2 — Data pipeline:** first real public data source, ingestion,
-  validation, normalization, Redis, background worker, status transitions
+- [ ] **Phase 2 — Data pipeline:** USGS source selected, synchronous ingestion,
+  validation, normalization and status transitions are done; the import/job
+  model, Redis and the background worker are still open
 - [ ] **Phase 3 — Analytics:** React + TypeScript dashboard, filters, pagination,
   aggregations, charts
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
