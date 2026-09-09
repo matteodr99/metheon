@@ -3,6 +3,35 @@ import { useEffect, useState } from 'react'
 import { fetchDatasets, type Dataset } from './api'
 import { EarthquakeBrowser } from './EarthquakeBrowser'
 
+function DatasetCard({
+  dataset,
+  selected,
+  onSelect,
+}: {
+  dataset: Dataset
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="dataset-card"
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
+      <span className="dataset-card-top">
+        <span className="dataset-name">{dataset.name}</span>
+        <span className={`status status-${dataset.status}`}>
+          {dataset.status}
+        </span>
+      </span>
+      <span className="dataset-meta">
+        {dataset.source} · added {new Date(dataset.created_at).toLocaleDateString()}
+      </span>
+    </button>
+  )
+}
+
 function App() {
   const [datasets, setDatasets] = useState<Dataset[] | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -27,7 +56,10 @@ function App() {
 
   return (
     <main>
-      <h1>Metheon</h1>
+      <header className="masthead">
+        <h1>Metheon</h1>
+        <p>Public earthquake data from the USGS feeds</p>
+      </header>
 
       {error !== null && (
         <p role="alert" className="error">
@@ -35,46 +67,33 @@ function App() {
         </p>
       )}
 
-      {error === null && datasets === null && <p>Loading…</p>}
+      {error === null && datasets === null && <p className="muted">Loading…</p>}
 
-      {datasets !== null && datasets.length === 0 && <p>No datasets yet.</p>}
+      {datasets !== null && datasets.length === 0 && (
+        <p className="muted">No datasets yet.</p>
+      )}
 
       {datasets !== null && datasets.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Source</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <p className="section-label">Datasets</p>
+          <div className="datasets">
             {datasets.map((dataset) => (
-              <tr
+              <DatasetCard
                 key={dataset.id}
-                className={dataset.id === selectedId ? 'selected' : undefined}
-                onClick={() => setSelectedId(dataset.id)}
-              >
-                <td>{dataset.name}</td>
-                <td>{dataset.source}</td>
-                <td>
-                  <span className={`status status-${dataset.status}`}>
-                    {dataset.status}
-                  </span>
-                </td>
-                <td>{new Date(dataset.created_at).toLocaleString()}</td>
-              </tr>
+                dataset={dataset}
+                selected={dataset.id === selectedId}
+                onSelect={() => setSelectedId(dataset.id)}
+              />
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
 
       {selected !== null && (
-        <>
+        <section className="panel">
           <h2>{selected.name}</h2>
           <EarthquakeBrowser datasetId={selected.id} />
-        </>
+        </section>
       )}
     </main>
   )

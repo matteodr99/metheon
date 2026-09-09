@@ -17,32 +17,69 @@ const PLOT_HEIGHT = 60
  */
 const MAX_LABELS = 12
 
+/**
+ * The viewBox is stretched to the container, so with two or three bars each
+ * one would balloon into a slab. Reserving a minimum number of slots keeps
+ * them a sensible width; the spare slots are simply left empty.
+ *
+ * It is a default, not a rule: a chart of a few categories with long names
+ * wants the full width for its labels instead.
+ */
+const DEFAULT_MIN_SLOTS = 8
+
 export function BarChart({
   bars,
   title,
   emptyMessage = 'Nothing to plot.',
+  minSlots = DEFAULT_MIN_SLOTS,
 }: {
   bars: Bar[]
   title: string
   emptyMessage?: string
+  minSlots?: number
 }) {
   if (bars.length === 0) {
     return <p className="chart-empty">{emptyMessage}</p>
   }
 
   const max = Math.max(...bars.map((bar) => bar.value))
-  const width = bars.length * SLOT_WIDTH
+  const slots = Math.max(bars.length, minSlots)
+  const width = slots * SLOT_WIDTH
   const labelEvery = Math.ceil(bars.length / MAX_LABELS)
 
   return (
     <figure className="chart">
-      <figcaption>{title}</figcaption>
+      <figcaption>
+        {title}
+        <span className="chart-peak">peak {max}</span>
+      </figcaption>
       <svg
         viewBox={`0 0 ${width} ${PLOT_HEIGHT}`}
         preserveAspectRatio="none"
         role="img"
         aria-label={title}
       >
+        {/* Quarter gridlines give the bars a scale to be read against.
+            vector-effect keeps them one pixel thick despite the stretch. */}
+        {[0.25, 0.5, 0.75].map((fraction) => (
+          <line
+            key={fraction}
+            x1={0}
+            x2={width}
+            y1={PLOT_HEIGHT * fraction}
+            y2={PLOT_HEIGHT * fraction}
+            className="gridline"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        <line
+          x1={0}
+          x2={width}
+          y1={PLOT_HEIGHT}
+          y2={PLOT_HEIGHT}
+          className="baseline"
+          vectorEffect="non-scaling-stroke"
+        />
         {bars.map((bar, index) => {
           // A non-zero count always gets a visible sliver, so "one event"
           // never looks the same as "no events".
@@ -65,7 +102,11 @@ export function BarChart({
           )
         })}
       </svg>
-      <div className="bar-labels" aria-hidden="true">
+      <div
+        className="bar-labels"
+        aria-hidden="true"
+        style={{ gridTemplateColumns: `repeat(${slots}, 1fr)` }}
+      >
         {bars.map((bar, index) => (
           <span key={bar.label}>
             {index % labelEvery === 0 ? bar.label : ''}

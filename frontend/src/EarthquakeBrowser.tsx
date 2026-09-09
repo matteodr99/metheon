@@ -94,7 +94,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
     <section>
       <form className="filters" onSubmit={apply}>
         <label>
-          Min magnitude
+          <span>Min magnitude</span>
           <input
             type="number"
             step="0.1"
@@ -103,7 +103,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
           />
         </label>
         <label>
-          Max magnitude
+          <span>Max magnitude</span>
           <input
             type="number"
             step="0.1"
@@ -112,7 +112,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
           />
         </label>
         <label>
-          From
+          <span>From</span>
           <input
             type="datetime-local"
             value={form.start_time}
@@ -120,7 +120,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
           />
         </label>
         <label>
-          To
+          <span>To</span>
           <input
             type="datetime-local"
             value={form.end_time}
@@ -128,7 +128,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
           />
         </label>
         <label>
-          Event type
+          <span>Event type</span>
           <input
             type="text"
             placeholder="earthquake"
@@ -164,21 +164,24 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
       )}
 
       {page !== null && page.items.length > 0 && (
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Time (UTC)</th>
-              <th>Magnitude</th>
+              <th className="numeric">Magnitude</th>
               <th>Place</th>
               <th>Type</th>
-              <th>Depth</th>
+              <th className="numeric">Depth</th>
             </tr>
           </thead>
           <tbody>
             {page.items.map((earthquake) => (
               <tr key={earthquake.id}>
-                <td>{earthquake.occurred_at.replace('T', ' ').slice(0, 19)}</td>
-                <td>{formatMagnitude(earthquake)}</td>
+                <td className="numeric">
+                  {earthquake.occurred_at.replace('T', ' ').slice(0, 19)}
+                </td>
+                <td className="numeric">{formatMagnitude(earthquake)}</td>
                 <td>
                   {earthquake.url === null ? (
                     earthquake.place
@@ -189,7 +192,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
                   )}
                 </td>
                 <td>{earthquake.event_type}</td>
-                <td>
+                <td className="numeric">
                   {earthquake.depth_km === null
                     ? '—'
                     : `${earthquake.depth_km.toFixed(1)} km`}
@@ -198,6 +201,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="pagination">

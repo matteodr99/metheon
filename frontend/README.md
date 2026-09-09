@@ -44,6 +44,7 @@ src/
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
 ├── Summary.tsx             # Tiles and charts for the current filters
 ├── BarChart.tsx            # Hand-written SVG bar chart
+│                           # index.css holds the design tokens
 ├── index.css
 ├── main.tsx
 └── test/
@@ -75,3 +76,16 @@ Only the bars live in the SVG. Its viewBox is stretched to the container
 width, which rectangles survive but glyphs do not: text drawn inside was
 smeared into an unreadable blur, so the labels are plain HTML underneath, on
 the same grid.
+
+Because of that stretch, a chart of two or three bars would show slabs rather
+than bars, so `minSlots` reserves a minimum width per bar and leaves the
+spare slots empty. The by-type chart passes `minSlots={0}`: it has few
+categories with long names, and padding it out squeezed the labels into
+ellipses.
+
+## Styling
+
+Plain CSS in `index.css`, no framework. Colours, spacing, radii and shadows
+are custom properties defined once for light and redefined under
+`prefers-color-scheme: dark`, so both themes come from the same rules rather
+than from hardcoded values sprinkled through the file.

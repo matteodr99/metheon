@@ -21,11 +21,18 @@ describe('the dataset list', () => {
     render(<App />)
 
     // The name also appears in the heading of the selected dataset, so the
-    // assertion is scoped to the row to stay unambiguous.
-    const status = await screen.findByText('failed')
-    const row = status.closest('tr')
-    expect(row).not.toBeNull()
-    expect(within(row as HTMLTableRowElement).getByText('Quakes')).toBeInTheDocument()
+    // assertion is scoped to the card to stay unambiguous.
+    const card = await screen.findByRole('button', { name: /Quakes/ })
+    expect(within(card).getByText('failed')).toBeInTheDocument()
+  })
+
+  it('marks the selected dataset as pressed', async () => {
+    mockFetch(respondWith([makeDataset({ name: 'Quakes' })]))
+
+    render(<App />)
+
+    const card = await screen.findByRole('button', { name: /Quakes/ })
+    expect(card).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('says so when there are none', async () => {
@@ -81,7 +88,7 @@ describe('selecting a dataset', () => {
     const user = userEvent.setup()
 
     render(<App />)
-    await user.click(await screen.findByText('Volcanoes'))
+    await user.click(await screen.findByRole('button', { name: /Volcanoes/ }))
 
     expect(await screen.findByText('an event')).toBeInTheDocument()
     expect(

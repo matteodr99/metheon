@@ -97,6 +97,9 @@ export function SummaryPanel({
           bars={typeBars}
           title="Events by type"
           emptyMessage="No events to plot."
+          // A handful of categories with long names: padding the chart out
+          // would squeeze the labels into ellipses.
+          minSlots={0}
         />
       </div>
     </section>
