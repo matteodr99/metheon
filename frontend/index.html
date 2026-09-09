@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Metheon</title>
+    <script>
+      // Runs before the first paint, so a dark-theme user never sees a white
+      // flash while React boots.
+      try {
+        var stored = localStorage.getItem('metheon:theme')
+        if (stored === 'light' || stored === 'dark') {
+          document.documentElement.setAttribute('data-theme', stored)
+          document.documentElement.style.colorScheme = stored
+        }
+      } catch (error) {
+        /* storage blocked: fall through to the system preference */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

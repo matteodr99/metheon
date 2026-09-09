@@ -44,6 +44,8 @@ src/
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
 ├── Summary.tsx             # Tiles and charts for the current filters
 ├── BarChart.tsx            # Hand-written SVG bar chart
+├── ThemeToggle.tsx         # Light / dark / system
+├── theme.ts                # Reading, storing and applying the choice
 │                           # index.css holds the design tokens
 ├── index.css
 ├── main.tsx
@@ -83,9 +85,19 @@ spare slots empty. The by-type chart passes `minSlots={0}`: it has few
 categories with long names, and padding it out squeezed the labels into
 ellipses.
 
-## Styling
+## Styling and themes
 
 Plain CSS in `index.css`, no framework. Colours, spacing, radii and shadows
-are custom properties defined once for light and redefined under
-`prefers-color-scheme: dark`, so both themes come from the same rules rather
-than from hardcoded values sprinkled through the file.
+are custom properties, so both themes come from the same rules rather than
+from hardcoded values sprinkled through the file.
+
+The theme has three states: light, dark, and following the system. The dark
+palette is therefore declared twice — once under `prefers-color-scheme` for
+the system default, which an explicit light choice must override, and once
+under `[data-theme='dark']` for an explicit choice, which must win over a
+light system.
+
+`system` removes the attribute rather than resolving it, so the page keeps
+following the OS if that changes while the tab is open. The choice is kept in
+`localStorage` and re-applied by a small inline script in `index.html` before
+the first paint, so a dark-theme reader never sees a white flash.

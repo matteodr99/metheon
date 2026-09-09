@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { fetchDatasets, type Dataset } from './api'
 import { EarthquakeBrowser } from './EarthquakeBrowser'
+import { ThemeToggle } from './ThemeToggle'
 
 function DatasetCard({
   dataset,
@@ -59,6 +60,7 @@ function App() {
       <header className="masthead">
         <h1>Metheon</h1>
         <p>Public earthquake data from the USGS feeds</p>
+        <ThemeToggle />
       </header>
 
       {error !== null && (

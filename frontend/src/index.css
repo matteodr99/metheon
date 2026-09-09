@@ -25,8 +25,11 @@
   --step: 0.5rem;
 }
 
+/* The dark palette is declared twice on purpose: once for the system
+   preference, which an explicit light choice must be able to override, and
+   once for an explicit dark choice, which must win over a light system. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0d0d11;
     --surface: #16161c;
     --surface-sunken: #1d1d25;
@@ -45,6 +48,26 @@
     --bad-text: #f08585;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0d0d11;
+  --surface: #16161c;
+  --surface-sunken: #1d1d25;
+  --border: #262630;
+  --border-strong: #35353f;
+  --text: #eaeaf0;
+  --muted: #9494a4;
+  --accent: #7d9dff;
+  --accent-soft: rgba(125, 157, 255, 0.14);
+  --bar: #5b81f0;
+  --ok-bg: rgba(58, 190, 120, 0.16);
+  --ok-text: #6fd79b;
+  --warn-bg: rgba(233, 179, 62, 0.16);
+  --warn-text: #e2b55a;
+  --bad-bg: rgba(240, 100, 100, 0.16);
+  --bad-text: #f08585;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -470,4 +493,35 @@ td a:hover {
 
 .muted {
   color: var(--muted);
+}
+
+/* ---------- theme toggle ---------- */
+
+.theme-toggle {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+}
+
+.theme-toggle button {
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+}
+
+.theme-toggle button:hover:not([aria-pressed='true']) {
+  background: transparent;
+  color: var(--text);
+}
+
+.theme-toggle button[aria-pressed='true'] {
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
 }
