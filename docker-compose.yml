@@ -12,5 +12,28 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/app/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
+  redis:
+    image: redis:7-alpine
+    container_name: metheon-redis
+    ports:
+      - "6379:6379"
+
+  worker:
+    build:
+      context: ./backend
+    container_name: metheon-worker
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      # Inside the compose network the services answer by name, not on
+      # localhost, so these override the local development defaults.
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: metheon
+      POSTGRES_USER: metheon
+      POSTGRES_PASSWORD: metheon
+      REDIS_HOST: redis
+    restart: unless-stopped
+
 volumes:
   postgres_data:

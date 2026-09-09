@@ -35,17 +35,19 @@ CREATE INDEX IF NOT EXISTS idx_earthquakes_dataset_id
 CREATE TABLE IF NOT EXISTS imports (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    status VARCHAR(20) NOT NULL DEFAULT 'processing',
+    status VARCHAR(20) NOT NULL DEFAULT 'queued',
     feed_url TEXT NOT NULL,
-    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    queued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
     finished_at TIMESTAMP,
     fetched INTEGER NOT NULL DEFAULT 0,
     valid INTEGER NOT NULL DEFAULT 0,
     invalid INTEGER NOT NULL DEFAULT 0,
     inserted INTEGER NOT NULL DEFAULT 0,
     updated INTEGER NOT NULL DEFAULT 0,
+    invalid_sample TEXT,
     error TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_imports_dataset_started
-    ON imports (dataset_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_imports_dataset_queued
+    ON imports (dataset_id, queued_at DESC);

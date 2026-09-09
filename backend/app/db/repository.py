@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 STATUS_PENDING = "pending"
+STATUS_QUEUED = "queued"
 STATUS_PROCESSING = "processing"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
@@ -225,10 +226,10 @@ def list_earthquakes(
 
 
 def create_import(connection, dataset_id: int, feed_url: str) -> int:
-    """Open an import run and return its id.
+    """Record a queued import run and return its id.
 
-    The row is written before any work starts, so a run that never finishes
-    still leaves a trace at `processing`.
+    The row is written before the job is enqueued, so a run always exists in
+    the history even if the queue rejects it.
     """
     with connection.cursor() as cursor:
         cursor.execute(
@@ -237,7 +238,7 @@ def create_import(connection, dataset_id: int, feed_url: str) -> int:
             VALUES (%s, %s, %s)
             RETURNING id
             """,
-            (dataset_id, STATUS_PROCESSING, feed_url),
+            (dataset_id, STATUS_QUEUED, feed_url),
         )
         row = cursor.fetchone()
 
@@ -252,8 +253,14 @@ def complete_import(
     invalid: int,
     inserted: int,
     updated: int,
+    invalid_sample: Optional[str] = None,
 ) -> None:
-    """Close an import run that succeeded, recording its counts."""
+    """Close an import run that succeeded, recording its counts.
+
+    `invalid_sample` keeps the first few validation errors: a run that
+    completes with a non-zero `invalid` count is only useful if you can see
+    why the features were rejected.
+    """
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -264,10 +271,20 @@ def complete_import(
                 valid = %s,
                 invalid = %s,
                 inserted = %s,
-                updated = %s
+                updated = %s,
+                invalid_sample = %s
             WHERE id = %s
             """,
-            (STATUS_COMPLETED, fetched, valid, invalid, inserted, updated, import_id),
+            (
+                STATUS_COMPLETED,
+                fetched,
+                valid,
+                invalid,
+                inserted,
+                updated,
+                invalid_sample,
+                import_id,
+            ),
         )
 
 
@@ -308,11 +325,12 @@ def list_imports(
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, dataset_id, status, feed_url, started_at, finished_at,
-                   fetched, valid, invalid, inserted, updated, error
+            SELECT id, dataset_id, status, feed_url, queued_at, started_at,
+                   finished_at, fetched, valid, invalid, inserted, updated,
+                   invalid_sample, error
             FROM imports
             WHERE dataset_id = %s
-            ORDER BY started_at DESC, id DESC
+            ORDER BY queued_at DESC, id DESC
             LIMIT %s OFFSET %s
             """,
             (dataset_id, limit, offset),
@@ -325,14 +343,53 @@ def list_imports(
             "dataset_id": row[1],
             "status": row[2],
             "feed_url": row[3],
-            "started_at": row[4],
-            "finished_at": row[5],
-            "fetched": row[6],
-            "valid": row[7],
-            "invalid": row[8],
-            "inserted": row[9],
-            "updated": row[10],
-            "error": row[11],
+            "queued_at": row[4],
+            "started_at": row[5],
+            "finished_at": row[6],
+            "fetched": row[7],
+            "valid": row[8],
+            "invalid": row[9],
+            "inserted": row[10],
+            "updated": row[11],
+            "invalid_sample": row[12],
+            "error": row[13],
         }
         for row in rows
     ]
+
+
+def get_import(connection, import_id: int) -> Optional[Dict[str, Any]]:
+    """Return a single import run, or None when it does not exist."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, dataset_id, status, feed_url
+            FROM imports
+            WHERE id = %s
+            """,
+            (import_id,),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "id": row[0],
+        "dataset_id": row[1],
+        "status": row[2],
+        "feed_url": row[3],
+    }
+
+
+def start_import(connection, import_id: int) -> None:
+    """Mark an import run as picked up by a worker."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE imports
+            SET status = %s, started_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (STATUS_PROCESSING, import_id),
+        )

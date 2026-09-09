@@ -2,13 +2,10 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from app.db.database import get_connection
 from app.db import repository
+from app import jobs
 from app.ingestion import usgs
 
 from typing import Optional
-
-# An ingestion run can report many invalid features; only the first few are
-# returned, so a broken feed cannot produce an unbounded response.
-MAX_REPORTED_ERRORS = 10
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
@@ -43,25 +40,19 @@ def _set_status(dataset_id: int, status: str) -> None:
         repository.set_dataset_status(connection, dataset_id, status)
 
 
-def _fail_import(dataset_id: int, import_id: int, error: str) -> None:
-    """Record a failed run on both the import row and the dataset.
-
-    Committed separately from the work that failed, so the failure survives.
-    """
-    with get_connection() as connection:
-        repository.fail_import(connection, import_id, error)
-    _set_status(dataset_id, repository.STATUS_FAILED)
-
-
 @app.get("/api/health")
 def health_check():
+    """Report whether the API can reach its two dependencies."""
     with get_connection() as connection:
         database_ok = repository.ping(connection)
 
+    queue_ok = jobs.ping()
+
     return {
-        "status": "ok",
+        "status": "ok" if database_ok and queue_ok else "degraded",
         "service": "metheon",
         "database": database_ok,
+        "queue": queue_ok,
     }
 
 
@@ -128,62 +119,35 @@ def get_dataset_imports(
     }
 
 
-@app.post("/api/datasets/{dataset_id}/ingest")
+@app.post("/api/datasets/{dataset_id}/ingest", status_code=202)
 def ingest_dataset(dataset_id: int):
-    """Fetch the USGS feed and store its earthquakes for this dataset.
+    """Queue an ingestion run for this dataset.
 
-    The run is synchronous: the request stays open until the feed has been
-    downloaded and written. Moving this onto a background worker is part of
-    a later step.
+    The request returns as soon as the run is queued; a worker picks it up
+    and does the work. Follow its progress through
+    `GET /api/datasets/{id}/imports`, or the dataset status.
     """
-    with get_connection() as connection:
-        _get_dataset_or_404(connection, dataset_id)
-
     feed_url = usgs.DEFAULT_FEED_URL
 
     with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
         import_id = repository.create_import(connection, dataset_id, feed_url)
 
-    _set_status(dataset_id, repository.STATUS_PROCESSING)
-
     try:
-        payload = usgs.fetch_feed(url=feed_url)
-        records, errors = usgs.normalize_feed(payload)
-        fetched = len(payload.get("features", []))
-
+        jobs.enqueue_import(import_id)
+    except jobs.QueueError as exc:
+        # The run exists in the history, so a queue outage is visible there
+        # rather than being silently swallowed.
         with get_connection() as connection:
-            inserted, updated = repository.upsert_earthquakes(
-                connection, dataset_id, records
-            )
-    except usgs.IngestionError as exc:
-        _fail_import(dataset_id, import_id, str(exc))
-        raise HTTPException(status_code=502, detail=str(exc))
-    except Exception as exc:
-        _fail_import(dataset_id, import_id, repr(exc))
-        raise
+            repository.fail_import(connection, import_id, str(exc))
+        _set_status(dataset_id, repository.STATUS_FAILED)
+        raise HTTPException(status_code=503, detail=str(exc))
 
-    with get_connection() as connection:
-        repository.complete_import(
-            connection,
-            import_id,
-            fetched=fetched,
-            valid=len(records),
-            invalid=len(errors),
-            inserted=inserted,
-            updated=updated,
-        )
-
-    _set_status(dataset_id, repository.STATUS_COMPLETED)
+    _set_status(dataset_id, repository.STATUS_QUEUED)
 
     return {
         "import_id": import_id,
         "dataset_id": dataset_id,
-        "status": repository.STATUS_COMPLETED,
+        "status": repository.STATUS_QUEUED,
         "feed_url": feed_url,
-        "fetched": fetched,
-        "valid": len(records),
-        "invalid": len(errors),
-        "inserted": inserted,
-        "updated": updated,
-        "errors": errors[:MAX_REPORTED_ERRORS],
     }

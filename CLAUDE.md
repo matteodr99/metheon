@@ -29,7 +29,9 @@ The project is a personal portfolio/open-source project. It must not use persona
 - Uvicorn
 - psycopg 3
 - httpx
+- redis-py
 - PostgreSQL 16
+- Redis 7
 - Docker / Docker Compose
 - Git
 
@@ -59,6 +61,8 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py
+│   │   ├── jobs.py
+│   │   ├── worker.py
 │   │   ├── db/
 │   │   │   ├── __init__.py
 │   │   │   ├── database.py
@@ -66,12 +70,14 @@ metheon/
 │   │   │   └── init.sql
 │   │   └── ingestion/
 │   │       ├── __init__.py
-│   │       └── usgs.py
+│   │       ├── usgs.py
+│   │       └── runner.py
 │   ├── tests/
 │   │   ├── conftest.py
 │   │   ├── fixtures/
 │   │   ├── test_usgs_fetch.py
 │   │   └── test_usgs_normalization.py
+│   ├── Dockerfile
 │   ├── pytest.ini
 │   ├── requirements.txt
 │   └── requirements-dev.txt
@@ -188,15 +194,15 @@ Returns the import history of a dataset, most recent run first, with the same
 
 ### POST /api/datasets/{id}/ingest
 
-Downloads the USGS GeoJSON feed, validates and normalizes it, and stores the
-events in the `earthquakes` table. The run is synchronous and drives the dataset
-status: `processing`, then `completed` or `failed`.
+Records a queued run in `imports`, pushes its id onto the Redis queue and
+returns `202`. A worker performs the ingestion.
 
 Writes use `ON CONFLICT (external_id) DO UPDATE`, so re-running an ingestion
 refreshes existing events rather than duplicating them.
 
-Returns `404` for an unknown dataset and `502` when the feed cannot be retrieved
-or parsed; a failure leaves the stored data untouched.
+Returns `404` for an unknown dataset and `503` when Redis cannot be reached; in
+the latter case the run is still recorded as `failed`. A feed that cannot be
+retrieved fails inside the worker and leaves the stored data untouched.
 
 ## Current database schema
 
@@ -220,8 +226,8 @@ Current status values are conceptually:
 - `completed` — import completed
 - `failed` — import failed
 
-The ingestion endpoint drives these transitions. Datasets that have never been
-ingested stay at `pending`.
+A run also passes through `queued` between being accepted and being picked up
+by a worker. Datasets that have never been ingested stay at `pending`.
 
 Table: `earthquakes`
 
@@ -255,21 +261,24 @@ Table: `imports`
 CREATE TABLE IF NOT EXISTS imports (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    status VARCHAR(20) NOT NULL DEFAULT 'processing',
+    status VARCHAR(20) NOT NULL DEFAULT 'queued',
     feed_url TEXT NOT NULL,
-    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    queued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
     finished_at TIMESTAMP,
     fetched INTEGER NOT NULL DEFAULT 0,
     valid INTEGER NOT NULL DEFAULT 0,
     invalid INTEGER NOT NULL DEFAULT 0,
     inserted INTEGER NOT NULL DEFAULT 0,
     updated INTEGER NOT NULL DEFAULT 0,
+    invalid_sample TEXT,
     error TEXT
 );
 ```
 
-One row per ingestion run, written before the work starts so an interrupted run
-still leaves a trace. The dataset `status` mirrors the status of its latest run.
+One row per ingestion run, written before the job is enqueued. `queued_at` is
+when the API accepted the run and `started_at` when a worker picked it up. The
+dataset `status` mirrors the status of its latest run.
 
 ## Current local data
 
@@ -381,6 +390,22 @@ PostgreSQL
 
 Redis and the worker are planned, not yet implemented.
 
+## Asynchronous processing
+
+The queue is a Redis list holding nothing but import ids; all state about a run
+lives in the `imports` table, so there is a single source of truth.
+
+- `app/jobs.py` — enqueue, dequeue, queue length, ping
+- `app/worker.py` — the loop, run with `python -m app.worker`
+- `app/ingestion/runner.py` — executes one run
+
+Redis and the worker run in Docker Compose. The worker image is built from
+`backend/Dockerfile`; rebuild it after code changes with
+`docker compose up -d --build worker`. The API is not containerized yet.
+
+Known limitation: a worker killed mid-run leaves its import row at
+`processing`. There is no reaper for stale runs.
+
 ## AI principles
 
 AI is an analytical layer, not the core ingestion mechanism.
@@ -430,8 +455,8 @@ Prefer structured AI responses where practical, for example:
 - [x] Validation
 - [x] Normalization
 - [x] Import/job model
-- [ ] Redis
-- [ ] Background worker
+- [x] Redis
+- [x] Background worker
 - [x] Proper status transitions
 
 ### Phase 3 — Analytics
