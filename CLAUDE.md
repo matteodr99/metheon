@@ -33,11 +33,11 @@ The project is a personal portfolio/open-source project. It must not use persona
 - PostgreSQL 16
 - Redis 7
 - Docker / Docker Compose
+- React 19 + TypeScript, built with Vite
 - Git
 
 ### Planned / intended
 
-- React + TypeScript
 - Redis for asynchronous jobs
 - Background worker for ingestion
 - Docker Compose for local multi-service development
@@ -81,8 +81,18 @@ metheon/
 │   ├── pytest.ini
 │   ├── requirements.txt
 │   └── requirements-dev.txt
+├── frontend/
+│   ├── src/
+│   │   ├── api.ts
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   └── main.tsx
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts
 ├── .env.example
 ├── .gitignore
+├── .nvmrc
 ├── README.md
 └── docker-compose.yml
 ```
@@ -460,6 +470,22 @@ backoff was added.
 Known limitation: a worker killed mid-run leaves its import row at
 `processing`. There is no reaper for stale runs.
 
+## Frontend
+
+React 19 and TypeScript, built with Vite, in `frontend/`. Node 20.19.5 is
+pinned in `.nvmrc`; run `nvm use` before `npm` commands.
+
+The dev server proxies `/api` to `http://127.0.0.1:8000`, configured in
+`vite.config.ts`. This is deliberate: the browser sees one origin, so the
+backend needs no CORS middleware. CORS would be configuration existing only
+for a deployment that has not been designed yet.
+
+Node is a local development tool. It does not go in Docker Compose, and the
+frontend is not containerized.
+
+Currently only the dataset list is implemented. There are no frontend tests
+yet: they belong with the first real logic, not with a view this thin.
+
 ## AI principles
 
 AI is an analytical layer, not the core ingestion mechanism.
@@ -514,7 +540,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Proper status transitions
 
 ### Phase 3 — Analytics
-- [ ] Dashboard
+- [~] Dashboard (dataset list; earthquake table still missing)
 - [x] Filters
 - [x] Pagination
 - [x] Aggregations

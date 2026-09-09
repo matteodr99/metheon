@@ -11,10 +11,11 @@ Public Data → Ingestion → Processing → PostgreSQL → API → Analytics �
 Metheon is a personal portfolio / open-source project. It works exclusively with
 public datasets and does not handle personal or sensitive user data.
 
-> **Project status: Phases 1 and 2 complete.**
+> **Project status: Phases 1 and 2 complete, Phase 3 in progress.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
 > worker ingest USGS earthquake data asynchronously, with every run recorded.
-> The frontend and the AI layer are not implemented yet — see
+> The API supports filtering and aggregation, and a React frontend lists the
+> datasets. Charts and the AI layer are not implemented yet — see
 > [Roadmap](#roadmap).
 
 ## Tech stack
@@ -28,6 +29,7 @@ Currently implemented:
 - PostgreSQL 16
 - Redis 7
 - Docker / Docker Compose
+- React 19 + TypeScript, built with Vite
 
 Planned technologies (React, Redis, background workers, Kubernetes, Gemini) are
 listed in the roadmap and are **not** part of the current codebase.
@@ -70,6 +72,8 @@ stored as well and can be told apart through the `event_type` column.
 - Python 3.9
 - Docker and Docker Compose
 - Git
+- Node 20.19.5, for the frontend only — pinned in `.nvmrc`, so with nvm
+  installed `nvm use` picks it up
 
 ## Getting started
 
@@ -132,7 +136,25 @@ uvicorn app.main:app --reload
 The API is then available at `http://127.0.0.1:8000`, and the interactive
 Swagger UI at `http://127.0.0.1:8000/docs`.
 
-### 5. Verify the setup
+### 5. Run the frontend
+
+In a third terminal, from `frontend/`:
+
+```bash
+nvm use
+npm install
+npm run dev
+```
+
+The dashboard is then at `http://localhost:5173`. Its dev server proxies
+`/api` to the backend on port 8000, so the browser sees a single origin and
+the API needs no CORS configuration. That proxy is a development arrangement
+only; how a built frontend would reach the API is a separate decision, not
+made yet.
+
+The frontend is optional — the API works on its own.
+
+### 6. Verify the setup
 
 ```bash
 curl http://127.0.0.1:8000/api/health
@@ -541,11 +563,21 @@ metheon/
 │   ├── pytest.ini
 │   ├── requirements.txt
 │   └── requirements-dev.txt
+├── frontend/
+│   ├── src/
+│   │   ├── api.ts               # Types and fetch helpers for the API
+│   │   ├── App.tsx              # The dashboard
+│   │   ├── index.css
+│   │   └── main.tsx
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts           # Dev-only proxy to the API
 ├── .github/
 │   └── workflows/
 │       └── ci.yml               # Tests and worker image build
 ├── .env.example
 ├── .gitignore
+├── .nvmrc
 ├── CLAUDE.md                    # Detailed architecture and working notes
 ├── README.md
 └── docker-compose.yml
@@ -643,8 +675,8 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   a Redis queue and a background worker, with validation, normalization, status
   transitions and a recorded history of every run
 - [ ] **Phase 3 — Analytics:** pagination, filtering and aggregations are
-  done on the earthquakes endpoint; the React + TypeScript dashboard and its
-  charts are still open
+  done on the earthquakes endpoint, and the frontend lists the datasets; the
+  earthquake table and the charts are still open
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
 - [ ] **Phase 5 — Engineering quality:** the whole backend is covered by
