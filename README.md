@@ -258,6 +258,7 @@ curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?limit=2"
   "total": 254,
   "limit": 2,
   "offset": 0,
+  "filters": {},
   "items": [
     {
       "id": 254,
@@ -280,15 +281,36 @@ curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?limit=2"
 
 Query parameters:
 
-| Parameter | Default | Range | Meaning |
-| --- | --- | --- | --- |
-| `limit` | `50` | 1–500 | Events per page |
-| `offset` | `0` | ≥ 0 | Events to skip |
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `limit` | `50` | Events per page, 1–500 |
+| `offset` | `0` | Events to skip, ≥ 0 |
+| `min_magnitude` | — | Lowest magnitude, inclusive |
+| `max_magnitude` | — | Highest magnitude, inclusive |
+| `start_time` | — | Earliest event time, inclusive, ISO 8601 |
+| `end_time` | — | Latest event time, inclusive, ISO 8601 |
+| `event_type` | — | Exact match, e.g. `earthquake`, `quarry blast` |
 
-Out-of-range values return `422`. Filtering and richer pagination belong to
-Phase 3; this endpoint is deliberately minimal.
+Filters are optional and combine with `AND`:
 
-Requesting an unknown dataset returns `404`.
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?event_type=earthquake&min_magnitude=4"
+```
+
+`total` counts the events matching the filters rather than the whole dataset,
+so a client can page through a filtered result. The filters actually applied
+are echoed back in the response under `filters`.
+
+Two details worth knowing:
+
+- An event whose `magnitude` is null is excluded by any magnitude bound. SQL
+  drops it on its own — `NULL >= 2` is null, not true — and that is the
+  intended behaviour: an unknown magnitude cannot be said to clear a threshold.
+- A range whose bounds are the wrong way round returns `422` rather than an
+  empty page, which would read as "no data" instead of as a mistake.
+
+Out-of-range or unparsable values return `422`. Requesting an unknown dataset
+returns `404`. Aggregations and charts remain part of Phase 3.
 
 ### `GET /api/datasets/{id}/imports`
 
@@ -464,6 +486,7 @@ metheon/
 │   │   ├── conftest.py          # Shared fixtures and feature builder
 │   │   ├── fixtures/            # A real feed response, captured once
 │   │   ├── test_api.py
+│   │   ├── test_filters.py
 │   │   ├── test_jobs.py
 │   │   ├── test_repository.py
 │   │   ├── test_runner.py
@@ -575,8 +598,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [x] **Phase 2 — Data pipeline:** USGS source, asynchronous ingestion through
   a Redis queue and a background worker, with validation, normalization, status
   transitions and a recorded history of every run
-- [ ] **Phase 3 — Analytics:** React + TypeScript dashboard, filters, pagination,
-  aggregations, charts
+- [ ] **Phase 3 — Analytics:** pagination and filtering are done on the
+  earthquakes endpoint; the React + TypeScript dashboard, aggregations and
+  charts are still open
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
 - [ ] **Phase 5 — Engineering quality:** the whole backend is covered by

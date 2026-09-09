@@ -182,10 +182,22 @@ Request model:
 Returns a page of the earthquakes stored for a dataset, ordered by event time,
 most recent first.
 
-Query parameters: `limit` (default 50, between 1 and 500) and `offset`
-(default 0). Out-of-range values return `422`, an unknown dataset `404`.
+Query parameters: `limit` (default 50, between 1 and 500), `offset`
+(default 0), and the optional filters `min_magnitude`, `max_magnitude`,
+`start_time`, `end_time` and `event_type`. Bounds are inclusive and filters
+combine with `AND`.
 
-Filtering and richer pagination belong to Phase 3.
+`total` counts the matching events, not the whole dataset: the count and the
+listing share one `WHERE` clause, built in `repository._earthquake_where`. A
+total that ignored the filters would make the reported page count wrong.
+
+That clause is assembled only from constant strings, and every value travels
+as a query parameter. Keep it that way if you add a filter.
+
+An inverted range returns `422` instead of an empty page. Out-of-range values
+return `422`, an unknown dataset `404`.
+
+Aggregations and charts remain part of Phase 3.
 
 ### GET /api/datasets/{id}/imports
 
@@ -490,8 +502,8 @@ Prefer structured AI responses where practical, for example:
 
 ### Phase 3 — Analytics
 - [ ] Dashboard
-- [ ] Filters
-- [ ] Pagination
+- [x] Filters
+- [x] Pagination
 - [ ] Aggregations
 - [ ] Charts
 

@@ -5,7 +5,8 @@ from app.db import repository
 from app import jobs
 from app.ingestion import usgs
 
-from typing import Optional
+from datetime import datetime
+from typing import Any, Optional
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
@@ -28,6 +29,21 @@ def _get_dataset_or_404(connection, dataset_id: int):
             detail="Dataset {0} not found".format(dataset_id),
         )
     return dataset
+
+
+def _reject_inverted_range(lower: Any, upper: Any, label: str) -> None:
+    """Refuse a range whose bounds are the wrong way round.
+
+    Such a range silently matches nothing, which reads as "no data" rather
+    than as the mistake it is.
+    """
+    if lower is not None and upper is not None and lower > upper:
+        raise HTTPException(
+            status_code=422,
+            detail="The {0} range is inverted: {1} is greater than {2}".format(
+                label, lower, upper
+            ),
+        )
 
 
 def _set_status(dataset_id: int, status: str) -> None:
@@ -78,22 +94,44 @@ def get_dataset_earthquakes(
     dataset_id: int,
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
+    min_magnitude: Optional[float] = Query(None),
+    max_magnitude: Optional[float] = Query(None),
+    start_time: Optional[datetime] = Query(None),
+    end_time: Optional[datetime] = Query(None),
+    event_type: Optional[str] = Query(None),
 ):
     """Return a page of the earthquakes stored for a dataset.
 
     Results are ordered by event time, most recent first. `limit` is capped
-    so a single request cannot pull the whole table.
+    so a single request cannot pull the whole table. Every filter is
+    optional, and the bounds are inclusive.
+
+    `total` counts the events matching the filters, not the whole dataset,
+    so a client can page through the filtered result.
     """
+    filters = {
+        "min_magnitude": min_magnitude,
+        "max_magnitude": max_magnitude,
+        "start_time": start_time,
+        "end_time": end_time,
+        "event_type": event_type,
+    }
+    _reject_inverted_range(min_magnitude, max_magnitude, "magnitude")
+    _reject_inverted_range(start_time, end_time, "time")
+
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
-        total = repository.count_earthquakes(connection, dataset_id)
-        items = repository.list_earthquakes(connection, dataset_id, limit, offset)
+        total = repository.count_earthquakes(connection, dataset_id, filters)
+        items = repository.list_earthquakes(
+            connection, dataset_id, limit, offset, filters
+        )
 
     return {
         "dataset_id": dataset_id,
         "total": total,
         "limit": limit,
         "offset": offset,
+        "filters": {name: value for name, value in filters.items() if value is not None},
         "items": items,
     }
 

@@ -171,12 +171,53 @@ def upsert_earthquakes(
     return inserted, updated
 
 
-def count_earthquakes(connection, dataset_id: int) -> int:
-    """Return how many earthquakes are stored for a dataset."""
+# Filters accepted by the earthquake queries, mapped to their SQL condition.
+# An event with a NULL magnitude cannot satisfy a magnitude bound, and SQL
+# already drops it: NULL >= 2 is NULL, not true.
+EARTHQUAKE_FILTERS = (
+    ("min_magnitude", "magnitude >= %(min_magnitude)s"),
+    ("max_magnitude", "magnitude <= %(max_magnitude)s"),
+    ("start_time", "occurred_at >= %(start_time)s"),
+    ("end_time", "occurred_at <= %(end_time)s"),
+    ("event_type", "event_type = %(event_type)s"),
+)
+
+
+def _earthquake_where(dataset_id: int, filters: Optional[Dict[str, Any]]):
+    """Build the WHERE clause shared by the count and the listing.
+
+    Both must use the same conditions: a total that ignored the filters
+    would make the reported page count wrong.
+
+    The returned clause is assembled from the constant strings in
+    EARTHQUAKE_FILTERS and never from user input; every value travels as a
+    query parameter. The string formatting at the call sites is therefore
+    safe, and must stay that way.
+    """
+    conditions = ["dataset_id = %(dataset_id)s"]
+    parameters = {"dataset_id": dataset_id}
+
+    for name, condition in EARTHQUAKE_FILTERS:
+        value = (filters or {}).get(name)
+        if value is not None:
+            conditions.append(condition)
+            parameters[name] = value
+
+    return " AND ".join(conditions), parameters
+
+
+def count_earthquakes(
+    connection,
+    dataset_id: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> int:
+    """Return how many earthquakes match, for a dataset."""
+    where, parameters = _earthquake_where(dataset_id, filters)
+
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT count(*) FROM earthquakes WHERE dataset_id = %s",
-            (dataset_id,),
+            "SELECT count(*) FROM earthquakes WHERE {0}".format(where),
+            parameters,
         )
         row = cursor.fetchone()
 
@@ -188,8 +229,13 @@ def list_earthquakes(
     dataset_id: int,
     limit: int,
     offset: int,
+    filters: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Return a page of earthquakes, most recent first."""
+    """Return a page of matching earthquakes, most recent first."""
+    where, parameters = _earthquake_where(dataset_id, filters)
+    parameters["limit"] = limit
+    parameters["offset"] = offset
+
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -197,11 +243,11 @@ def list_earthquakes(
                    event_type, occurred_at, longitude, latitude, depth_km,
                    tsunami, significance, url
             FROM earthquakes
-            WHERE dataset_id = %s
+            WHERE {0}
             ORDER BY occurred_at DESC, id DESC
-            LIMIT %s OFFSET %s
-            """,
-            (dataset_id, limit, offset),
+            LIMIT %(limit)s OFFSET %(offset)s
+            """.format(where),
+            parameters,
         )
         rows = cursor.fetchall()
 
