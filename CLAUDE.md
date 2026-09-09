@@ -65,6 +65,7 @@ metheon/
 │   └── requirements.txt
 ├── .env.example
 ├── .gitignore
+├── README.md
 └── docker-compose.yml
 ```
 
