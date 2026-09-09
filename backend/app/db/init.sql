@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS datasets (
     name VARCHAR(255) NOT NULL,
     source VARCHAR(255) NOT NULL,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
 );

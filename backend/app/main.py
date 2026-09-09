@@ -34,7 +34,7 @@ def get_datasets():
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, source, description, created_at
+                SELECT id, name, source, description, created_at, status
                 FROM datasets
                 ORDER BY id
                 """
@@ -48,6 +48,7 @@ def get_datasets():
             "source": row[2],
             "description": row[3],
             "created_at": row[4],
+            "status": row[5],
         }
         for row in rows
     ]
@@ -61,7 +62,7 @@ def create_dataset(dataset: DatasetCreate):
                 """
                 INSERT INTO datasets (name, source, description)
                 VALUES (%s, %s, %s)
-                RETURNING id, name, source, description, created_at
+                RETURNING id, name, source, description, created_at, status
                 """,
                 (dataset.name, dataset.source, dataset.description),
             )
@@ -73,4 +74,5 @@ def create_dataset(dataset: DatasetCreate):
         "source": row[2],
         "description": row[3],
         "created_at": row[4],
+        "status": row[5],
     }
