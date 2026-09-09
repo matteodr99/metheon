@@ -14,9 +14,9 @@ public datasets and does not handle personal or sensitive user data.
 > **Project status: Phases 1 and 2 complete, Phase 3 in progress.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
 > worker ingest USGS earthquake data asynchronously, with every run recorded.
-> The API supports filtering and aggregation, and a React frontend lists the
-> datasets. Charts and the AI layer are not implemented yet — see
-> [Roadmap](#roadmap).
+> The API supports filtering and aggregation, and a React frontend browses
+> the events with filters and pagination. Charts and the AI layer are not
+> implemented yet — see [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -566,7 +566,8 @@ metheon/
 ├── frontend/
 │   ├── src/
 │   │   ├── api.ts               # Types and fetch helpers for the API
-│   │   ├── App.tsx              # The dashboard
+│   │   ├── App.tsx              # Dataset list and selection
+│   │   ├── EarthquakeBrowser.tsx # Filters, table and pagination
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
@@ -674,9 +675,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [x] **Phase 2 — Data pipeline:** USGS source, asynchronous ingestion through
   a Redis queue and a background worker, with validation, normalization, status
   transitions and a recorded history of every run
-- [ ] **Phase 3 — Analytics:** pagination, filtering and aggregations are
-  done on the earthquakes endpoint, and the frontend lists the datasets; the
-  earthquake table and the charts are still open
+- [ ] **Phase 3 — Analytics:** the API supports pagination, filtering and
+  aggregation, and the frontend browses the events with filters and paging;
+  the charts are still open
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
 - [ ] **Phase 5 — Engineering quality:** the whole backend is covered by

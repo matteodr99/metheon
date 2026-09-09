@@ -85,6 +85,7 @@ metheon/
 │   ├── src/
 │   │   ├── api.ts
 │   │   ├── App.tsx
+│   │   ├── EarthquakeBrowser.tsx
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
@@ -483,8 +484,18 @@ for a deployment that has not been designed yet.
 Node is a local development tool. It does not go in Docker Compose, and the
 frontend is not containerized.
 
-Currently only the dataset list is implemented. There are no frontend tests
-yet: they belong with the first real logic, not with a view this thin.
+Implemented so far: the dataset list, and a browser for one dataset's events
+with the five API filters and paging.
+
+Two details in `EarthquakeBrowser` are deliberate. Filters apply on submit,
+not on every keystroke, so typing does not fire a request per character. And
+the loading flag is derived by comparing the query a result answers with the
+current one, rather than stored, so it cannot drift from what is on screen —
+the caption always counts the rows actually rendered, not the page being
+fetched.
+
+There are no frontend tests yet. `EarthquakeBrowser` is the first component
+with logic worth asserting, so that is where they should start.
 
 ## AI principles
 
@@ -540,7 +551,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Proper status transitions
 
 ### Phase 3 — Analytics
-- [~] Dashboard (dataset list; earthquake table still missing)
+- [~] Dashboard (dataset list and event table; charts still missing)
 - [x] Filters
 - [x] Pagination
 - [x] Aggregations

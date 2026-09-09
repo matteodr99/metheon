@@ -37,11 +37,13 @@ the API once deployed is a separate decision, not made yet.
 
 ```text
 src/
-├── api.ts       # Types and fetch helpers for the API
-├── App.tsx      # The dashboard
+├── api.ts                  # Types and fetch helpers for the API
+├── App.tsx                 # Dataset list and selection
+├── EarthquakeBrowser.tsx   # Filters, table and pagination
 ├── index.css
 └── main.tsx
 ```
 
-There are no tests yet: the current view is thin enough that there is nothing
-worth asserting. They belong with the first real logic.
+There are no tests yet. `EarthquakeBrowser` is now the first component with
+real logic — request cancellation, derived loading state, pagination bounds —
+so it is where testing should start.
