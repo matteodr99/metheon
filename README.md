@@ -177,8 +177,9 @@ npm run dev
 The dashboard is then at `http://localhost:5173`. Its dev server proxies
 `/api` to the backend on port 8000, so the browser sees a single origin and
 the API needs no CORS configuration. That proxy is a development arrangement
-only; how a built frontend would reach the API is a separate decision, not
-made yet.
+only. A deployed frontend will reach the API through CORS and a build-time
+`VITE_API_URL` instead; neither exists yet, and the hosting plan is recorded
+in `CLAUDE.md`.
 
 The frontend is optional — the API works on its own.
 

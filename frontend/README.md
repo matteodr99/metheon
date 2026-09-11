@@ -32,8 +32,9 @@ npm run test:watch
 sees a single origin and the backend needs no CORS configuration. Start the
 API separately, as described in the project README.
 
-The proxy is a development-only arrangement. How the built frontend reaches
-the API once deployed is a separate decision, not made yet.
+The proxy is a development-only arrangement. A deployed build will reach the
+API through CORS and a build-time `VITE_API_URL`, neither of which exists
+yet; the hosting plan is recorded in the repository's `CLAUDE.md`.
 
 ## Structure
 

@@ -42,14 +42,54 @@ The project is a personal portfolio/open-source project. It must not use persona
 
 - Kubernetes locally via Kind or Minikube
 - Gemini API for optional AI insights
-- Public frontend deployment, potentially Cloudflare Pages
-- Public backend deployment, potentially Render
-- Supabase PostgreSQL may be used for a public demo
+- Public deployment, per the table below
 
 Deployment and hosting are decided separately and are not to be implemented
 without being asked.
 
 Do not treat planned technologies as already implemented.
+
+### Hosting decisions
+
+Decided on 2026-09-11 under one constraint: **nothing is paid for**. Every
+row is a free plan, with the limit that plan imposes.
+
+| Component | Choice | Free-plan limit |
+| --- | --- | --- |
+| Frontend hosting | Cloudflare Pages | 500 builds/month |
+| Backend hosting | Koyeb (Render as fallback) | one web service; sleeps after 1 h idle (Render: 15 min); no free worker |
+| Production database | Neon PostgreSQL | 0.5 GB; suspends after 5 min idle and **resumes on its own** at the next connection |
+| Worker in production | none | see below |
+| Redis in production | none | see below |
+| AI | Gemini API | free tier rate limits |
+| Kubernetes | Kind / Minikube | local only; no production role in this stack |
+| CI/CD | GitHub Actions | free for public repositories |
+
+Neon was chosen over Supabase because Supabase's free project pauses after a
+week without traffic and must be restored by hand; Neon's resumes itself.
+Metheon uses none of Supabase's extras around Postgres.
+
+**No free PaaS runs a background worker.** Render and Koyeb both charge for
+worker services. The queue and the worker therefore stay the local
+development and Kind architecture, and production ingests inline: a planned
+`INGESTION_MODE` setting, `queue` by default and `inline` when deployed, will
+make `POST /ingest` call the runner directly and return the result instead
+of queueing it. The runner already exists as a function; ingestion of a
+week's USGS feed was measured at under a second, so it fits in a request.
+The `imports` history and the status transitions are unchanged in both
+modes.
+
+What deployment will touch in the code, all inert locally:
+
+- CORS on FastAPI with an origin allowlist from the environment, empty by
+  default. The Vite proxy stays for development; a static site on Cloudflare
+  Pages has no proxy, and a public data API should answer from its own origin
+- `VITE_API_URL` read at build time, empty locally
+- `sslmode` in the database connection string, which Neon requires
+- `init.sql` applied to Neon by hand or by a migration step: there is no
+  `docker-entrypoint-initdb.d` there
+- a Dockerfile for the API, which today only the worker has; Kind needs it
+  too
 
 ## Repository structure
 
