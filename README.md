@@ -51,10 +51,14 @@ the `imports` table, so there is a single source of truth about what happened.
 The endpoint returns as soon as the run is queued, and progress is followed
 through `GET /api/datasets/{id}/imports`.
 
-## Data source
+## Data sources
 
-Metheon ingests the public [USGS earthquake feeds][usgs], which require no
-authentication and contain no personal data. The default is the past week:
+Two sources are registered, both public, unauthenticated and free of personal
+data. A dataset names one of them, and `GET /api/sources` lists what is
+available.
+
+**USGS** — the [USGS earthquake feeds][usgs], worldwide. The default is the
+past week:
 
 ```text
 https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson
@@ -69,10 +73,25 @@ refreshes existing events in place instead of duplicating them. Feeds also
 include non-earthquake events such as quarry blasts and explosions; these are
 stored as well and can be told apart through the `event_type` column.
 
-USGS is the only source today, but it is not wired in: a dataset names its
-source, and `backend/app/ingestion/sources.py` maps that name to the module
-that fetches and normalizes it. Adding a source means writing such a module
-and registering it there.
+**INGV** — the [FDSN event service][ingv] of Italy's national institute of
+geophysics and volcanology. It answers a query rather than serving a feed, so
+the ingestion asks for a window ending now, `INGV_DAYS` long (seven by
+default). INGV writes ids as integers, times as ISO 8601 and magnitude types
+in mixed case; all three are normalized to match USGS, so both sources share
+one table and one set of filters.
+
+The same physical earthquake appears in both with different ids, slightly
+different magnitudes and epicentres kilometres apart — in one week's data,
+four events matched within a minute and 30 km, differing by up to 0.4 in
+magnitude. Each dataset keeps its own copy: reconciling agencies is an
+analysis question, not something ingestion should guess at.
+
+`backend/app/ingestion/sources.py` maps a source name to the module that
+fetches and normalizes it. Adding a source means writing such a module and
+registering it there; the GeoJSON envelope checks are shared in
+`geojson.py`.
+
+[ingv]: https://webservices.ingv.it/
 
 [usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
@@ -193,6 +212,9 @@ project runs out of the box without any configuration.
 | `POSTGRES_PASSWORD` | `metheon` | Database password |
 | `USGS_FEED_URL` | `…/all_week.geojson` | GeoJSON feed used by the ingestion; `all_day` and `all_month` also work |
 | `USGS_TIMEOUT_SECONDS` | `30` | HTTP timeout for the feed request |
+| `INGV_FEED_URL` | `…/fdsnws/event/1/query?…` | INGV query; a `starttime` is added per run |
+| `INGV_TIMEOUT_SECONDS` | `30` | HTTP timeout for the INGV request |
+| `INGV_DAYS` | `7` | Length of the INGV window, in days |
 | `REDIS_HOST` | `localhost` | Redis host (`redis` inside Compose) |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
@@ -510,7 +532,7 @@ Table `earthquakes`, one row per event, keyed by the USGS id:
 CREATE TABLE IF NOT EXISTS earthquakes (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    external_id VARCHAR(64) NOT NULL UNIQUE,
+    external_id VARCHAR(64) NOT NULL,
     magnitude NUMERIC(5, 2),
     magnitude_type VARCHAR(20),
     place TEXT,
@@ -523,7 +545,8 @@ CREATE TABLE IF NOT EXISTS earthquakes (
     tsunami BOOLEAN NOT NULL DEFAULT FALSE,
     significance INTEGER,
     url TEXT,
-    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (dataset_id, external_id)
 );
 ```
 
@@ -555,10 +578,12 @@ queue wait. `invalid_sample` keeps the first ten validation errors, so a run
 that completes with a non-zero `invalid` count still says why. Deleting a
 dataset cascades to both its earthquakes and its import history.
 
-The `UNIQUE` constraint on `external_id` is what makes ingestion idempotent:
-writes use `ON CONFLICT DO UPDATE`. Timestamps are stored as naive UTC, converted
-from the epoch milliseconds the feed provides. `magnitude` is nullable — the feed
-legitimately omits it for some events.
+The `UNIQUE (dataset_id, external_id)` constraint is what makes ingestion
+idempotent: writes use `ON CONFLICT DO UPDATE`. It is scoped to the dataset
+because an id is only unique within its source — two agencies can reuse one
+for different events, and the same event carries a different id at each.
+Timestamps are stored as naive UTC. `magnitude` is nullable — a feed can
+legitimately omit it.
 
 ## Project structure
 
@@ -578,13 +603,16 @@ metheon/
 │   │   └── ingestion/
 │   │       ├── __init__.py      # The shared IngestionError
 │   │       ├── sources.py       # Registry: source key → module
-│   │       ├── usgs.py          # Feed fetching, validation, normalization
+│   │       ├── geojson.py       # Envelope checks shared by the sources
+│   │       ├── usgs.py          # USGS: fetching and normalization
+│   │       ├── ingv.py          # INGV: fetching and normalization
 │   │       └── runner.py        # Executes one queued import
 │   ├── tests/
 │   │   ├── conftest.py          # Shared fixtures and feature builder
-│   │   ├── fixtures/            # A real feed response, captured once
+│   │   ├── fixtures/            # Real feed responses, captured once
 │   │   ├── test_api.py
 │   │   ├── test_filters.py
+│   │   ├── test_ingv.py
 │   │   ├── test_jobs.py
 │   │   ├── test_repository.py
 │   │   ├── test_summary.py

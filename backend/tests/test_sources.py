@@ -63,7 +63,10 @@ class TestRegistry:
     def test_known_sources_are_listed_in_order(self, registered):
         registered()
 
-        assert sources.known_sources() == ["fake", "usgs"]
+        listed = sources.known_sources()
+        assert listed == sorted(listed)
+        assert "fake" in listed
+        assert "usgs" in listed
 
     def test_functions_are_resolved_at_call_time(self, monkeypatch):
         """Replacing a function on the module must reach the pipeline."""

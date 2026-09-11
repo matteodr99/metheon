@@ -25,8 +25,7 @@ _UPSERT_EARTHQUAKE = """
         %(longitude)s, %(latitude)s, %(depth_km)s, %(tsunami)s,
         %(significance)s, %(url)s
     )
-    ON CONFLICT (external_id) DO UPDATE SET
-        dataset_id = EXCLUDED.dataset_id,
+    ON CONFLICT (dataset_id, external_id) DO UPDATE SET
         magnitude = EXCLUDED.magnitude,
         magnitude_type = EXCLUDED.magnitude_type,
         place = EXCLUDED.place,
@@ -148,11 +147,12 @@ def upsert_earthquakes(
     dataset_id: int,
     records: List[Dict[str, Any]],
 ) -> Tuple[int, int]:
-    """Insert or update earthquakes, keyed by their USGS id.
+    """Insert or update earthquakes, keyed by dataset and source id.
 
     Returns the `(inserted, updated)` counts. Re-running an ingestion is
     therefore idempotent: an event already stored is refreshed in place
-    rather than duplicated.
+    rather than duplicated. The key includes the dataset, so two sources
+    reporting the same id do not collide.
     """
     inserted = 0
     updated = 0

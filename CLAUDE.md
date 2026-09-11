@@ -71,7 +71,9 @@ metheon/
 │   │   └── ingestion/
 │   │       ├── __init__.py
 │   │       ├── sources.py
+│   │       ├── geojson.py
 │   │       ├── usgs.py
+│   │       ├── ingv.py
 │   │       └── runner.py
 │   ├── tests/
 │   │   ├── conftest.py
@@ -281,7 +283,7 @@ Table: `earthquakes`
 CREATE TABLE IF NOT EXISTS earthquakes (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    external_id VARCHAR(64) NOT NULL UNIQUE,
+    external_id VARCHAR(64) NOT NULL,
     magnitude NUMERIC(5, 2),
     magnitude_type VARCHAR(20),
     place TEXT,
@@ -294,12 +296,15 @@ CREATE TABLE IF NOT EXISTS earthquakes (
     tsunami BOOLEAN NOT NULL DEFAULT FALSE,
     significance INTEGER,
     url TEXT,
-    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (dataset_id, external_id)
 );
 ```
 
-Timestamps are stored as naive UTC, converted from the epoch milliseconds the
-feed provides. `magnitude` is nullable because the feed legitimately omits it.
+Timestamps are stored as naive UTC. `magnitude` is nullable because a feed
+can legitimately omit it. Uniqueness of `external_id` is per dataset, not
+global: an id is only unique within its source, and the upsert conflicts on
+`(dataset_id, external_id)`.
 
 Table: `imports`
 
@@ -482,6 +487,20 @@ no longer registered fails its run with the reason recorded, and the ingest
 endpoint refuses to queue one with `422`.
 
 Nothing else in the pipeline knows which sources exist.
+
+Registered: `usgs` and `ingv`. Both publish GeoJSON point features, so the
+envelope checks — id, geometry, coordinate ranges, duplicate ids in one feed
+— live once in `geojson.py`; each module maps only its own properties. INGV
+ids are integers, times ISO 8601 and magnitude types mixed case, all
+normalized to match USGS so the two share one table and one set of filters.
+
+INGV answers a query, not a feed: `ingv.with_time_window` adds a `starttime`
+for the last `INGV_DAYS` unless the url already has one. The base url is what
+`imports.feed_url` records.
+
+The same earthquake appears in both sources with different ids, magnitudes
+and epicentres. Datasets keep their own copies; reconciling agencies is an
+analysis problem and is not attempted at ingestion.
 
 ## Asynchronous processing
 

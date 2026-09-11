@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS datasets (
 CREATE TABLE IF NOT EXISTS earthquakes (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    external_id VARCHAR(64) NOT NULL UNIQUE,
+    external_id VARCHAR(64) NOT NULL,
     magnitude NUMERIC(5, 2),
     magnitude_type VARCHAR(20),
     place TEXT,
@@ -23,7 +23,12 @@ CREATE TABLE IF NOT EXISTS earthquakes (
     tsunami BOOLEAN NOT NULL DEFAULT FALSE,
     significance INTEGER,
     url TEXT,
-    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- An id is unique within its source, not across sources: two agencies
+    -- can use the same id for different events, and the same event carries
+    -- a different id at each agency. Scoping by dataset makes the upsert
+    -- idempotent per dataset and lets sources coexist.
+    UNIQUE (dataset_id, external_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_earthquakes_occurred_at
