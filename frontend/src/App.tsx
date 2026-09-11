@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { fetchDatasets, type Dataset } from './api'
 import { EarthquakeBrowser } from './EarthquakeBrowser'
+import { IngestionPanel } from './IngestionPanel'
 import { ThemeToggle } from './ThemeToggle'
 
 function DatasetCard({
@@ -37,14 +38,16 @@ function App() {
   const [datasets, setDatasets] = useState<Dataset[] | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Bumped when a run finishes, so the browser below re-reads its data.
+  const [dataVersion, setDataVersion] = useState(0)
 
-  useEffect(() => {
+  const loadDatasets = useCallback((selectFirst: boolean) => {
     fetchDatasets()
       .then((loaded) => {
         setDatasets(loaded)
         // With a single dataset, making the user click it first would be
         // ceremony; select it and show its events straight away.
-        if (loaded.length === 1) {
+        if (selectFirst && loaded.length === 1) {
           setSelectedId(loaded[0].id)
         }
       })
@@ -52,6 +55,17 @@ function App() {
         setError(cause instanceof Error ? cause.message : String(cause))
       })
   }, [])
+
+  useEffect(() => {
+    loadDatasets(true)
+  }, [loadDatasets])
+
+  // A finished run changes the dataset's status badge and its events, so
+  // both the list and the browser are refreshed.
+  const handleRunFinished = useCallback(() => {
+    loadDatasets(false)
+    setDataVersion((version) => version + 1)
+  }, [loadDatasets])
 
   const selected = datasets?.find((dataset) => dataset.id === selectedId) ?? null
 
@@ -94,7 +108,8 @@ function App() {
       {selected !== null && (
         <section className="panel">
           <h2>{selected.name}</h2>
-          <EarthquakeBrowser datasetId={selected.id} />
+          <IngestionPanel datasetId={selected.id} onRunFinished={handleRunFinished} />
+          <EarthquakeBrowser datasetId={selected.id} dataVersion={dataVersion} />
         </section>
       )}
     </main>

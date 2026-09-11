@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-import type { Dataset, Earthquake, Page, Summary } from '../api'
+import type { Dataset, Earthquake, ImportRun, Page, Summary } from '../api'
 
 export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
   return {
@@ -61,6 +61,26 @@ export function makeSummary(overrides: Partial<Summary> = {}): Summary {
   }
 }
 
+export function makeImportRun(overrides: Partial<ImportRun> = {}): ImportRun {
+  return {
+    id: 1,
+    dataset_id: 1,
+    status: 'completed',
+    feed_url: 'https://example.invalid/feed',
+    queued_at: '2026-09-11T09:10:50',
+    started_at: '2026-09-11T09:10:50.500',
+    finished_at: '2026-09-11T09:10:51.200',
+    fetched: 2155,
+    valid: 2155,
+    invalid: 0,
+    inserted: 0,
+    updated: 2155,
+    invalid_sample: null,
+    error: null,
+    ...overrides,
+  }
+}
+
 /** A promise whose resolution the test controls, for ordering requests. */
 export function deferred<T>() {
   let resolve!: (value: T) => void
@@ -83,7 +103,12 @@ interface FetchCall {
  */
 export function mockFetch(
   respond: (url: string) => unknown | Promise<unknown>,
-  { ok = true, status = 200, summary = makeSummary() } = {},
+  {
+    ok = true,
+    status = 200,
+    summary = makeSummary(),
+    imports = [] as ImportRun[],
+  } = {},
 ) {
   const calls: FetchCall[] = []
 
@@ -91,10 +116,18 @@ export function mockFetch(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       calls.push({ url, signal: init?.signal ?? undefined })
-      // The summary panel is rendered alongside the table, so it fetches
-      // too. Serving it here keeps every test from having to route a URL it
-      // does not care about; pass `summary` to control it.
-      const body = url.includes('/summary') ? summary : await respond(url)
+      // The summary and ingestion panels are rendered alongside the table,
+      // so they fetch too. Serving them here keeps every test from having to
+      // route URLs it does not care about; pass `summary` or `imports` to
+      // control them.
+      let body: unknown
+      if (url.includes('/summary')) {
+        body = summary
+      } else if (url.includes('/imports')) {
+        body = { dataset_id: 1, total: imports.length, limit: 5, offset: 0, filters: {}, items: imports }
+      } else {
+        body = await respond(url)
+      }
       if (init?.signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError')
       }

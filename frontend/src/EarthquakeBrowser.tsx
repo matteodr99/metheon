@@ -20,7 +20,14 @@ function formatMagnitude(earthquake: Earthquake): string {
   return `${earthquake.magnitude.toFixed(1)}${type ? ` ${type}` : ''}`
 }
 
-export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
+export function EarthquakeBrowser({
+  datasetId,
+  dataVersion = 0,
+}: {
+  datasetId: number
+  /** Changes when the stored data changed, forcing a re-read. */
+  dataVersion?: number
+}) {
   // `form` is what the user is typing; `applied` is what the last request
   // used. Keeping them apart avoids a request per keystroke.
   const [form, setForm] = useState<EarthquakeFilters>(EMPTY_FILTERS)
@@ -30,7 +37,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
   // The result carries the query it answers. Loading is then derived rather
   // than tracked in its own flag, which cannot drift out of step with what
   // is on screen.
-  const query = JSON.stringify([datasetId, applied, offset])
+  const query = JSON.stringify([datasetId, applied, offset, dataVersion])
   const [result, setResult] = useState<{
     query: string
     page: Page<Earthquake> | null
@@ -62,7 +69,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
       })
 
     return () => controller.abort()
-  }, [datasetId, applied, offset, query])
+  }, [datasetId, applied, offset, dataVersion, query])
 
   function update(name: keyof EarthquakeFilters, value: string) {
     setForm((current) => ({ ...current, [name]: value }))
@@ -146,7 +153,7 @@ export function EarthquakeBrowser({ datasetId }: { datasetId: number }) {
 
       {/* Given the applied filters, not the ones being typed, so the
           numbers always describe the table below. */}
-      <SummaryPanel datasetId={datasetId} filters={applied} />
+      <SummaryPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
 
       {error !== null && (
         <p role="alert" className="error">

@@ -59,6 +59,30 @@ export const EMPTY_FILTERS: EarthquakeFilters = {
   event_type: '',
 }
 
+export type ImportStatus = 'queued' | 'processing' | 'completed' | 'failed'
+
+export interface ImportRun {
+  id: number
+  dataset_id: number
+  status: ImportStatus
+  feed_url: string
+  queued_at: string
+  started_at: string | null
+  finished_at: string | null
+  fetched: number
+  valid: number
+  invalid: number
+  inserted: number
+  updated: number
+  invalid_sample: string | null
+  error: string | null
+}
+
+/** A run still in flight: the history must keep being polled. */
+export function isActive(run: ImportRun): boolean {
+  return run.status === 'queued' || run.status === 'processing'
+}
+
 export interface Summary {
   dataset_id: number
   filters: Record<string, string | number>
@@ -77,9 +101,34 @@ export interface Summary {
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal })
   if (!response.ok) {
-    throw new Error(`The API answered ${response.status}`)
+    throw new Error(await describeFailure(response))
   }
   return response.json()
+}
+
+async function postJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { method: 'POST', signal })
+  if (!response.ok) {
+    throw new Error(await describeFailure(response))
+  }
+  return response.json()
+}
+
+/**
+ * The API explains refusals in a `detail` field. Surfacing it turns "503"
+ * into "Could not enqueue the import: Redis is down", which is what a
+ * person needs to read.
+ */
+async function describeFailure(response: Response): Promise<string> {
+  try {
+    const body = await response.json()
+    if (body && typeof body.detail === 'string') {
+      return `The API answered ${response.status}: ${body.detail}`
+    }
+  } catch {
+    // Not JSON; fall through to the bare status.
+  }
+  return `The API answered ${response.status}`
 }
 
 export function fetchDatasets(signal?: AbortSignal): Promise<Dataset[]> {
@@ -129,4 +178,22 @@ function queryFor(
     }
   }
   return query.toString()
+}
+
+export function fetchImports(
+  datasetId: number,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<Page<ImportRun>> {
+  return getJson<Page<ImportRun>>(
+    `/api/datasets/${datasetId}/imports?limit=${limit}&offset=0`,
+    signal,
+  )
+}
+
+export function startIngestion(
+  datasetId: number,
+  signal?: AbortSignal,
+): Promise<{ import_id: number; dataset_id: number; status: ImportStatus }> {
+  return postJson(`/api/datasets/${datasetId}/ingest`, signal)
 }

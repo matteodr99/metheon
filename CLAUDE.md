@@ -129,6 +129,7 @@ metheon/
 │   │   ├── api.ts
 │   │   ├── App.tsx
 │   │   ├── EarthquakeBrowser.tsx
+│   │   ├── IngestionPanel.tsx
 │   │   ├── Summary.tsx
 │   │   ├── BarChart.tsx
 │   │   ├── index.css
@@ -576,8 +577,15 @@ for a deployment that has not been designed yet.
 Node is a local development tool. It does not go in Docker Compose, and the
 frontend is not containerized.
 
-Implemented so far: the dataset list, and a browser for one dataset's events
-with the five API filters and paging.
+Implemented so far: the dataset list, a browser for one dataset's events
+with the five API filters and paging, and an ingestion panel that starts a
+run and follows it.
+
+The panel polls `/imports` only while a run is in flight, and reports a run
+finishing exactly once, through `onRunFinished`; `App` answers by bumping a
+`dataVersion` that the browser and the summary carry in their query key, so
+everything re-reads. The refresh wiring is covered by an App-level test:
+the panel's own tests could not catch its absence.
 
 Two details in `EarthquakeBrowser` are deliberate. Filters apply on submit,
 not on every keystroke, so typing does not fire a request per character. And

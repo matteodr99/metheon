@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from './App'
@@ -94,5 +94,65 @@ describe('selecting a dataset', () => {
     expect(
       calls.some((call) => call.url.startsWith('/api/datasets/2/earthquakes')),
     ).toBe(true)
+  })
+})
+
+describe('after an ingestion finishes', () => {
+  it('re-reads the events, the summary and the dataset list', async () => {
+    /**
+     * A finished run changes the stored data and the dataset badge, so the
+     * browser below and the cards above must both fetch again. This checks
+     * the wiring from the panel's callback through App to the browser.
+     */
+    vi.useFakeTimers()
+    try {
+      const { POLL_INTERVAL_MS } = await import('./IngestionPanel')
+      const { makeImportRun } = await import('./test/helpers')
+      const state = {
+        runs: [makeImportRun({ status: 'processing', finished_at: null })],
+      }
+      const calls: string[] = []
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input)
+          calls.push(url)
+          let body: unknown
+          if (url === '/api/datasets') {
+            body = [makeDataset({ name: 'Quakes' })]
+          } else if (url.includes('/imports')) {
+            body = { dataset_id: 1, total: 1, limit: 5, offset: 0, filters: {}, items: state.runs }
+          } else if (url.includes('/summary')) {
+            const { makeSummary } = await import('./test/helpers')
+            body = makeSummary()
+          } else {
+            body = makePage([makeEarthquake({ place: 'an event' })])
+          }
+          return { ok: true, status: 200, json: async () => body } as Response
+        }),
+      )
+
+      render(<App />)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      const count = (needle: string) => calls.filter((url) => url.includes(needle)).length
+      const exact = (target: string) => calls.filter((url) => url === target).length
+      const eventsBefore = count('/earthquakes?')
+      const summaryBefore = count('/summary')
+      const datasetsBefore = exact('/api/datasets')
+      expect(eventsBefore).toBeGreaterThan(0)
+
+      state.runs = [makeImportRun({ status: 'completed' })]
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
+      })
+
+      expect(count('/earthquakes?')).toBeGreaterThan(eventsBefore)
+      expect(count('/summary')).toBeGreaterThan(summaryBefore)
+      expect(exact('/api/datasets')).toBeGreaterThan(datasetsBefore)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

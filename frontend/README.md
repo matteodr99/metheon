@@ -43,6 +43,7 @@ src/
 ├── api.ts                  # Types and fetch helpers for the API
 ├── App.tsx                 # Dataset list and selection
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
+├── IngestionPanel.tsx      # Ingest button, latest run, history
 ├── Summary.tsx             # Tiles and charts for the current filters
 ├── BarChart.tsx            # Hand-written SVG bar chart
 ├── ThemeToggle.tsx         # Light / dark / system
@@ -68,6 +69,20 @@ The interesting cases are the ones that are easy to get wrong: filters apply
 on submit rather than per keystroke, a slow response cannot replace a newer
 one, and the caption counts the page on screen rather than the one being
 fetched.
+
+## Ingestion from the dashboard
+
+`IngestionPanel` starts a run with `POST /ingest` and shows the latest run
+and the recent history from `GET /imports`. While a run is `queued` or
+`processing` the history is polled every `POLL_INTERVAL_MS`; an idle
+dashboard does not poll at all. When a run reaches a final state the panel
+calls `onRunFinished` exactly once, and `App` bumps a `dataVersion` that the
+browser and the summary include in their query key, so the table, the charts
+and the dataset badge all re-read. A run already finished when the page loads
+does not count as finishing.
+
+The API explains refusals in a `detail` field; the client surfaces it, so a
+queue outage reads as the reason rather than as a bare 503.
 
 ## Charts
 

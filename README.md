@@ -15,8 +15,9 @@ public datasets and does not handle personal or sensitive user data.
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
 > worker ingest USGS earthquake data asynchronously, with every run recorded.
 > The API supports filtering and aggregation, and a React dashboard browses
-> the events with filters, paging and charts. The AI layer is not implemented
-> yet — see [Roadmap](#roadmap).
+> the events with filters, paging and charts, and starts ingestions and
+> follows them to completion. The AI layer is not implemented yet — see
+> [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -490,8 +491,10 @@ curl -X POST http://127.0.0.1:8000/api/datasets/1/ingest
 }
 ```
 
-Follow the run through `GET /api/datasets/{id}/imports`, or watch the worker
-with `docker compose logs -f worker`. The dataset `status` mirrors the latest
+Follow the run through `GET /api/datasets/{id}/imports`, watch the worker
+with `docker compose logs -f worker`, or press **Ingest now** in the
+dashboard, which polls the history until the run finishes and then re-reads
+the data. The dataset `status` mirrors the latest
 run: `queued`, then `processing`, then `completed` or `failed`.
 
 Requesting an unknown dataset returns `404`. If Redis cannot be reached the
@@ -631,6 +634,7 @@ metheon/
 │   │   ├── api.ts               # Types and fetch helpers for the API
 │   │   ├── App.tsx              # Dataset list and selection
 │   │   ├── EarthquakeBrowser.tsx # Filters, table and pagination
+│   │   ├── IngestionPanel.tsx   # Ingest button, latest run, history
 │   │   ├── Summary.tsx          # Tiles and charts
 │   │   ├── BarChart.tsx         # Hand-written SVG, no charting library
 │   │   ├── index.css

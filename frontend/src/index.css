@@ -525,3 +525,42 @@ td a:hover {
   box-shadow: var(--shadow);
   color: var(--text);
 }
+
+/* ---------- ingestion ---------- */
+
+.ingestion {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: calc(var(--step) * 3);
+  padding-bottom: calc(var(--step) * 2);
+}
+
+.ingestion-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) * 1.5);
+}
+
+.ingestion-latest {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.85rem;
+  gap: var(--step);
+}
+
+.ingestion-history {
+  margin-top: calc(var(--step) * 1.5);
+}
+
+.ingestion-history summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-bottom: var(--step);
+  user-select: none;
+}
+
+.run-error {
+  color: var(--bad-text);
+  font-size: 0.8rem;
+}

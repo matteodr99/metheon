@@ -28,11 +28,13 @@ function shortDay(day: string): string {
 export function SummaryPanel({
   datasetId,
   filters,
+  dataVersion = 0,
 }: {
   datasetId: number
   filters: EarthquakeFilters
+  dataVersion?: number
 }) {
-  const query = JSON.stringify([datasetId, filters])
+  const query = JSON.stringify([datasetId, filters, dataVersion])
   const [result, setResult] = useState<{
     query: string
     summary: Summary | null
@@ -52,7 +54,7 @@ export function SummaryPanel({
       })
 
     return () => controller.abort()
-  }, [datasetId, filters, query])
+  }, [datasetId, filters, dataVersion, query])
 
   const summary = result?.query === query ? result.summary : null
   if (summary === null) {
