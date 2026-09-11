@@ -69,6 +69,11 @@ refreshes existing events in place instead of duplicating them. Feeds also
 include non-earthquake events such as quarry blasts and explosions; these are
 stored as well and can be told apart through the `event_type` column.
 
+USGS is the only source today, but it is not wired in: a dataset names its
+source, and `backend/app/ingestion/sources.py` maps that name to the module
+that fetches and normalizes it. Adding a source means writing such a module
+and registering it there.
+
 [usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
 ## Prerequisites
@@ -224,6 +229,25 @@ curl http://127.0.0.1:8000/api/health
 {"status": "ok", "service": "metheon", "database": true, "queue": true}
 ```
 
+### `GET /api/sources`
+
+Lists the sources a dataset can be created for, with the feed each one
+ingests by default.
+
+```bash
+curl http://127.0.0.1:8000/api/sources
+```
+
+```json
+[
+  {
+    "key": "usgs",
+    "name": "USGS Earthquake Hazards Program",
+    "default_feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson"
+  }
+]
+```
+
 ### `GET /api/datasets`
 
 Returns all datasets stored in PostgreSQL, ordered by id.
@@ -269,6 +293,10 @@ Request fields:
 
 `id`, `created_at` and `status` are assigned by the database and must not be
 supplied by the client.
+
+`source` must be one of the keys returned by `GET /api/sources`, matched
+case-insensitively. An unknown source returns `422` listing the known ones:
+refusing it here beats accepting a dataset that can never be imported.
 
 ### `GET /api/datasets/{id}/earthquakes`
 
@@ -548,7 +576,8 @@ metheon/
 │   │   │   ├── repository.py    # All SQL, kept out of route handlers
 │   │   │   └── init.sql         # Schema, executed on first container start
 │   │   └── ingestion/
-│   │       ├── __init__.py
+│   │       ├── __init__.py      # The shared IngestionError
+│   │       ├── sources.py       # Registry: source key → module
 │   │       ├── usgs.py          # Feed fetching, validation, normalization
 │   │       └── runner.py        # Executes one queued import
 │   ├── tests/
@@ -560,6 +589,7 @@ metheon/
 │   │   ├── test_repository.py
 │   │   ├── test_summary.py
 │   │   ├── test_runner.py
+│   │   ├── test_sources.py
 │   │   ├── test_usgs_fetch.py
 │   │   ├── test_usgs_normalization.py
 │   │   └── test_worker.py

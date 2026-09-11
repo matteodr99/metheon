@@ -13,16 +13,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
+from app.ingestion import IngestionError
+
 DEFAULT_FEED_URL = os.getenv(
     "USGS_FEED_URL",
     "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
 )
 
 DEFAULT_TIMEOUT_SECONDS = float(os.getenv("USGS_TIMEOUT_SECONDS", "30"))
-
-
-class IngestionError(Exception):
-    """Raised when the feed cannot be retrieved or is not usable."""
 
 
 def fetch_feed(

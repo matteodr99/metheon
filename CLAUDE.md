@@ -70,6 +70,7 @@ metheon/
 │   │   │   └── init.sql
 │   │   └── ingestion/
 │   │       ├── __init__.py
+│   │       ├── sources.py
 │   │       ├── usgs.py
 │   │       └── runner.py
 │   ├── tests/
@@ -170,6 +171,10 @@ Expected response:
 }
 ```
 
+### GET /api/sources
+
+Lists the registered sources: key, name and default feed url.
+
 ### GET /api/datasets
 
 Returns the datasets currently stored in PostgreSQL.
@@ -189,6 +194,9 @@ Request model:
 ```
 
 `status` is assigned by the database and must not currently be supplied by the client.
+
+`source` must match a key in the registry, case-insensitively; an unknown
+source is refused with `422`.
 
 ### GET /api/datasets/{id}/earthquakes
 
@@ -453,6 +461,27 @@ PostgreSQL
 ```
 
 Redis and the worker are planned, not yet implemented.
+
+## Sources
+
+`app/ingestion/sources.py` is the registry: it maps a source key to the module
+that implements it. A source module provides `DEFAULT_FEED_URL`,
+`fetch_feed(url, timeout)` and `normalize_feed(payload)`, and raises the
+shared `app.ingestion.IngestionError` when its feed is unusable.
+
+The registry resolves those functions on the module at call time rather than
+capturing them. That keeps each module the one place its behaviour lives, and
+it is what lets a test replace `usgs.fetch_feed` and have the runner honour
+it — capturing the reference at import broke every runner test the first
+time round.
+
+`datasets.source` is the key. Existing rows say `USGS`; the lookup is
+case-insensitive so they keep working. The runner reads the dataset's source
+for each run and dispatches through the registry; a dataset whose source is
+no longer registered fails its run with the reason recorded, and the ingest
+endpoint refuses to queue one with `422`.
+
+Nothing else in the pipeline knows which sources exist.
 
 ## Asynchronous processing
 

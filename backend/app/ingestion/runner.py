@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 from app.db import repository
 from app.db.database import get_connection
-from app.ingestion import usgs
+from app.ingestion import IngestionError, sources
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,10 @@ MAX_STORED_ERRORS = 10
 
 class UnknownImport(Exception):
     """Raised when a queued id has no matching row."""
+
+
+class UnknownSource(Exception):
+    """Raised when a dataset names a source the registry does not know."""
 
 
 def _fail(import_id: int, dataset_id: int, error: str) -> None:
@@ -52,6 +56,18 @@ def run_import(import_id: int) -> Dict[str, Any]:
     feed_url = import_run["feed_url"]
 
     with get_connection() as connection:
+        dataset = repository.get_dataset(connection, dataset_id)
+    source = sources.get_source(dataset["source"]) if dataset else None
+    if source is None:
+        # Recorded as a failure rather than raised silently: the run exists
+        # in the history and must say why nothing happened.
+        reason = "Unknown source {0!r} for dataset {1}".format(
+            dataset["source"] if dataset else None, dataset_id
+        )
+        _fail(import_id, dataset_id, reason)
+        raise UnknownSource(reason)
+
+    with get_connection() as connection:
         repository.start_import(connection, import_id)
     with get_connection() as connection:
         repository.set_dataset_status(
@@ -59,22 +75,23 @@ def run_import(import_id: int) -> Dict[str, Any]:
         )
 
     logger.info(
-        "import %s: starting for dataset %s from %s",
+        "import %s: starting for dataset %s (%s) from %s",
         import_id,
         dataset_id,
+        source.key,
         feed_url,
     )
 
     try:
-        payload = usgs.fetch_feed(url=feed_url)
-        records, errors = usgs.normalize_feed(payload)
+        payload = source.fetch_feed(url=feed_url)
+        records, errors = source.normalize_feed(payload)
         fetched = len(payload.get("features", []))
 
         with get_connection() as connection:
             inserted, updated = repository.upsert_earthquakes(
                 connection, dataset_id, records
             )
-    except usgs.IngestionError as exc:
+    except IngestionError as exc:
         logger.warning("import %s: failed, %s", import_id, exc)
         _fail(import_id, dataset_id, str(exc))
         raise

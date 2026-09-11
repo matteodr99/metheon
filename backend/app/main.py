@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from app.db.database import get_connection
 from app.db import repository
 from app import jobs
-from app.ingestion import usgs
+from app.ingestion import sources
 
 from datetime import datetime
 from typing import Any, Optional
@@ -19,6 +19,18 @@ class DatasetCreate(BaseModel):
 
 
 app = FastAPI(title="Metheon API")
+
+
+def _get_source_or_422(source: str) -> sources.Source:
+    found = sources.get_source(source)
+    if found is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Unknown source {0!r}. Known sources: {1}".format(
+                source, ", ".join(sources.known_sources())
+            ),
+        )
+    return found
 
 
 def _get_dataset_or_404(connection, dataset_id: int):
@@ -104,6 +116,19 @@ def health_check():
     }
 
 
+@app.get("/api/sources")
+def get_sources():
+    """The sources a dataset can be created for."""
+    return [
+        {
+            "key": source.key,
+            "name": source.name,
+            "default_feed_url": source.default_feed_url,
+        }
+        for source in sorted(sources.SOURCES.values(), key=lambda s: s.key)
+    ]
+
+
 @app.get("/api/datasets")
 def get_datasets():
     with get_connection() as connection:
@@ -112,6 +137,13 @@ def get_datasets():
 
 @app.post("/api/datasets")
 def create_dataset(dataset: DatasetCreate):
+    """Create a dataset. Its source must be one the platform can ingest.
+
+    Refusing an unknown source here is kinder than accepting a dataset that
+    can never be imported and letting the failure surface later.
+    """
+    _get_source_or_422(dataset.source)
+
     with get_connection() as connection:
         return repository.create_dataset(
             connection,
@@ -208,10 +240,15 @@ def ingest_dataset(dataset_id: int):
     and does the work. Follow its progress through
     `GET /api/datasets/{id}/imports`, or the dataset status.
     """
-    feed_url = usgs.DEFAULT_FEED_URL
+    with get_connection() as connection:
+        dataset = _get_dataset_or_404(connection, dataset_id)
+
+    # A dataset created before sources were validated could name one the
+    # registry does not know; that is reported here rather than left to
+    # fail inside the worker.
+    feed_url = _get_source_or_422(dataset["source"]).default_feed_url
 
     with get_connection() as connection:
-        _get_dataset_or_404(connection, dataset_id)
         import_id = repository.create_import(connection, dataset_id, feed_url)
 
     try:
