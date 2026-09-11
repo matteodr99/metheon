@@ -54,11 +54,15 @@ through `GET /api/datasets/{id}/imports`.
 ## Data source
 
 Metheon ingests the public [USGS earthquake feeds][usgs], which require no
-authentication and contain no personal data:
+authentication and contain no personal data. The default is the past week:
 
 ```text
-https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson
+https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson
 ```
+
+The other windows share the same structure and can be set through
+`USGS_FEED_URL`: `all_day` is a few hundred events, `all_month` over ten
+thousand.
 
 Each event carries a stable USGS id, so ingestion is idempotent: re-running it
 refreshes existing events in place instead of duplicating them. Feeds also
@@ -182,7 +186,7 @@ project runs out of the box without any configuration.
 | `POSTGRES_DB` | `metheon` | Database name |
 | `POSTGRES_USER` | `metheon` | Database user |
 | `POSTGRES_PASSWORD` | `metheon` | Database password |
-| `USGS_FEED_URL` | `…/all_day.geojson` | GeoJSON feed used by the ingestion |
+| `USGS_FEED_URL` | `…/all_week.geojson` | GeoJSON feed used by the ingestion; `all_day` and `all_month` also work |
 | `USGS_TIMEOUT_SECONDS` | `30` | HTTP timeout for the feed request |
 | `REDIS_HOST` | `localhost` | Redis host (`redis` inside Compose) |
 | `REDIS_PORT` | `6379` | Redis port |
@@ -431,7 +435,7 @@ curl -X POST http://127.0.0.1:8000/api/datasets/1/ingest
   "import_id": 5,
   "dataset_id": 1,
   "status": "queued",
-  "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
+  "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson"
 }
 ```
 
