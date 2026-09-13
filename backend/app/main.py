@@ -1,4 +1,7 @@
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+import logging
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg
 
@@ -21,6 +24,46 @@ class DatasetCreate(BaseModel):
 
 
 app = FastAPI(title="Metheon API")
+
+logger = logging.getLogger("app.api")
+
+
+@app.exception_handler(psycopg.OperationalError)
+def database_unavailable(request: Request, exc: psycopg.OperationalError):
+    """An unreachable database is a 503, on every route.
+
+    The service is running; a dependency is not. 503 tells the client to
+    try again, which is the truth — a 500 would say the request itself is
+    broken.
+    """
+    logger.warning("%s %s: database unavailable: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The database is unavailable"},
+    )
+
+
+@app.exception_handler(Exception)
+def unexpected_failure(request: Request, exc: Exception):
+    """Anything unforeseen is a 500 with a fixed body.
+
+    The traceback goes to the log, where someone can act on it, and never to
+    the client, where it would only leak internals.
+    """
+    # exc_info is passed explicitly: this handler runs outside the `except`
+    # block that caught the error, so logger.exception() would find no
+    # active exception and log "NoneType: None" instead of the traceback.
+    logger.error(
+        "%s %s: unhandled %s",
+        request.method,
+        request.url.path,
+        type(exc).__name__,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 def _get_source_or_422(source: str) -> sources.Source:

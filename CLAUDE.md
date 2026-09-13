@@ -520,6 +520,24 @@ PostgreSQL
 
 Redis and the worker are planned, not yet implemented.
 
+## Error handling
+
+Two exception handlers in `main.py` cover every route:
+
+- `psycopg.OperationalError` → **503** `{"detail": "The database is
+  unavailable"}`. The service is up, a dependency is not; 503 says "try
+  again", 500 would say the request is broken.
+- `Exception` → **500** with a fixed body. The traceback goes to the
+  `app.api` logger and never to the client.
+
+The catch-all passes `exc_info=exc` explicitly. Starlette calls handlers
+outside the `except` block that caught the error, so `logger.exception()`
+finds no active exception and logs `NoneType: None` — the traceback would
+be lost. A test asserts it is present in the log.
+
+`HTTPException` keeps its own code past the catch-all; FastAPI handles it
+first.
+
 ## Sources
 
 `app/ingestion/sources.py` is the registry: it maps a source key to the module
@@ -573,8 +591,12 @@ after `QUEUE_RETRY_DELAY_SECONDS`. Retrying without that pause spins the loop
 at full speed — it produced over 110,000 log lines in five seconds before the
 backoff was added.
 
-Known limitation: a worker killed mid-run leaves its import row at
-`processing`. There is no reaper for stale runs.
+A worker killed mid-run leaves its import at `processing`. On startup the
+worker fails any run at `processing` for longer than `STALE_RUN_MINUTES`
+(`repository.fail_stale_imports`), with the reason recorded, and corrects
+the dataset's status only when that run is its latest. The threshold is
+there for a future with several workers, where a run at `processing` may
+belong to another one. The sweep failing is logged, not fatal.
 
 ## Frontend
 
@@ -695,7 +717,7 @@ Prefer structured AI responses where practical, for example:
 ### Phase 5 — Engineering quality
 - [x] Automated tests
 - [~] Logging (the worker logs; the API does not yet)
-- [ ] Error handling
+- [x] Error handling
 - [x] Health/readiness checks
 - [ ] Docker optimization
 - [x] GitHub Actions

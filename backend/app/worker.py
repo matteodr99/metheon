@@ -15,6 +15,8 @@ import sys
 import time
 
 from app import jobs
+from app.db import repository
+from app.db.database import get_connection
 from app.ingestion.runner import UnknownImport, run_import
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -23,6 +25,11 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # it the loop spins as fast as the failures come back, flooding the logs and
 # burning CPU for as long as the outage lasts.
 RETRY_DELAY_SECONDS = float(os.getenv("QUEUE_RETRY_DELAY_SECONDS", "5"))
+
+# A run still at `processing` after this long was abandoned by a worker that
+# died. The threshold exists for the day there is more than one worker: a
+# run another worker is actually processing must not be failed under it.
+STALE_RUN_MINUTES = int(os.getenv("STALE_RUN_MINUTES", "15"))
 
 logger = logging.getLogger("app.worker")
 
@@ -61,6 +68,28 @@ class Worker:
 
         return True
 
+    def reap_stale_runs(self) -> None:
+        """Fail runs a previous worker left at `processing`.
+
+        Done once at startup, which is exactly when such runs exist: this
+        process is starting, so whatever it was processing before it went
+        down is not being processed by it now.
+        """
+        try:
+            with get_connection() as connection:
+                stale = repository.fail_stale_imports(connection, STALE_RUN_MINUTES)
+        except Exception:
+            # Not fatal: the queue can still be served. It is logged so the
+            # next restart has a chance to catch it.
+            logger.exception("could not check for abandoned runs")
+            return
+
+        for run in stale:
+            logger.warning(
+                "import %s: abandoned by a previous worker, marked failed",
+                run["id"],
+            )
+
     def run(self) -> None:
         logger.info(
             "worker started, queue %s on %s:%s",
@@ -68,6 +97,7 @@ class Worker:
             jobs.REDIS_HOST,
             jobs.REDIS_PORT,
         )
+        self.reap_stale_runs()
         while self.running:
             try:
                 self.run_once()

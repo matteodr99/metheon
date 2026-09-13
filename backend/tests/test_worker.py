@@ -29,6 +29,13 @@ def loop(monkeypatch):
     monkeypatch.setattr(jobs, "dequeue_import", fake_dequeue)
     monkeypatch.setattr(worker, "run_import", fake_run_import)
 
+    # The startup sweep for abandoned runs opens a database connection. The
+    # loop tests are about the loop, so the sweep is recorded, not run.
+    state["reaped"] = 0
+    monkeypatch.setattr(
+        worker.Worker, "reap_stale_runs", lambda self: state.__setitem__("reaped", state["reaped"] + 1)
+    )
+
     instance = worker.Worker(client=object())
     return instance, state
 
@@ -124,3 +131,69 @@ class TestQueueOutage:
         monkeypatch.setattr(instance, "wait", lambda s: instance.request_stop())
 
         instance.run()  # must return rather than raise
+
+
+class TestStartupSweep:
+    def test_the_sweep_runs_once_at_startup(self, loop):
+        instance, state = loop
+        instance.request_stop()
+
+        instance.run()
+
+        assert state["reaped"] == 1
+
+    def test_abandoned_runs_are_reported(self, monkeypatch, caplog):
+        instance = worker.Worker(client=object())
+        stale = [{"id": 7, "dataset_id": 1}, {"id": 9, "dataset_id": 2}]
+
+        class Connection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        monkeypatch.setattr(worker, "get_connection", lambda: Connection())
+        monkeypatch.setattr(
+            worker.repository, "fail_stale_imports", lambda connection, minutes: stale
+        )
+
+        instance.reap_stale_runs()
+
+        assert "import 7: abandoned" in caplog.text
+        assert "import 9: abandoned" in caplog.text
+
+    def test_the_threshold_is_passed_through(self, monkeypatch):
+        instance = worker.Worker(client=object())
+        seen = {}
+
+        class Connection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        monkeypatch.setattr(worker, "get_connection", lambda: Connection())
+        monkeypatch.setattr(
+            worker.repository,
+            "fail_stale_imports",
+            lambda connection, minutes: seen.setdefault("minutes", minutes) and [],
+        )
+
+        instance.reap_stale_runs()
+
+        assert seen["minutes"] == worker.STALE_RUN_MINUTES
+
+    def test_a_failing_sweep_does_not_stop_the_worker(self, monkeypatch, caplog):
+        """The queue can still be served without it."""
+        instance = worker.Worker(client=object())
+
+        def refuse():
+            raise RuntimeError("database down")
+
+        monkeypatch.setattr(worker, "get_connection", refuse)
+
+        instance.reap_stale_runs()  # must return, not raise
+
+        assert "could not check for abandoned runs" in caplog.text

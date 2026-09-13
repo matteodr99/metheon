@@ -510,3 +510,51 @@ def summarize_earthquakes(
         ],
         "by_day": [{"day": row[0], "count": row[1]} for row in by_day],
     }
+
+
+def fail_stale_imports(connection, older_than_minutes: int) -> List[Dict[str, Any]]:
+    """Mark runs stuck at `processing` as failed, and return them.
+
+    A run is only ever `processing` while a worker holds it. One that has
+    been there longer than any run takes was abandoned — the worker died
+    mid-run — and would otherwise sit there forever. The dataset's status
+    is corrected too, but only when the stale run is its latest: a newer
+    run that completed since already says the truth.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE imports
+            SET status = %s,
+                finished_at = CURRENT_TIMESTAMP,
+                error = %s
+            WHERE status = %s
+              AND started_at < CURRENT_TIMESTAMP - make_interval(mins => %s)
+            RETURNING id, dataset_id
+            """,
+            (
+                STATUS_FAILED,
+                "Abandoned: the worker stopped before finishing this run",
+                STATUS_PROCESSING,
+                older_than_minutes,
+            ),
+        )
+        stale = [{"id": row[0], "dataset_id": row[1]} for row in cursor.fetchall()]
+
+        for run in stale:
+            cursor.execute(
+                """
+                UPDATE datasets
+                SET status = %s
+                WHERE id = %s
+                  AND (
+                    SELECT id FROM imports
+                    WHERE dataset_id = %s
+                    ORDER BY queued_at DESC, id DESC
+                    LIMIT 1
+                  ) = %s
+                """,
+                (STATUS_FAILED, run["dataset_id"], run["dataset_id"], run["id"]),
+            )
+
+    return stale

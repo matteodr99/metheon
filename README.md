@@ -223,6 +223,7 @@ project runs out of the box without any configuration.
 | `QUEUE_NAME` | `metheon:imports` | Redis list used as the queue |
 | `QUEUE_BLOCK_TIMEOUT_SECONDS` | `5` | How long the worker blocks on the queue |
 | `QUEUE_RETRY_DELAY_SECONDS` | `5` | Pause before retrying after a Redis outage |
+| `STALE_RUN_MINUTES` | `15` | A run at `processing` longer than this is failed at worker startup |
 | `LOG_LEVEL` | `INFO` | Worker log level |
 | `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
 
@@ -274,6 +275,20 @@ process does not bring the database back.
 
 Kubernetes readiness and liveness probes, and platform health checks, map
 onto these two endpoints directly.
+
+### Errors
+
+Every route answers the same way when things break:
+
+| Situation | Status | Body |
+| --- | --- | --- |
+| Request refused (unknown dataset, bad filter, unknown source) | `404` / `422` | `detail` says why |
+| Redis unreachable when queueing a run | `503` | `detail` says why; the run is recorded as `failed` |
+| PostgreSQL unreachable, on any route | `503` | `{"detail": "The database is unavailable"}` |
+| Anything unforeseen | `500` | `{"detail": "Internal server error"}` — the traceback goes to the log, never to the client |
+
+A 503 means "try again"; a 500 means "this is a bug, and it has been
+logged".
 
 ### `GET /api/sources`
 
@@ -759,6 +774,13 @@ docker compose up -d --build worker
 It stops cleanly on `docker compose stop`: the current job finishes before the
 process exits.
 
+If it is killed instead — `docker kill`, a crash, a lost host — the run it
+was processing stays at `processing`. On its next start the worker fails any
+run that has been at `processing` for longer than `STALE_RUN_MINUTES`, with
+"Abandoned" as the reason, and corrects the dataset's status if that run was
+its latest. The threshold matters once there is more than one worker: a run
+another worker is genuinely processing must not be failed under it.
+
 ### Inspecting the database directly
 
 ```bash
@@ -778,8 +800,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   analysis, with structured responses
 - [ ] **Phase 5 — Engineering quality:** backend and frontend are both
   covered by tests, CI runs everything on every push, the worker logs its
-  work, and the API exposes readiness and liveness checks; API logging,
-  error handling and Docker optimization are still open
+  work, the API exposes readiness and liveness checks and answers failures
+  with the right status, and abandoned runs are reaped; API logging and
+  Docker optimization are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 
