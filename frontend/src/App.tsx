@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchDatasets, type Dataset } from './api'
 import { EarthquakeBrowser } from './EarthquakeBrowser'
 import { IngestionPanel } from './IngestionPanel'
+import { NewDatasetForm } from './NewDatasetForm'
 import { ThemeToggle } from './ThemeToggle'
 
 function DatasetCard({
@@ -67,6 +68,15 @@ function App() {
     setDataVersion((version) => version + 1)
   }, [loadDatasets])
 
+  // A new dataset is what the person wants to look at next.
+  const handleCreated = useCallback(
+    (created: Dataset) => {
+      loadDatasets(false)
+      setSelectedId(created.id)
+    },
+    [loadDatasets],
+  )
+
   const selected = datasets?.find((dataset) => dataset.id === selectedId) ?? null
 
   return (
@@ -85,23 +95,23 @@ function App() {
 
       {error === null && datasets === null && <p className="muted">Loading…</p>}
 
-      {datasets !== null && datasets.length === 0 && (
-        <p className="muted">No datasets yet.</p>
-      )}
-
-      {datasets !== null && datasets.length > 0 && (
+      {datasets !== null && (
         <>
           <p className="section-label">Datasets</p>
-          <div className="datasets">
-            {datasets.map((dataset) => (
-              <DatasetCard
-                key={dataset.id}
-                dataset={dataset}
-                selected={dataset.id === selectedId}
-                onSelect={() => setSelectedId(dataset.id)}
-              />
-            ))}
-          </div>
+          {datasets.length === 0 && <p className="muted">No datasets yet.</p>}
+          {datasets.length > 0 && (
+            <div className="datasets">
+              {datasets.map((dataset) => (
+                <DatasetCard
+                  key={dataset.id}
+                  dataset={dataset}
+                  selected={dataset.id === selectedId}
+                  onSelect={() => setSelectedId(dataset.id)}
+                />
+              ))}
+            </div>
+          )}
+          <NewDatasetForm onCreated={handleCreated} />
         </>
       )}
 

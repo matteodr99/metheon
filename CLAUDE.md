@@ -130,6 +130,7 @@ metheon/
 │   │   ├── App.tsx
 │   │   ├── EarthquakeBrowser.tsx
 │   │   ├── IngestionPanel.tsx
+│   │   ├── NewDatasetForm.tsx
 │   │   ├── Summary.tsx
 │   │   ├── BarChart.tsx
 │   │   ├── index.css
@@ -577,9 +578,10 @@ for a deployment that has not been designed yet.
 Node is a local development tool. It does not go in Docker Compose, and the
 frontend is not containerized.
 
-Implemented so far: the dataset list, a browser for one dataset's events
-with the five API filters and paging, and an ingestion panel that starts a
-run and follows it.
+Implemented so far: the dataset list, a form that creates a dataset for a
+registered source, a browser for one dataset's events with the five API
+filters and paging, and an ingestion panel that starts a run and follows it.
+Every operation the API offers can be done from the browser.
 
 The panel polls `/imports` only while a run is in flight, and reports a run
 finishing exactly once, through `onRunFinished`; `App` answers by bumping a

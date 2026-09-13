@@ -59,6 +59,18 @@ export const EMPTY_FILTERS: EarthquakeFilters = {
   event_type: '',
 }
 
+export interface Source {
+  key: string
+  name: string
+  default_feed_url: string
+}
+
+export interface DatasetCreate {
+  name: string
+  source: string
+  description?: string
+}
+
 export type ImportStatus = 'queued' | 'processing' | 'completed' | 'failed'
 
 export interface ImportRun {
@@ -106,8 +118,21 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return response.json()
 }
 
-async function postJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { method: 'POST', signal })
+async function postJson<T>(
+  url: string,
+  signal?: AbortSignal,
+  payload?: unknown,
+): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    signal,
+    ...(payload === undefined
+      ? {}
+      : {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+  })
   if (!response.ok) {
     throw new Error(await describeFailure(response))
   }
@@ -196,4 +221,15 @@ export function startIngestion(
   signal?: AbortSignal,
 ): Promise<{ import_id: number; dataset_id: number; status: ImportStatus }> {
   return postJson(`/api/datasets/${datasetId}/ingest`, signal)
+}
+
+export function fetchSources(signal?: AbortSignal): Promise<Source[]> {
+  return getJson<Source[]>('/api/sources', signal)
+}
+
+export function createDataset(
+  payload: DatasetCreate,
+  signal?: AbortSignal,
+): Promise<Dataset> {
+  return postJson<Dataset>('/api/datasets', signal, payload)
 }

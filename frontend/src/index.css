@@ -564,3 +564,50 @@ td a:hover {
   color: var(--bad-text);
   font-size: 0.8rem;
 }
+
+/* ---------- new dataset ---------- */
+
+.new-dataset {
+  margin-bottom: calc(var(--step) * 4);
+}
+
+.new-dataset summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.new-dataset-form {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) * 1.5);
+  margin-top: calc(var(--step) * 1.5);
+}
+
+.new-dataset-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  font-weight: 500;
+  gap: 0.3rem;
+}
+
+.new-dataset-form label span {
+  color: var(--muted);
+}
+
+.new-dataset-form label.wide {
+  flex: 1 1 18rem;
+}
+
+.new-dataset-form input,
+.new-dataset-form select {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  padding: 0.4rem 0.55rem;
+}

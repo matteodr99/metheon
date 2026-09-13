@@ -120,6 +120,8 @@ describe('after an ingestion finishes', () => {
           let body: unknown
           if (url === '/api/datasets') {
             body = [makeDataset({ name: 'Quakes' })]
+          } else if (url === '/api/sources') {
+            body = []
           } else if (url.includes('/imports')) {
             body = { dataset_id: 1, total: 1, limit: 5, offset: 0, filters: {}, items: state.runs }
           } else if (url.includes('/summary')) {
@@ -154,5 +156,46 @@ describe('after an ingestion finishes', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('creating a dataset from the dashboard', () => {
+  it('adds it to the list and selects it', async () => {
+    const { makeSource } = await import('./test/helpers')
+    const listed = [makeDataset({ id: 1, name: 'Quakes' })]
+    const created = makeDataset({ id: 2, name: 'Terremoti Italia', source: 'ingv' })
+    const { implementation } = mockFetch(() => [])
+    implementation.mockImplementation(async (input, init) => {
+      const url = String(input)
+      let body: unknown
+      if (url === '/api/datasets' && init?.method === 'POST') {
+        listed.push(created)
+        body = created
+      } else if (url === '/api/datasets') {
+        body = [...listed]
+      } else if (url === '/api/sources') {
+        body = [makeSource({ key: 'ingv', name: 'INGV' })]
+      } else if (url.includes('/summary')) {
+        const { makeSummary } = await import('./test/helpers')
+        body = makeSummary()
+      } else if (url.includes('/imports')) {
+        body = { dataset_id: 2, total: 0, limit: 5, offset: 0, filters: {}, items: [] }
+      } else {
+        body = makePage([makeEarthquake({ place: 'an event' })])
+      }
+      return { ok: true, status: 200, json: async () => body } as Response
+    })
+    const user = userEvent.setup()
+
+    render(<App />)
+    await screen.findByRole('button', { name: /Quakes/ })
+    await user.click(screen.getByText('New dataset'))
+    await screen.findByRole('option', { name: 'INGV' })
+    await user.type(screen.getByLabelText('Name'), 'Terremoti Italia')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    const card = await screen.findByRole('button', { name: /Terremoti Italia/ })
+    expect(card).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Terremoti Italia')
   })
 })

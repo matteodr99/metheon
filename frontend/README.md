@@ -44,6 +44,7 @@ src/
 ├── App.tsx                 # Dataset list and selection
 ├── EarthquakeBrowser.tsx   # Filters, table and pagination
 ├── IngestionPanel.tsx      # Ingest button, latest run, history
+├── NewDatasetForm.tsx      # Create a dataset for a registered source
 ├── Summary.tsx             # Tiles and charts for the current filters
 ├── BarChart.tsx            # Hand-written SVG bar chart
 ├── ThemeToggle.tsx         # Light / dark / system
@@ -83,6 +84,18 @@ does not count as finishing.
 
 The API explains refusals in a `detail` field; the client surfaces it, so a
 queue outage reads as the reason rather than as a bare 503.
+
+## Creating datasets
+
+`NewDatasetForm` reads the registered sources from `GET /api/sources` into a
+menu, preselecting the first so the form cannot fail for a reason the person
+cannot see, and posts to `POST /api/datasets`. An empty description is sent
+as absent rather than as an empty string. On success the form clears and
+`App` re-reads the list and selects the new dataset; a refusal — an unknown
+source is a `422` naming the known ones — is shown with the API's reason and
+the form keeps its values.
+
+With this, nothing in the project needs a terminal any more.
 
 ## Charts
 

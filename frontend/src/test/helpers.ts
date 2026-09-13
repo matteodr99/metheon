@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-import type { Dataset, Earthquake, ImportRun, Page, Summary } from '../api'
+import type { Dataset, Earthquake, ImportRun, Page, Source, Summary } from '../api'
 
 export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
   return {
@@ -81,6 +81,15 @@ export function makeImportRun(overrides: Partial<ImportRun> = {}): ImportRun {
   }
 }
 
+export function makeSource(overrides: Partial<Source> = {}): Source {
+  return {
+    key: 'usgs',
+    name: 'USGS Earthquake Hazards Program',
+    default_feed_url: 'https://example.invalid/usgs.geojson',
+    ...overrides,
+  }
+}
+
 /** A promise whose resolution the test controls, for ordering requests. */
 export function deferred<T>() {
   let resolve!: (value: T) => void
@@ -95,6 +104,8 @@ export function deferred<T>() {
 interface FetchCall {
   url: string
   signal?: AbortSignal
+  method?: string
+  body?: unknown
 }
 
 /**
@@ -102,12 +113,13 @@ interface FetchCall {
  * body to serve, or a promise for it, so a test can control the ordering.
  */
 export function mockFetch(
-  respond: (url: string) => unknown | Promise<unknown>,
+  respond: (url: string, init?: RequestInit) => unknown | Promise<unknown>,
   {
     ok = true,
     status = 200,
     summary = makeSummary(),
     imports = [] as ImportRun[],
+    sources = [makeSource()] as Source[],
   } = {},
 ) {
   const calls: FetchCall[] = []
@@ -115,7 +127,16 @@ export function mockFetch(
   const implementation = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      calls.push({ url, signal: init?.signal ?? undefined })
+      const method = init?.method ?? 'GET'
+      let parsedBody: unknown
+      if (typeof init?.body === 'string') {
+        try {
+          parsedBody = JSON.parse(init.body)
+        } catch {
+          parsedBody = init.body
+        }
+      }
+      calls.push({ url, signal: init?.signal ?? undefined, method, body: parsedBody })
       // The summary and ingestion panels are rendered alongside the table,
       // so they fetch too. Serving them here keeps every test from having to
       // route URLs it does not care about; pass `summary` or `imports` to
@@ -125,8 +146,10 @@ export function mockFetch(
         body = summary
       } else if (url.includes('/imports')) {
         body = { dataset_id: 1, total: imports.length, limit: 5, offset: 0, filters: {}, items: imports }
+      } else if (url === '/api/sources') {
+        body = sources
       } else {
-        body = await respond(url)
+        body = await respond(url, init)
       }
       if (init?.signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError')

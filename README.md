@@ -15,9 +15,9 @@ public datasets and does not handle personal or sensitive user data.
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
 > worker ingest USGS earthquake data asynchronously, with every run recorded.
 > The API supports filtering and aggregation, and a React dashboard browses
-> the events with filters, paging and charts, and starts ingestions and
-> follows them to completion. The AI layer is not implemented yet — see
-> [Roadmap](#roadmap).
+> the events with filters, paging and charts, creates datasets, and starts
+> ingestions and follows them to completion — nothing needs a terminal. The
+> AI layer is not implemented yet — see [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -320,7 +320,8 @@ supplied by the client.
 
 `source` must be one of the keys returned by `GET /api/sources`, matched
 case-insensitively. An unknown source returns `422` listing the known ones:
-refusing it here beats accepting a dataset that can never be imported.
+refusing it here beats accepting a dataset that can never be imported. The
+dashboard's **New dataset** form offers the same choice from a menu.
 
 ### `GET /api/datasets/{id}/earthquakes`
 
@@ -635,6 +636,7 @@ metheon/
 │   │   ├── App.tsx              # Dataset list and selection
 │   │   ├── EarthquakeBrowser.tsx # Filters, table and pagination
 │   │   ├── IngestionPanel.tsx   # Ingest button, latest run, history
+│   │   ├── NewDatasetForm.tsx   # Create a dataset for a registered source
 │   │   ├── Summary.tsx          # Tiles and charts
 │   │   ├── BarChart.tsx         # Hand-written SVG, no charting library
 │   │   ├── index.css
