@@ -18,8 +18,7 @@ from app import jobs
 from app.db import repository
 from app.db.database import get_connection
 from app.ingestion.runner import UnknownImport, run_import
-
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+from app.logging_config import configure_logging
 
 # How long to wait before retrying after Redis refuses a connection. Without
 # it the loop spins as fast as the failures come back, flooding the logs and
@@ -114,11 +113,7 @@ class Worker:
 
 
 def main() -> int:
-    logging.basicConfig(
-        level=LOG_LEVEL,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        stream=sys.stdout,
-    )
+    configure_logging()
 
     worker = Worker()
     signal.signal(signal.SIGINT, worker.request_stop)

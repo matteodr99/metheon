@@ -224,7 +224,7 @@ project runs out of the box without any configuration.
 | `QUEUE_BLOCK_TIMEOUT_SECONDS` | `5` | How long the worker blocks on the queue |
 | `QUEUE_RETRY_DELAY_SECONDS` | `5` | Pause before retrying after a Redis outage |
 | `STALE_RUN_MINUTES` | `15` | A run at `processing` longer than this is failed at worker startup |
-| `LOG_LEVEL` | `INFO` | Worker log level |
+| `LOG_LEVEL` | `INFO` | Log level for the API and the worker |
 | `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
 
 To override them, copy the example file and edit it:
@@ -275,6 +275,30 @@ process does not bring the database back.
 
 Kubernetes readiness and liveness probes, and platform health checks, map
 onto these two endpoints directly.
+
+### Logging
+
+Both processes log to stdout in one format, configured in
+`backend/app/logging_config.py`:
+
+```text
+2026-09-13 23:30:54,793 INFO app.api import 18: queued for dataset 3
+2026-09-13 23:30:54,806 INFO app.ingestion.runner import 18: starting for dataset 3 (ingv) from …
+2026-09-13 23:30:55,229 INFO app.ingestion.runner import 18: completed, 337 fetched, 0 inserted, 337 updated, 0 invalid
+```
+
+Timestamps are UTC in both, on purpose: the API runs on the host in local
+time and the worker in a container in UTC, and each using its own clock put
+the same run two hours apart in the two logs.
+
+The API writes one line per request — method, path, status, duration — after
+the response, so the status is the one actually sent. The health endpoints
+are logged at `DEBUG` only: a probe every few seconds would drown everything
+else. Refusals and outages are `WARNING`s with the reason; anything that
+became a 500 is an `ERROR` with the traceback.
+
+`LOG_LEVEL` sets the level for both processes. uvicorn's own access line
+duplicates the API's and carries less; `--no-access-log` silences it.
 
 ### Errors
 
@@ -635,6 +659,7 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
+│   │   ├── logging_config.py    # One log format for the API and the worker
 │   │   ├── jobs.py              # Redis queue: enqueue, dequeue, health
 │   │   ├── worker.py            # Background worker loop
 │   │   ├── db/
@@ -801,8 +826,8 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [ ] **Phase 5 — Engineering quality:** backend and frontend are both
   covered by tests, CI runs everything on every push, the worker logs its
   work, the API exposes readiness and liveness checks and answers failures
-  with the right status, and abandoned runs are reaped; API logging and
-  Docker optimization are still open
+  with the right status, both processes log in one format, and abandoned
+  runs are reaped; Docker optimization and documentation are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

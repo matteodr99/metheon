@@ -1,4 +1,6 @@
 import logging
+import time
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -9,6 +11,7 @@ from app.db.database import get_connection
 from app.db import repository
 from app import jobs
 from app.ingestion import sources
+from app.logging_config import configure_logging
 
 from datetime import datetime
 from typing import Any, Optional
@@ -23,9 +26,46 @@ class DatasetCreate(BaseModel):
     description: Optional[str] = None
 
 
-app = FastAPI(title="Metheon API")
-
 logger = logging.getLogger("app.api")
+
+# Probes call these every few seconds. At INFO they would drown everything
+# else; they are still there at DEBUG for anyone chasing a probe problem.
+QUIET_PATHS = frozenset({"/api/health", "/api/health/live"})
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Configure logging when the server starts, not when the module loads."""
+    configure_logging()
+    logger.info("api started")
+    yield
+    logger.info("api stopping")
+
+
+app = FastAPI(title="Metheon API", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """One line per request: method, path, status, duration.
+
+    Written after the response so the status and the time are real. The
+    exception handlers answer before this runs, so a 503 or a 500 shows up
+    here with its true status too.
+    """
+    started = time.monotonic()
+    response = await call_next(request)
+    elapsed_ms = (time.monotonic() - started) * 1000
+    level = logging.DEBUG if request.url.path in QUIET_PATHS else logging.INFO
+    logger.log(
+        level,
+        "%s %s %s %.0fms",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 
 @app.exception_handler(psycopg.OperationalError)
@@ -69,6 +109,7 @@ def unexpected_failure(request: Request, exc: Exception):
 def _get_source_or_422(source: str) -> sources.Source:
     found = sources.get_source(source)
     if found is None:
+        logger.warning("refused unknown source %r", source)
         raise HTTPException(
             status_code=422,
             detail="Unknown source {0!r}. Known sources: {1}".format(
@@ -213,15 +254,18 @@ def create_dataset(dataset: DatasetCreate):
     Refusing an unknown source here is kinder than accepting a dataset that
     can never be imported and letting the failure surface later.
     """
-    _get_source_or_422(dataset.source)
+    source = _get_source_or_422(dataset.source)
 
     with get_connection() as connection:
-        return repository.create_dataset(
+        created = repository.create_dataset(
             connection,
             dataset.name,
             dataset.source,
             dataset.description,
         )
+
+    logger.info("created dataset %s %r (%s)", created["id"], created["name"], source.key)
+    return created
 
 
 @app.get("/api/datasets/{dataset_id}/earthquakes")
@@ -327,12 +371,14 @@ def ingest_dataset(dataset_id: int):
     except jobs.QueueError as exc:
         # The run exists in the history, so a queue outage is visible there
         # rather than being silently swallowed.
+        logger.warning("import %s: could not queue, %s", import_id, exc)
         with get_connection() as connection:
             repository.fail_import(connection, import_id, str(exc))
         _set_status(dataset_id, repository.STATUS_FAILED)
         raise HTTPException(status_code=503, detail=str(exc))
 
     _set_status(dataset_id, repository.STATUS_QUEUED)
+    logger.info("import %s: queued for dataset %s", import_id, dataset_id)
 
     return {
         "import_id": import_id,

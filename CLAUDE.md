@@ -101,6 +101,7 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py
+│   │   ├── logging_config.py
 │   │   ├── jobs.py
 │   │   ├── worker.py
 │   │   ├── db/
@@ -520,6 +521,21 @@ PostgreSQL
 
 Redis and the worker are planned, not yet implemented.
 
+## Logging
+
+`app/logging_config.py` holds the one format both processes use, and both
+call `configure_logging()` at startup — the API from its lifespan, the
+worker from `main()`. Timestamps are forced to UTC through
+`logging.Formatter.converter`: the API runs on the host in local time and
+the worker in a container in UTC, and the same run appeared two hours apart
+until that was fixed.
+
+The API logs to `app.api`. A middleware writes one line per request after
+the response — method, path, status, duration — so exception handlers'
+statuses show up as sent. `/api/health` and `/api/health/live` are logged
+at `DEBUG` only; probes would flood `INFO`. Dataset creation and queued
+runs are `INFO`; refusals are `WARNING` with the reason.
+
 ## Error handling
 
 Two exception handlers in `main.py` cover every route:
@@ -716,7 +732,7 @@ Prefer structured AI responses where practical, for example:
 
 ### Phase 5 — Engineering quality
 - [x] Automated tests
-- [~] Logging (the worker logs; the API does not yet)
+- [x] Logging
 - [x] Error handling
 - [x] Health/readiness checks
 - [ ] Docker optimization
