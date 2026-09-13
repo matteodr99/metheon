@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 
-import { EMPTY_FILTERS } from './api'
+import { EMPTY_FILTERS } from '../api'
 import { SummaryPanel } from './Summary'
-import { makeSummary, mockFetch } from './test/helpers'
+import { makeSummary, mockFetch } from '../test/helpers'
 
 function renderPanel(summary = makeSummary(), filters = EMPTY_FILTERS) {
   mockFetch(() => summary, { summary })

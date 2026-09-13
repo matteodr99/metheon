@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { fetchDatasets, type Dataset } from './api'
-import { EarthquakeBrowser } from './EarthquakeBrowser'
-import { IngestionPanel } from './IngestionPanel'
-import { NewDatasetForm } from './NewDatasetForm'
-import { ThemeToggle } from './ThemeToggle'
+import { EarthquakeBrowser } from './components/EarthquakeBrowser'
+import { IngestionPanel } from './components/IngestionPanel'
+import { NewDatasetForm } from './components/NewDatasetForm'
+import { ThemeToggle } from './theme/ThemeToggle'
 
 function DatasetCard({
   dataset,

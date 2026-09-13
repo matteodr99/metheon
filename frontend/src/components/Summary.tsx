@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { fetchSummary, type EarthquakeFilters, type Summary } from './api'
+import { fetchSummary, type EarthquakeFilters, type Summary } from '../api'
 import { BarChart, type Bar } from './BarChart'
 
 function Tile({ label, value }: { label: string; value: string }) {

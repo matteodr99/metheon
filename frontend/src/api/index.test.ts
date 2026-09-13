@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { EMPTY_FILTERS, fetchDatasets, fetchEarthquakes } from './api'
-import { makeEarthquake, makePage, mockFetch } from './test/helpers'
+import { EMPTY_FILTERS, fetchDatasets, fetchEarthquakes } from './index'
+import { makeEarthquake, makePage, mockFetch } from '../test/helpers'
 
 describe('fetchDatasets', () => {
   it('requests the datasets endpoint', async () => {

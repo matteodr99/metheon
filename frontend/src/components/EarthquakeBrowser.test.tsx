@@ -9,7 +9,7 @@ import {
   makePage,
   mockFetch,
   urlsOf,
-} from './test/helpers'
+} from '../test/helpers'
 
 function manyEvents(count: number, offset = 0) {
   return Array.from({ length: count }, (_unused, index) =>

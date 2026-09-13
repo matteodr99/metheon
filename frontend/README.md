@@ -40,21 +40,23 @@ yet; the hosting plan is recorded in the repository's `CLAUDE.md`.
 
 ```text
 src/
-├── api.ts                  # Types and fetch helpers for the API
-├── App.tsx                 # Dataset list and selection
-├── EarthquakeBrowser.tsx   # Filters, table and pagination
-├── IngestionPanel.tsx      # Ingest button, latest run, history
-├── NewDatasetForm.tsx      # Create a dataset for a registered source
-├── Summary.tsx             # Tiles and charts for the current filters
-├── BarChart.tsx            # Hand-written SVG bar chart
-├── ThemeToggle.tsx         # Light / dark / system
-├── theme.ts                # Reading, storing and applying the choice
-│                           # index.css holds the design tokens
-├── index.css
+├── api/
+│   └── index.ts            # Types and fetch helpers for the API
+├── components/             # The dashboard, one component per concern,
+│   ├── EarthquakeBrowser   #   each with its test beside it
+│   ├── IngestionPanel
+│   ├── NewDatasetForm
+│   ├── Summary
+│   └── BarChart
+├── theme/
+│   ├── theme.ts            # Reading, storing and applying the choice
+│   └── ThemeToggle.tsx     # Light / dark / system
+├── test/
+│   ├── setup.ts            # jest-dom matchers, cleanup between tests
+│   └── helpers.ts          # Fixtures and the fetch stand-in
+├── App.tsx                 # Dataset list, selection, refresh wiring
 ├── main.tsx
-└── test/
-    ├── setup.ts            # jest-dom matchers, cleanup between tests
-    └── helpers.ts          # Fixtures and the fetch stand-in
+└── index.css               # Design tokens and all styling
 ```
 
 ## Tests

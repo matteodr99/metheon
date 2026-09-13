@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { NewDatasetForm } from './NewDatasetForm'
-import { makeDataset, makeSource, mockFetch } from './test/helpers'
+import { makeDataset, makeSource, mockFetch } from '../test/helpers'
 
 /** Serve POST /api/datasets with what the API would return, or refuse it. */
 function mockCreate({ refuse }: { refuse?: { status: number; detail: string } } = {}) {

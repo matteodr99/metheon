@@ -106,7 +106,7 @@ describe('after an ingestion finishes', () => {
      */
     vi.useFakeTimers()
     try {
-      const { POLL_INTERVAL_MS } = await import('./IngestionPanel')
+      const { POLL_INTERVAL_MS } = await import('./components/IngestionPanel')
       const { makeImportRun } = await import('./test/helpers')
       const state = {
         runs: [makeImportRun({ status: 'processing', finished_at: null })],

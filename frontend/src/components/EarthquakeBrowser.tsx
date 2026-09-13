@@ -6,7 +6,7 @@ import {
   type Earthquake,
   type EarthquakeFilters,
   type Page,
-} from './api'
+} from '../api'
 import { SummaryPanel } from './Summary'
 
 const PAGE_SIZE = 25

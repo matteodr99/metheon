@@ -3,8 +3,8 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { IngestionPanel, POLL_INTERVAL_MS } from './IngestionPanel'
-import { makeImportRun, mockFetch } from './test/helpers'
-import type { ImportRun } from './api'
+import { makeImportRun, mockFetch } from '../test/helpers'
+import type { ImportRun } from '../api'
 
 /**
  * A fetch stand-in whose import history the test can change between polls.

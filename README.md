@@ -632,16 +632,14 @@ metheon/
 │   └── requirements-dev.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── api.ts               # Types and fetch helpers for the API
-│   │   ├── App.tsx              # Dataset list and selection
-│   │   ├── EarthquakeBrowser.tsx # Filters, table and pagination
-│   │   ├── IngestionPanel.tsx   # Ingest button, latest run, history
-│   │   ├── NewDatasetForm.tsx   # Create a dataset for a registered source
-│   │   ├── Summary.tsx          # Tiles and charts
-│   │   ├── BarChart.tsx         # Hand-written SVG, no charting library
+│   │   ├── api/                 # Types and fetch helpers for the API
+│   │   ├── components/          # Browser, ingestion panel, dataset form,
+│   │   │                        #   summary, chart — tests beside each
+│   │   ├── theme/               # Light / dark / system
+│   │   ├── test/                # Fixtures and the fetch stand-in
+│   │   ├── App.tsx              # Dataset list, selection, refresh wiring
 │   │   ├── index.css
 │   │   └── main.tsx
-│   │   └── test/                # Fixtures and the fetch stand-in
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts           # Dev-only proxy to the API

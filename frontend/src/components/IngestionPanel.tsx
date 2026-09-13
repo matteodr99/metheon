@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { fetchImports, isActive, startIngestion, type ImportRun } from './api'
+import { fetchImports, isActive, startIngestion, type ImportRun } from '../api'
 
 const HISTORY_SIZE = 5
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { createDataset, fetchSources, type Dataset, type Source } from './api'
+import { createDataset, fetchSources, type Dataset, type Source } from '../api'
 
 export function NewDatasetForm({
   onCreated,

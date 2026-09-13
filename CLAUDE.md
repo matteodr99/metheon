@@ -126,13 +126,19 @@ metheon/
 │   └── requirements-dev.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── api.ts
+│   │   ├── api/
+│   │   │   └── index.ts
+│   │   ├── components/
+│   │   │   ├── BarChart.tsx
+│   │   │   ├── EarthquakeBrowser.tsx
+│   │   │   ├── IngestionPanel.tsx
+│   │   │   ├── NewDatasetForm.tsx
+│   │   │   └── Summary.tsx
+│   │   ├── theme/
+│   │   │   ├── theme.ts
+│   │   │   └── ThemeToggle.tsx
+│   │   ├── test/
 │   │   ├── App.tsx
-│   │   ├── EarthquakeBrowser.tsx
-│   │   ├── IngestionPanel.tsx
-│   │   ├── NewDatasetForm.tsx
-│   │   ├── Summary.tsx
-│   │   ├── BarChart.tsx
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
@@ -601,6 +607,11 @@ with `npm test`. `fetch` is always replaced: like the backend suite they must
 never reach the network, and unlike it they need no database either.
 
 Fixtures and the fetch stand-in live in `src/test/helpers.ts`.
+
+`src/` is split by responsibility: `api/` for the client and its types,
+`components/` for the dashboard's pieces, `theme/` for the colour scheme.
+Tests sit beside the code they cover. `App.tsx` stays at the root: it is
+the composition, not a component among others.
 
 Charts are hand-written SVG in `BarChart.tsx`, not a charting library: the
 API returns the numbers already aggregated, and one bar chart does not pay
