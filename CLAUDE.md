@@ -209,17 +209,22 @@ http://127.0.0.1:8000/docs
 
 ### GET /api/health
 
-Checks that FastAPI can connect to PostgreSQL and execute a simple query.
-
-Expected response:
+The readiness check. Reports whether PostgreSQL and Redis answer:
 
 ```json
-{
-  "status": "ok",
-  "service": "metheon",
-  "database": true
-}
+{"status": "ok", "service": "metheon", "database": true, "queue": true}
 ```
+
+A missing dependency makes the body `degraded` and the response a **503**,
+never a 500: an unreachable database is caught and reported as
+`database: false`. The status code is what probes and load balancers read;
+`degraded` in a 200 would pass for healthy.
+
+### GET /api/health/live
+
+The liveness check. `200` as long as the process runs, and it touches no
+dependency: a liveness probe failing for a dead database would restart the
+process, which does not revive the database. Keep the two separate.
 
 ### GET /api/sources
 
@@ -691,7 +696,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Automated tests
 - [~] Logging (the worker logs; the API does not yet)
 - [ ] Error handling
-- [ ] Health/readiness checks
+- [x] Health/readiness checks
 - [ ] Docker optimization
 - [x] GitHub Actions
 - [ ] Documentation

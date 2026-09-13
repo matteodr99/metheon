@@ -1,5 +1,7 @@
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
+import psycopg
+
 from app.db.database import get_connection
 from app.db import repository
 from app import jobs
@@ -100,20 +102,46 @@ def _set_status(dataset_id: int, status: str) -> None:
         repository.set_dataset_status(connection, dataset_id, status)
 
 
-@app.get("/api/health")
-def health_check():
-    """Report whether the API can reach its two dependencies."""
-    with get_connection() as connection:
-        database_ok = repository.ping(connection)
+@app.get("/api/health/live")
+def liveness():
+    """Answer as long as the process is running.
 
+    Touches no dependency on purpose: a liveness probe that failed because
+    the database was down would get the process restarted, and restarting
+    the process does not bring the database back.
+    """
+    return {"status": "alive", "service": "metheon"}
+
+
+@app.get("/api/health")
+def readiness(response: Response):
+    """Report whether the API can serve, and say so in the status code.
+
+    Machines read the code, not the body: `degraded` in a 200 reads as
+    healthy to a probe or a load balancer. A missing dependency is a 503,
+    and never a 500 — an unreachable database is "not ready", not "broken".
+    """
+    database_ok = _database_answers()
     queue_ok = jobs.ping()
+    ready = database_ok and queue_ok
+
+    if not ready:
+        response.status_code = 503
 
     return {
-        "status": "ok" if database_ok and queue_ok else "degraded",
+        "status": "ok" if ready else "degraded",
         "service": "metheon",
         "database": database_ok,
         "queue": queue_ok,
     }
+
+
+def _database_answers() -> bool:
+    try:
+        with get_connection() as connection:
+            return repository.ping(connection)
+    except psycopg.OperationalError:
+        return False
 
 
 @app.get("/api/sources")

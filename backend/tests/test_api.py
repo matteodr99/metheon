@@ -22,14 +22,90 @@ class TestHealth:
             "queue": True,
         }
 
-    def test_health_is_degraded_when_the_queue_is_down(self, client, fake_queue):
+    def test_a_missing_queue_is_a_503(self, client, fake_queue):
+        """Machines read the code: degraded in a 200 would look healthy."""
         fake_queue.fail_with = RuntimeError("redis down")
 
-        body = client.get("/api/health").json()
+        response = client.get("/api/health")
 
+        assert response.status_code == 503
+        body = response.json()
         assert body["status"] == "degraded"
         assert body["database"] is True
         assert body["queue"] is False
+
+    def test_a_missing_database_is_a_503_not_a_500(self, client, monkeypatch):
+        """Unreachable is "not ready", not "broken"."""
+        import psycopg
+
+        from app import main
+
+        def refuse():
+            raise psycopg.OperationalError("connection refused")
+
+        monkeypatch.setattr(main, "get_connection", refuse)
+
+        response = client.get("/api/health")
+
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "degraded"
+        assert body["database"] is False
+        assert body["queue"] is True
+
+    def test_the_body_still_names_each_dependency_when_all_are_down(
+        self, client, fake_queue, monkeypatch
+    ):
+        import psycopg
+
+        from app import main
+
+        fake_queue.fail_with = RuntimeError("redis down")
+        monkeypatch.setattr(
+            main,
+            "get_connection",
+            lambda: (_ for _ in ()).throw(psycopg.OperationalError("down")),
+        )
+
+        response = client.get("/api/health")
+
+        assert response.status_code == 503
+        assert response.json()["database"] is False
+        assert response.json()["queue"] is False
+
+
+class TestLiveness:
+    def test_live_answers_200(self, client):
+        response = client.get("/api/health/live")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "alive", "service": "metheon"}
+
+    def test_live_ignores_the_dependencies(self, client, fake_queue, monkeypatch):
+        """A liveness probe failing for a dead database would restart the
+        process, and restarting the process does not revive the database."""
+        import psycopg
+
+        from app import main
+
+        fake_queue.fail_with = RuntimeError("redis down")
+        monkeypatch.setattr(
+            main,
+            "get_connection",
+            lambda: (_ for _ in ()).throw(psycopg.OperationalError("down")),
+        )
+
+        assert client.get("/api/health/live").status_code == 200
+
+    def test_live_never_opens_a_connection(self, client, monkeypatch):
+        from app import main
+
+        opened = []
+        monkeypatch.setattr(main, "get_connection", lambda: opened.append(1))
+
+        client.get("/api/health/live")
+
+        assert opened == []
 
 
 class TestListAndCreateDatasets:

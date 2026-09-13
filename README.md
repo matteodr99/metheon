@@ -243,15 +243,37 @@ and must not be used in a deployed environment.
 
 ### `GET /api/health`
 
-Checks that the API can connect to PostgreSQL and run a query.
+The readiness check: whether the API can serve.
 
 ```bash
-curl http://127.0.0.1:8000/api/health
+curl -i http://127.0.0.1:8000/api/health
 ```
 
 ```json
 {"status": "ok", "service": "metheon", "database": true, "queue": true}
 ```
+
+`database` confirms that FastAPI connected to PostgreSQL and ran a query;
+`queue` that Redis answers. If either is down the body says `degraded` and
+names the missing one, and the response is a **503** — never a 500. An
+unreachable database is "not ready", not "broken".
+
+The status code is the point: a probe or a load balancer reads the code,
+not the body, and `degraded` inside a 200 would look healthy to it.
+
+### `GET /api/health/live`
+
+The liveness check: whether the process is running. Always `200`, and it
+touches no dependency on purpose — a liveness probe that failed because the
+database was down would get the process restarted, and restarting the
+process does not bring the database back.
+
+```json
+{"status": "alive", "service": "metheon"}
+```
+
+Kubernetes readiness and liveness probes, and platform health checks, map
+onto these two endpoints directly.
 
 ### `GET /api/sources`
 
@@ -755,8 +777,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
   analysis, with structured responses
 - [ ] **Phase 5 — Engineering quality:** backend and frontend are both
-  covered by tests, CI runs everything on every push, and the worker logs its
-  work; structured logging and Docker optimization are still open
+  covered by tests, CI runs everything on every push, the worker logs its
+  work, and the API exposes readiness and liveness checks; API logging,
+  error handling and Docker optimization are still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 
