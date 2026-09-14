@@ -125,7 +125,7 @@ This starts three containers:
 | --- | --- | --- |
 | `postgres` | `metheon-postgres` | Database, port 5432 |
 | `redis` | `metheon-redis` | Job queue, port 6379 |
-| `worker` | `metheon-worker` | Runs queued ingestions |
+| `worker` | `metheon-worker` | Runs queued ingestions, from the backend image |
 
 On the very first start, PostgreSQL automatically executes
 `backend/app/db/init.sql` and creates the schema. No manual SQL is required.
@@ -688,7 +688,7 @@ metheon/
 │   │   ├── test_usgs_fetch.py
 │   │   ├── test_usgs_normalization.py
 │   │   └── test_worker.py
-│   ├── Dockerfile               # Worker image
+│   ├── Dockerfile               # One image: API by default, worker by command
 │   ├── pytest.ini
 │   ├── requirements.txt
 │   └── requirements-dev.txt
@@ -774,7 +774,7 @@ skipped half the suite would be worse than a red one.
 | --- | --- |
 | `Tests` | Runs the full suite against a `postgres:16` service container |
 | `Frontend` | Installs from the lockfile, then lints, tests and builds the frontend |
-| `Worker image` | Builds `backend/Dockerfile` and imports the worker inside it, checking that `requirements.txt` alone is enough to run it |
+| `Backend image` | Builds `backend/Dockerfile`, imports both entrypoints inside it, checks it runs unprivileged, and starts the API from the default command |
 
 Alongside the handwritten cases, a real feed response captured on 2026-09-09 is
 kept in `tests/fixtures/` and normalized in full, so the tests stay honest about
@@ -788,9 +788,29 @@ The frontend has its own suite, run from `frontend/` with `npm test`. It uses
 Vitest and Testing Library in jsdom, with `fetch` replaced, so it needs
 nothing running either.
 
-### Rebuilding the worker
+### The backend image
 
-The worker runs from an image, so code changes need a rebuild:
+`backend/Dockerfile` builds one image for the whole backend. It starts the
+API by default; Compose runs the worker from the same image with a different
+command, since the two share every line of code and every dependency.
+
+```bash
+docker build -t metheon-backend ./backend
+docker run --rm -p 8000:8000 -e POSTGRES_HOST=host.docker.internal metheon-backend
+```
+
+The process runs as an unprivileged user, `app`. There is no `HEALTHCHECK`
+in the image: probes belong to whatever runs the container, and the worker
+serves no HTTP. The endpoints are `/api/health/live` and `/api/health`.
+
+The image is 282 MB, of which about 225 MB is `python:3.9-slim` itself,
+57 MB the dependencies and 200 kB the code. No compiler is installed, so a
+multi-stage build would have nothing to strip; it was measured and skipped.
+
+For day-to-day development the API still runs in the virtualenv, as above.
+The image exists for CI, for Kubernetes and for deployment.
+
+The worker runs from this image, so code changes need a rebuild:
 
 ```bash
 docker compose up -d --build worker
@@ -826,8 +846,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
 - [ ] **Phase 5 — Engineering quality:** backend and frontend are both
   covered by tests, CI runs everything on every push, the worker logs its
   work, the API exposes readiness and liveness checks and answers failures
-  with the right status, both processes log in one format, and abandoned
-  runs are reaped; Docker optimization and documentation are still open
+  with the right status, both processes log in one format, abandoned runs
+  are reaped, and one unprivileged image serves both processes;
+  documentation is still open
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

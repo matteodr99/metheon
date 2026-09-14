@@ -21,6 +21,10 @@ services:
   worker:
     build:
       context: ./backend
+    image: metheon-backend
+    # The image starts the API by default; this service runs the worker
+    # from the same image instead.
+    command: ["python", "-m", "app.worker"]
     container_name: metheon-worker
     depends_on:
       - postgres

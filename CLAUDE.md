@@ -88,8 +88,8 @@ What deployment will touch in the code, all inert locally:
 - `sslmode` in the database connection string, which Neon requires
 - `init.sql` applied to Neon by hand or by a migration step: there is no
   `docker-entrypoint-initdb.d` there
-- a Dockerfile for the API, which today only the worker has; Kind needs it
-  too
+- nothing further for the image: `backend/Dockerfile` already serves the
+  API by default and the worker by command
 
 ## Repository structure
 
@@ -458,10 +458,13 @@ worse than a red one.
 - `Tests` — the full suite against a `postgres:16` service container
 - `Frontend` — installs from the lockfile with `npm ci`, then lints, tests
   and builds
-- `Worker image` — builds `backend/Dockerfile` and imports the worker inside
-  it. The image installs `requirements.txt` while the tests run with
-  `requirements-dev.txt`, so this is what catches a runtime dependency that
-  only exists in the development set. Worker behaviour belongs in pytest.
+- `Backend image` — builds `backend/Dockerfile`, imports both entrypoints
+  inside it, checks the process is not root, and starts the API from the
+  default command until `/api/health/live` answers. The image installs
+  `requirements.txt` while the tests run with `requirements-dev.txt`, so the
+  import step is what catches a runtime dependency that only exists in the
+  development set. Behaviour belongs in pytest; only what is specific to the
+  image is checked here.
 
 Keep the workflow honest: a check that cannot fail is not a check.
 
@@ -598,9 +601,20 @@ lives in the `imports` table, so there is a single source of truth.
 - `app/worker.py` — the loop, run with `python -m app.worker`
 - `app/ingestion/runner.py` — executes one run
 
-Redis and the worker run in Docker Compose. The worker image is built from
-`backend/Dockerfile`; rebuild it after code changes with
-`docker compose up -d --build worker`. The API is not containerized yet.
+Redis and the worker run in Docker Compose. `backend/Dockerfile` builds
+one image for the backend, `metheon-backend`: its default command starts
+the API, and the Compose `worker` service overrides it with
+`python -m app.worker`. Rebuild after code changes with
+`docker compose up -d --build worker` — `--force-recreate` alone recreates
+the container with the old image.
+
+The image runs as user `app`, uid 1000. It carries no `HEALTHCHECK`: the
+worker shares it and serves no HTTP, and probes are the orchestrator's job.
+A multi-stage build was measured and skipped — the base image is most of
+the size and no toolchain is installed.
+
+The API is still run from the virtualenv in development; the image is for
+CI, Kind and deployment.
 
 A Redis outage does not kill the worker: it logs the failure and retries
 after `QUEUE_RETRY_DELAY_SECONDS`. Retrying without that pause spins the loop
@@ -735,7 +749,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Logging
 - [x] Error handling
 - [x] Health/readiness checks
-- [ ] Docker optimization
+- [x] Docker optimization
 - [x] GitHub Actions
 - [ ] Documentation
 

@@ -94,19 +94,37 @@ jobs:
         run: npm run build
 
   docker:
-    name: Worker image
+    name: Backend image
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build the worker image
-        run: docker build -t metheon-worker ./backend
+      - name: Build the backend image
+        run: docker build -t metheon-backend ./backend
 
-      - name: Check the worker imports with runtime dependencies only
+      - name: Check both entrypoints import with runtime dependencies only
         # The image installs requirements.txt, while the tests run with the
-        # larger requirements-dev.txt. Importing the worker inside the image
-        # is what catches a dependency that exists only in the development
-        # set, or a file the Dockerfile forgot to copy. The worker's runtime
-        # behaviour is covered by tests/test_worker.py, not here.
-        run: docker run --rm metheon-worker python -c "import app.worker"
+        # larger requirements-dev.txt. Importing both entrypoints inside the
+        # image is what catches a dependency that exists only in the
+        # development set, or a file the Dockerfile forgot to copy.
+        run: docker run --rm metheon-backend python -c "import app.main, app.worker"
+
+      - name: Check the image runs as an unprivileged user
+        run: |
+          user=$(docker run --rm metheon-backend id -u)
+          test "$user" != "0" || { echo "::error::the image runs as root"; exit 1; }
+
+      - name: Check the default command starts the API
+        # The CMD, the host binding and the port are image-specific and
+        # covered nowhere else. Liveness needs no database, so this is a
+        # clean check of "uvicorn came up on 8000".
+        run: |
+          docker run -d --rm --name api -p 8000:8000 metheon-backend
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8000/api/health/live && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/api/health/live \
+            || { docker logs api; echo "::error::the API did not come up"; exit 1; }
+          docker stop api >/dev/null
