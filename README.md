@@ -623,7 +623,9 @@ How the work happens depends on `INGESTION_MODE`:
 | `inline` | `200`, run `completed` | this request; the data is there when it returns |
 
 `inline` exists for a deployment with no worker — no free platform runs
-one — and is measured at under a second for a week of USGS data. Locally,
+one — and is measured at under a second for a week of USGS data against a
+local database, a few seconds against Neon in another region: the upsert
+sends the whole batch in one pipelined round-trip, not one per event. Locally,
 follow a queued run through `GET /api/datasets/{id}/imports`, watch the
 worker with `docker compose logs -f worker`, or press **Ingest now** in the
 dashboard. The dataset `status` mirrors the latest run: `queued`, then

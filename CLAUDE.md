@@ -345,8 +345,12 @@ run `queued`; a worker performs the ingestion. In `inline` mode
 inside the request and the answer is `200` with the run `completed`. One
 response shape for both, so a client need not know the mode.
 
-Writes use `ON CONFLICT (external_id) DO UPDATE`, so re-running an ingestion
-refreshes existing events rather than duplicating them.
+Writes use `ON CONFLICT (dataset_id, external_id) DO UPDATE`, so re-running
+an ingestion refreshes existing events rather than duplicating them. The
+upsert is one pipelined `executemany`, not one `execute` per event: the
+first inline run against Neon from this machine took 188 s for 2237 rows at
+~110 ms a round-trip, and 3.4 s once batched. Keep it batched; a database
+is rarely on localhost in production.
 
 Returns `404` for an unknown dataset and `503` when Redis cannot be reached; in
 the latter case the run is still recorded as `failed`. A feed that cannot be

@@ -53,6 +53,24 @@ class TestUpsertEarthquakes:
         with db() as connection:
             assert repository.count_earthquakes(connection, dataset["id"]) == 2
 
+    def test_a_mixed_batch_counts_each_kind(self, db, dataset):
+        """The counts come back per statement from one pipelined batch;
+        they must be attributed correctly, not just summed."""
+        with db() as connection:
+            repository.upsert_earthquakes(
+                connection, dataset["id"], [make_record("a"), make_record("b")]
+            )
+        with db() as connection:
+            inserted, updated = repository.upsert_earthquakes(
+                connection,
+                dataset["id"],
+                [make_record("b"), make_record("c"), make_record("a"), make_record("d")],
+            )
+
+        assert (inserted, updated) == (2, 2)
+        with db() as connection:
+            assert repository.count_earthquakes(connection, dataset["id"]) == 4
+
     def test_changed_values_are_refreshed(self, db, dataset):
         with db() as connection:
             repository.upsert_earthquakes(

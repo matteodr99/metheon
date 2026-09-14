@@ -153,20 +153,28 @@ def upsert_earthquakes(
     therefore idempotent: an event already stored is refreshed in place
     rather than duplicated. The key includes the dataset, so two sources
     reporting the same id do not collide.
+
+    One `executemany` rather than one `execute` per record: psycopg sends
+    the whole batch in pipeline mode, so the cost is one round-trip to the
+    database rather than one per event. Against a database in another
+    region a week of USGS data took three minutes row by row.
     """
     inserted = 0
     updated = 0
+    if not records:
+        return inserted, updated
 
+    parameters = [dict(record, dataset_id=dataset_id) for record in records]
     with connection.cursor() as cursor:
-        for record in records:
-            parameters = dict(record)
-            parameters["dataset_id"] = dataset_id
-            cursor.execute(_UPSERT_EARTHQUAKE, parameters)
+        cursor.executemany(_UPSERT_EARTHQUAKE, parameters, returning=True)
+        while True:
             row = cursor.fetchone()
             if row is not None and row[0]:
                 inserted += 1
             else:
                 updated += 1
+            if not cursor.nextset():
+                break
 
     return inserted, updated
 
