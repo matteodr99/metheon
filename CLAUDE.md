@@ -379,6 +379,26 @@ and the table agree. `limit` defaults to and is capped at `MAX_POINTS`
 descending with nulls last so that a cut drops the weakest events, never
 the strongest; `total` is the full count regardless.
 
+### GET /api/datasets/{id}/earthquakes/matches?other={id2}
+
+Cross-agency reconciliation, as a query rather than stored data: at these
+sizes it is a computation on request, and a table of pairs would be one
+more thing to keep in step with two ingestions. `repository.match_earthquakes`
+does it in one CTE chain — the filtered events of `{id}`, the candidates of
+`other` within `window_seconds` (checked first, on the indexed
+`occurred_at`) and within `radius_km / 111` degrees of latitude (cheap,
+before the exact distance), then `DISTINCT ON (a_id)` ordered by `|Δt|` to
+keep the nearest candidate per event. The distance is haversine in plain
+SQL; PostGIS would be an extension the hosted database has to offer. The
+filters go into the `mine` CTE, so `_earthquake_where` stays unqualified
+and untouched. Two executions share the chain: one for the counts and
+means over every pair, one for the strongest `limit` pairs.
+
+The latitude pre-check is an optimisation and must stay looser than the
+radius; a test seeds a candidate at the same latitude 180 km east, which
+only the exact distance can reject, so the pre-check cannot quietly stand
+in for it.
+
 ### GET /api/datasets/{id}/imports
 
 Returns the import history of a dataset, most recent run first, with the same

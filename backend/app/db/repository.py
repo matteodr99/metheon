@@ -506,6 +506,147 @@ def earthquake_points(
     return [[_to_float(row[0]), _to_float(row[1]), _to_float(row[2]), row[3]] for row in rows]
 
 
+# Great-circle distance in kilometres between the two sides of a join,
+# by the haversine formula. Plain SQL on purpose: PostGIS would do it
+# better, but it is an extension the hosted database would have to offer.
+_DISTANCE_KM = """
+    2 * 6371 * ASIN(SQRT(
+        POWER(SIN(RADIANS(b.latitude - a.latitude) / 2), 2)
+        + COS(RADIANS(a.latitude)) * COS(RADIANS(b.latitude))
+          * POWER(SIN(RADIANS(b.longitude - a.longitude) / 2), 2)
+    ))
+"""
+
+_EVENT_COLUMNS = (
+    "id", "external_id", "magnitude", "magnitude_type", "place",
+    "occurred_at", "longitude", "latitude", "depth_km",
+)
+
+# One row per event of the filtered dataset that has a partner in the other
+# one: the partner is the candidate nearest in time within the window and
+# the radius. The window is checked first, on the indexed column, and the
+# latitude gap before the distance, so the exact formula runs on few rows.
+_MATCH_PAIRS = """
+    WITH mine AS (
+        SELECT {columns} FROM earthquakes WHERE {where}
+    ),
+    candidates AS (
+        SELECT {a_columns}, {b_columns},
+               EXTRACT(EPOCH FROM (b.occurred_at - a.occurred_at)) AS delta_seconds,
+               {distance} AS distance_km
+        FROM mine a
+        JOIN earthquakes b
+          ON b.dataset_id = %(other_id)s
+         AND b.occurred_at BETWEEN a.occurred_at - %(window_seconds)s * INTERVAL '1 second'
+                               AND a.occurred_at + %(window_seconds)s * INTERVAL '1 second'
+         AND ABS(b.latitude - a.latitude) <= %(radius_km)s / 111.0
+    ),
+    pairs AS (
+        SELECT DISTINCT ON (a_id) *
+        FROM candidates
+        WHERE distance_km <= %(radius_km)s
+        ORDER BY a_id, ABS(delta_seconds), b_id
+    )
+"""
+
+
+def _match_query() -> str:
+    return _MATCH_PAIRS.format(
+        columns=", ".join(_EVENT_COLUMNS),
+        a_columns=", ".join("a.{0} AS a_{0}".format(c) for c in _EVENT_COLUMNS),
+        b_columns=", ".join("b.{0} AS b_{0}".format(c) for c in _EVENT_COLUMNS),
+        distance=_DISTANCE_KM,
+        where="{where}",
+    )
+
+
+def _matched_event(row, offset: int) -> Dict[str, Any]:
+    values = row[offset : offset + len(_EVENT_COLUMNS)]
+    event = dict(zip(_EVENT_COLUMNS, values))
+    for column in ("magnitude", "longitude", "latitude", "depth_km"):
+        event[column] = _to_float(event[column])
+    return event
+
+
+def match_earthquakes(
+    connection,
+    dataset_id: int,
+    other_id: int,
+    window_seconds: float,
+    radius_km: float,
+    limit: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Pair the filtered events of one dataset with the other's reports.
+
+    Two agencies describe the same earthquake with their own id, origin
+    time, epicentre and magnitude; the pairing is by closeness in time and
+    space, and the deltas are the point. Returns the pair count and the
+    mean deltas over every pair, plus the strongest `limit` pairs.
+    """
+    where, parameters = _earthquake_where(dataset_id, filters)
+    parameters.update(
+        other_id=other_id,
+        window_seconds=window_seconds,
+        radius_km=radius_km,
+        limit=limit,
+    )
+    query = _match_query().format(where=where)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            query
+            + """
+            SELECT COUNT(*),
+                   AVG(ABS(delta_seconds)),
+                   AVG(distance_km),
+                   AVG(ABS(a_magnitude - b_magnitude))
+            FROM pairs
+            """,
+            parameters,
+        )
+        matched, mean_delta, mean_distance, mean_delta_magnitude = cursor.fetchone()
+
+        cursor.execute(
+            query
+            + """
+            SELECT * FROM pairs
+            ORDER BY a_magnitude DESC NULLS LAST, a_occurred_at DESC
+            LIMIT %(limit)s
+            """,
+            parameters,
+        )
+        rows = cursor.fetchall()
+
+    width = len(_EVENT_COLUMNS)
+    pairs = []
+    for row in rows:
+        event = _matched_event(row, 0)
+        other = _matched_event(row, width)
+        delta_magnitude = (
+            None
+            if event["magnitude"] is None or other["magnitude"] is None
+            else round(other["magnitude"] - event["magnitude"], 2)
+        )
+        pairs.append(
+            {
+                "event": event,
+                "other": other,
+                "delta_seconds": _to_float(row[2 * width]),
+                "distance_km": _to_float(row[2 * width + 1]),
+                "delta_magnitude": delta_magnitude,
+            }
+        )
+
+    return {
+        "matched": matched,
+        "mean_abs_delta_seconds": _to_float(mean_delta),
+        "mean_distance_km": _to_float(mean_distance),
+        "mean_abs_delta_magnitude": _to_float(mean_delta_magnitude),
+        "pairs": pairs,
+    }
+
+
 def strongest_earthquakes(
     connection,
     dataset_id: int,

@@ -441,6 +441,54 @@ def get_dataset_earthquake_points(
 
 
 @app.get(
+    "/api/datasets/{dataset_id}/earthquakes/matches",
+    tags=["earthquakes"],
+    response_model=schemas.Matches,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
+def get_dataset_earthquake_matches(
+    dataset_id: int,
+    other: int = Query(description="The dataset to compare with."),
+    window_seconds: float = Query(60, gt=0, le=3600),
+    radius_km: float = Query(100, gt=0, le=1000),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    filters: EarthquakeFilters = Depends(),
+):
+    """Pair this dataset's events with another dataset's reports of them.
+
+    Two agencies observe the same earthquake with different networks and
+    report a different origin time, epicentre, depth and magnitude. A pair
+    is an event of this dataset and the other dataset's report nearest in
+    time within `window_seconds`, no farther than `radius_km`. The filters
+    apply to this dataset's side, so the comparison covers what a reader
+    is looking at.
+    """
+    if other == dataset_id:
+        raise HTTPException(
+            status_code=422, detail="A dataset cannot be compared with itself"
+        )
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        _get_dataset_or_404(connection, other)
+        events = repository.count_earthquakes(connection, dataset_id, filters.values)
+        matches = repository.match_earthquakes(
+            connection, dataset_id, other, window_seconds, radius_km, limit, filters.values
+        )
+
+    return {
+        "dataset_id": dataset_id,
+        "other_id": other,
+        "window_seconds": window_seconds,
+        "radius_km": radius_km,
+        "limit": limit,
+        "filters": filters.applied(),
+        "events": events,
+        "unmatched": events - matches["matched"],
+        **matches,
+    }
+
+
+@app.get(
     "/api/datasets/{dataset_id}/imports",
     tags=["datasets"],
     response_model=schemas.ImportPage,

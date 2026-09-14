@@ -512,6 +512,61 @@ as the listing, plus `limit` (default and maximum 5000). Points come
 strongest first, so when the limit cuts it cuts the smallest events and
 `total` still says how many matched; events without a magnitude come last.
 
+### `GET /api/datasets/{id}/earthquakes/matches?other={id2}`
+
+Pairs this dataset's events with another dataset's reports of the same
+earthquakes. Two agencies observe one quake with different networks and give
+it a different origin time, epicentre, depth and magnitude; the pairs put
+those differences side by side.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/matches?other=2&min_magnitude=5"
+```
+
+```json
+{
+  "dataset_id": 1,
+  "other_id": 2,
+  "window_seconds": 60.0,
+  "radius_km": 100.0,
+  "limit": 50,
+  "filters": {"min_magnitude": 5.0},
+  "events": 25,
+  "matched": 5,
+  "unmatched": 20,
+  "mean_abs_delta_seconds": 3.8,
+  "mean_distance_km": 33.9,
+  "mean_abs_delta_magnitude": 0.32,
+  "pairs": [
+    {
+      "event": {"id": 3628, "external_id": "us7000rp1k", "magnitude": 5.6, "magnitude_type": "mww",
+                "place": "96 km ESE of Isangel, Vanuatu", "occurred_at": "2026-09-10T03:11:52",
+                "longitude": 169.98, "latitude": -19.85, "depth_km": 10.0},
+      "other": {"id": 4102, "external_id": "44012345", "magnitude": 5.9, "magnitude_type": "mwp",
+                "place": "Vanuatu Islands [Sea: Vanuatu]", "occurred_at": "2026-09-10T03:11:59",
+                "longitude": 170.27, "latitude": -19.7, "depth_km": 68.0},
+      "delta_seconds": 6.7,
+      "distance_km": 33.3,
+      "delta_magnitude": 0.3
+    }
+  ]
+}
+```
+
+A pair is an event of `{id}` and the report in `other` nearest in time
+within `window_seconds` (default 60, up to 3600) and no farther than
+`radius_km` (default 100, up to 1000). Each event pairs at most once. The
+deltas are *other minus event*; `delta_magnitude` is null when either side
+has no magnitude, and the magnitude mean covers only the pairs where both
+do. The listing filters apply to the `{id}` side, so `events` is the
+filtered count and `matched` + `unmatched` add up to it. `pairs` holds at
+most `limit` pairs (1–500), strongest first; the counts and means cover all
+of them.
+
+Distances are great-circle, computed in SQL by the haversine formula — no
+PostGIS, so nothing to install on a hosted database. Comparing a dataset
+with itself returns `422`; an unknown dataset on either side `404`.
+
 ### `GET /api/datasets/{id}/imports`
 
 Returns the import history of a dataset, most recent run first. Every call to

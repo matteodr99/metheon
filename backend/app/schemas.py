@@ -110,6 +110,42 @@ class EarthquakePoints(BaseModel):
     )
 
 
+class MatchedEvent(BaseModel):
+    id: int
+    external_id: str
+    magnitude: Optional[float]
+    magnitude_type: Optional[str]
+    place: Optional[str]
+    occurred_at: datetime
+    longitude: float
+    latitude: float
+    depth_km: Optional[float]
+
+
+class Match(BaseModel):
+    event: MatchedEvent = Field(description="The event in the dataset being compared.")
+    other: MatchedEvent = Field(description="Its nearest report in the other dataset.")
+    delta_seconds: float = Field(description="Other minus event; negative when the other agency dates it earlier.")
+    distance_km: float = Field(description="Between the two epicentres, great-circle.")
+    delta_magnitude: Optional[float] = Field(description="Other minus event; null when either lacks a magnitude.")
+
+
+class Matches(BaseModel):
+    dataset_id: int
+    other_id: int
+    window_seconds: float
+    radius_km: float
+    limit: int
+    filters: Dict[str, Any] = Field(description="Only the filters that were set; they apply to `dataset_id`.")
+    events: int = Field(description="Events of `dataset_id` matching the filters.")
+    matched: int = Field(description="Of those, how many have a partner in `other_id`.")
+    unmatched: int
+    mean_abs_delta_seconds: Optional[float] = Field(description="Over every pair; null with no pairs.")
+    mean_distance_km: Optional[float]
+    mean_abs_delta_magnitude: Optional[float] = Field(description="Over the pairs where both have a magnitude.")
+    pairs: List[Match] = Field(description="At most `limit`, strongest first.")
+
+
 class MagnitudeSummary(BaseModel):
     min: Optional[float]
     max: Optional[float]
