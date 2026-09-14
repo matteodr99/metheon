@@ -375,9 +375,17 @@ describe('the kind of the dataset', () => {
 
 describe('the comparison reaches the insights', () => {
   it('asks the model about the dataset the Compare panel is set to', async () => {
-    const { calls } = mockFetch(() => makePage([makeEvent()]), {
-      ai: { configured: true, model: 'gemini-3.8-flash' },
-    })
+    const { calls } = mockFetch(
+      (url) =>
+        url.includes('/insights')
+          ? {
+              dataset_id: 1, other_id: 2, filters: {}, model: 'gemini-3.8-flash',
+              summary: 'ok', key_trends: [], anomalies: [], recommendations: [],
+              agency_comparison: 'INGV reported all of them.',
+            }
+          : makePage([makeEvent()]),
+      { ai: { configured: true, model: 'gemini-3.8-flash' } },
+    )
     const quakes = makeDataset({ id: 1, name: 'Quakes' })
     const ingv = makeDataset({ id: 2, name: 'INGV', source: 'ingv' })
     const user = userEvent.setup()
@@ -386,9 +394,8 @@ describe('the comparison reaches the insights', () => {
     await screen.findByText('somewhere')
     await user.click(await screen.findByRole('button', { name: 'Analyse this view' }))
 
-    await waitFor(() => {
-      const request = calls.find((c) => c.url.includes('/insights'))
-      expect(request?.url).toBe('/api/datasets/1/insights?other=2&window_seconds=60&radius_km=100')
-    })
+    expect(await screen.findByText('INGV reported all of them.')).toBeInTheDocument()
+    const request = calls.find((c) => c.url.includes('/insights'))
+    expect(request?.url).toBe('/api/datasets/1/insights?other=2&window_seconds=60&radius_km=100')
   })
 })

@@ -41,8 +41,9 @@ describe('choosing what to compare with', () => {
     expect(screen.getByRole('combobox')).toHaveValue('2')
   })
 
-  it('never offers the dataset itself', () => {
-    renderPanel([USGS, INGV])
+  it('never offers the dataset itself', async () => {
+    const { calls } = renderPanel([USGS, INGV])
+    await waitFor(() => expect(calls).toHaveLength(1))
 
     expect(screen.queryByRole('option', { name: /Global Earthquakes/ })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Terremoti Italia (ingv)' })).toBeInTheDocument()
@@ -71,7 +72,8 @@ describe('choosing what to compare with', () => {
 describe('kinds', () => {
   it('offers only datasets of the same kind', async () => {
     const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
-    renderPanel([USGS, fires, INGV])
+    const { calls } = renderPanel([USGS, fires, INGV])
+    await waitFor(() => expect(calls).toHaveLength(1))
 
     expect(screen.queryByRole('option', { name: /Fires/ })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Terremoti Italia (ingv)' })).toBeInTheDocument()
