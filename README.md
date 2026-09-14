@@ -18,7 +18,8 @@ public datasets and does not handle personal or sensitive user data.
 > browses the events with filters, paging and charts, creates datasets, starts
 > ingestions and follows them, and — with a Gemini key — asks the model what
 > the filtered data shows. Nothing needs a terminal. The whole system also
-> runs on a local Kind cluster. See [Roadmap](#roadmap).
+> runs on a local Kind cluster, and it is live at
+> [metheon.pages.dev](https://metheon.pages.dev). See [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -991,7 +992,13 @@ service in Frankfurt, built from `backend/Dockerfile`, with
 spins a free service down after fifteen minutes without traffic and takes
 about a minute to wake it, so the first request after a pause is slow; the
 ones after it are not. Render hands a service its port through `PORT`, set
-to `8000` to match the Dockerfile. The dashboard is not deployed yet.
+to `8000` to match the Dockerfile.
+
+The dashboard is at `https://metheon.pages.dev`, a Cloudflare Pages project
+built from `frontend/` on every push to `main` with
+`VITE_API_URL=https://metheon.onrender.com`; the API allows that one origin
+through `CORS_ORIGINS`. Pressing **Ingest now** there runs the ingestion
+inline on Render against Neon and refreshes the page when it finishes.
 
 ### Inspecting the database directly
 

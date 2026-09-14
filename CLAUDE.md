@@ -58,7 +58,7 @@ row is a free plan, with the limit that plan imposes.
 
 | Component | Choice | Free-plan limit |
 | --- | --- | --- |
-| Frontend hosting | Cloudflare Pages | 500 builds/month |
+| Frontend hosting | Cloudflare Pages | 500 builds/month; now the "legacy" flow, see below |
 | Backend hosting | Render (Koyeb was the first choice, see below) | 750 instance-hours a month; sleeps after 15 min idle and takes about a minute to wake; no free worker |
 | Production database | Neon PostgreSQL | 0.5 GB; suspends after 5 min idle and **resumes on its own** at the next connection |
 | Worker in production | none | see below |
@@ -100,7 +100,7 @@ The code side of this is done (2026-09-14), all of it inert locally:
   the environment names, for a host with no `docker-entrypoint-initdb.d`
 - `backend/Dockerfile` already serves the API by default
 
-The database and the API are up (2026-09-14):
+Everything is up (2026-09-14):
 
 - Neon, region `eu-central-1`, database `neondb`, schema applied with
   `apply_schema` from this machine. The first inline ingestion from here
@@ -112,10 +112,22 @@ The database and the API are up (2026-09-14):
   the same reason the two endpoints exist. `INGESTION_MODE=inline`; an
   ingestion of a week's USGS feed answers in under three seconds there.
   The API is at `https://metheon.onrender.com`
+- Cloudflare Pages, project `metheon`, root directory `frontend`, preset
+  React (Vite), built with `VITE_API_URL=https://metheon.onrender.com` and
+  `NODE_VERSION=20.19.5` (the `.nvmrc` version; Cloudflare does not read
+  the file). The bundle it builds is byte-identical to a local build with
+  the same variable. `CORS_ORIGINS=https://metheon.pages.dev` is set on
+  Render, and only that origin gets the headers. The dashboard is at
+  `https://metheon.pages.dev`
 
-What remains is Cloudflare Pages for the dashboard, after which
-`CORS_ORIGINS` is set on Render, and a scheduled ingestion, since production
-has no worker to keep the data fresh.
+  Cloudflare now labels the Pages Git workflow "legacy" and steers new
+  projects to Workers with static assets. Pages still builds and serves;
+  if it is ever closed, the move is one `frontend/wrangler.jsonc` naming
+  `dist` as the assets directory and `npx wrangler deploy` as the deploy
+  command, nothing in the code
+
+What remains is a scheduled ingestion, since production has no worker to
+keep the data fresh.
 
 ## Repository structure
 
