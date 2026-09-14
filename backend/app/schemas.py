@@ -43,6 +43,10 @@ class SourceInfo(BaseModel):
     key: str = Field(description="What a dataset's `source` must be.", examples=["usgs"])
     name: str = Field(examples=["USGS Earthquake Hazards Program"])
     default_feed_url: str
+    kinds: List[str] = Field(
+        description="The kinds of event this source serves; a dataset gets one of them.",
+        examples=[["earthquake"]],
+    )
 
 
 class DatasetCreate(BaseModel):
@@ -52,6 +56,12 @@ class DatasetCreate(BaseModel):
         examples=["usgs"],
     )
     description: Optional[str] = None
+    kind: Optional[str] = Field(
+        default=None,
+        description="Which of the source's kinds this dataset holds. May be left out "
+        "when the source serves one kind; must be given when it serves several.",
+        examples=["earthquake"],
+    )
 
 
 class Dataset(BaseModel):

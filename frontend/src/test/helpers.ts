@@ -151,8 +151,9 @@ export function makeImportRun(overrides: Partial<ImportRun> = {}): ImportRun {
 export function makeSource(overrides: Partial<Source> = {}): Source {
   return {
     key: 'usgs',
-    name: 'USGS Event Hazards Program',
+    name: 'USGS Earthquake Hazards Program',
     default_feed_url: 'https://example.invalid/usgs.geojson',
+    kinds: ['earthquake'],
     ...overrides,
   }
 }

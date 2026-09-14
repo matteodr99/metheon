@@ -295,6 +295,7 @@ def get_sources():
             "key": source.key,
             "name": source.name,
             "default_feed_url": source.default_feed_url,
+            "kinds": list(source.kinds),
         }
         for source in sorted(sources.SOURCES.values(), key=lambda s: s.key)
     ]
@@ -318,12 +319,20 @@ def get_datasets():
     responses={**INVALID, **UNAVAILABLE},
 )
 def create_dataset(dataset: DatasetCreate):
-    """Create a dataset. Its source must be one the platform can ingest.
+    """Create a dataset. Its source must be one the platform can ingest,
+    and its kind one that source serves.
 
-    Refusing an unknown source here is kinder than accepting a dataset that
-    can never be imported and letting the failure surface later.
+    Refusing an unknown source or kind here is kinder than accepting a
+    dataset that can never be imported and letting the failure surface
+    later. A source with one kind needs no `kind`; one with several must be
+    told which.
     """
     source = _get_source_or_422(dataset.source)
+    try:
+        kind = source.resolve_kind(dataset.kind)
+    except sources.UnknownKind as exc:
+        logger.warning("refused dataset for %s: %s", source.key, exc)
+        raise HTTPException(status_code=422, detail=str(exc))
 
     with get_connection() as connection:
         created = repository.create_dataset(
@@ -331,9 +340,12 @@ def create_dataset(dataset: DatasetCreate):
             dataset.name,
             dataset.source,
             dataset.description,
+            kind,
         )
 
-    logger.info("created dataset %s %r (%s)", created["id"], created["name"], source.key)
+    logger.info(
+        "created dataset %s %r (%s, %s)", created["id"], created["name"], source.key, kind
+    )
     return created
 
 

@@ -9,17 +9,23 @@ from app.ingestion import IngestionError, runner, sources
 from tests.conftest import make_feature, requires_postgres
 
 
-def fake_source_module(features=None, error=None, feed_url="https://fake.invalid/feed"):
+def fake_source_module(
+    features=None,
+    error=None,
+    feed_url="https://fake.invalid/feed",
+    kinds=("earthquake",),
+):
     """A module-shaped object honouring the source contract."""
-    calls = {"fetch": [], "normalize": 0}
+    calls = {"fetch": [], "normalize": 0, "kinds": []}
 
-    def fetch_feed(url=None, timeout=None):
+    def fetch_feed(url=None, timeout=None, kind=None):
         calls["fetch"].append(url)
+        calls["kinds"].append(kind)
         if error is not None:
             raise error
         return {"type": "FeatureCollection", "features": features or []}
 
-    def normalize_feed(payload):
+    def normalize_feed(payload, kind=None):
         calls["normalize"] += 1
         # Reuse the USGS normalizer: the contract is about shape, not origin.
         from app.ingestion import usgs
@@ -27,6 +33,7 @@ def fake_source_module(features=None, error=None, feed_url="https://fake.invalid
         return usgs.normalize_feed(payload)
 
     module = types.SimpleNamespace(
+        KINDS=tuple(kinds),
         DEFAULT_FEED_URL=feed_url,
         fetch_feed=fetch_feed,
         normalize_feed=normalize_feed,
@@ -74,7 +81,9 @@ class TestRegistry:
 
         seen = {}
         monkeypatch.setattr(
-            usgs, "fetch_feed", lambda url=None, timeout=None: seen.setdefault("url", url) or {}
+            usgs,
+            "fetch_feed",
+            lambda url=None, timeout=None, kind=None: seen.setdefault("url", url) or {},
         )
 
         sources.get_source("usgs").fetch_feed(url="https://x.invalid")
@@ -203,3 +212,105 @@ class TestUnknownSourceAtRunTime:
 
         assert response.status_code == 422
         assert fake_queue.enqueued == []
+
+
+class TestKinds:
+    """A dataset holds events of one kind; the source says which it serves."""
+
+    def test_every_module_serves_kinds_from_the_vocabulary(self):
+        for source in sources.SOURCES.values():
+            assert source.kinds, source.key
+            assert set(source.kinds) <= set(sources.KINDS), source.key
+
+    def test_a_single_kind_source_needs_no_kind(self):
+        assert sources.get_source("usgs").resolve_kind(None) == "earthquake"
+        assert sources.get_source("usgs").resolve_kind("") == "earthquake"
+
+    def test_the_kind_asked_for_is_normalized(self):
+        assert sources.get_source("usgs").resolve_kind(" Earthquake ") == "earthquake"
+
+    def test_a_kind_the_source_does_not_serve_is_refused(self):
+        with pytest.raises(sources.UnknownKind) as refused:
+            sources.get_source("usgs").resolve_kind("wildfire")
+        assert "usgs" in str(refused.value) and "wildfire" in str(refused.value)
+
+    def test_a_multi_kind_source_must_be_told(self, registered):
+        registered(kinds=("wildfire", "storm"))
+
+        with pytest.raises(sources.UnknownKind) as refused:
+            sources.get_source("fake").resolve_kind(None)
+        assert "wildfire, storm" in str(refused.value)
+        assert sources.get_source("fake").resolve_kind("storm") == "storm"
+
+
+@requires_postgres
+class TestKindsThroughTheApi:
+    def test_a_dataset_gets_its_sources_only_kind(self, client):
+        created = client.post("/api/datasets", json={"name": "Quakes", "source": "emsc"}).json()
+
+        assert created["kind"] == "earthquake"
+
+    def test_a_kind_may_be_named_when_it_is_the_right_one(self, client):
+        response = client.post(
+            "/api/datasets", json={"name": "Quakes", "source": "usgs", "kind": "earthquake"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["kind"] == "earthquake"
+
+    def test_the_wrong_kind_is_refused_with_the_reason(self, client):
+        response = client.post(
+            "/api/datasets", json={"name": "Fires", "source": "usgs", "kind": "wildfire"}
+        )
+
+        assert response.status_code == 422
+        assert "does not serve 'wildfire'" in response.json()["detail"]
+
+    def test_a_multi_kind_source_needs_the_kind(self, client, registered):
+        registered(kinds=("wildfire", "storm"))
+
+        refused = client.post("/api/datasets", json={"name": "Fires", "source": "fake"})
+        assert refused.status_code == 422
+        assert "say which" in refused.json()["detail"]
+
+        created = client.post(
+            "/api/datasets", json={"name": "Fires", "source": "fake", "kind": "wildfire"}
+        )
+        assert created.status_code == 200
+        assert created.json()["kind"] == "wildfire"
+
+    def test_the_sources_endpoint_lists_the_kinds(self, client, registered):
+        registered(kinds=("wildfire", "storm"))
+
+        listed = {source["key"]: source["kinds"] for source in client.get("/api/sources").json()}
+
+        assert listed["usgs"] == ["earthquake"]
+        assert listed["fake"] == ["wildfire", "storm"]
+
+    def test_the_run_is_told_the_datasets_kind(self, db, registered):
+        calls = registered(kinds=("wildfire", "storm"), features=[make_feature()])
+        with db() as connection:
+            dataset = repository.create_dataset(connection, "Storms", "fake", None, "storm")
+            import_id = repository.create_import(connection, dataset["id"], "https://fake.invalid/feed")
+
+        runner.run_import(import_id)
+
+        assert calls["kinds"] == ["storm"]
+
+    def test_a_kind_the_source_no_longer_serves_fails_the_run(self, db, registered):
+        """Checked at creation, but a source can change; the history says why."""
+        calls = registered(kinds=("wildfire",))
+        with db() as connection:
+            dataset = repository.create_dataset(connection, "Storms", "fake", None, "storm")
+            import_id = repository.create_import(connection, dataset["id"], "https://fake.invalid/feed")
+
+        with pytest.raises(runner.UnknownSource):
+            runner.run_import(import_id)
+
+        with db() as connection:
+            run = repository.get_import_row(connection, import_id)
+            stored = repository.get_dataset(connection, dataset["id"])
+        assert run["status"] == "failed"
+        assert "does not serve 'storm'" in run["error"]
+        assert stored["status"] == "failed"
+        assert calls["fetch"] == []

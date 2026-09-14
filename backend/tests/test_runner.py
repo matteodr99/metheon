@@ -28,7 +28,7 @@ def feed(monkeypatch):
     """Install a payload for fetch_feed to return, or an error to raise."""
 
     def install(features=None, error=None):
-        def _fetch(url=None, timeout=None):
+        def _fetch(url=None, timeout=None, kind=None):
             if error is not None:
                 raise error
             return {"type": "FeatureCollection", "features": features or []}
@@ -163,7 +163,7 @@ class TestFeedUrlComesFromTheRun:
 
         used = {}
 
-        def _fetch(url=None, timeout=None):
+        def _fetch(url=None, timeout=None, kind=None):
             used["url"] = url
             return {"type": "FeatureCollection", "features": []}
 

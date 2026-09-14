@@ -29,7 +29,8 @@ function DatasetCard({
         </span>
       </span>
       <span className="dataset-meta">
-        {dataset.source} · added {new Date(dataset.created_at).toLocaleDateString()}
+        {dataset.source} · {dataset.kind.replace('_', ' ')} · added{' '}
+        {new Date(dataset.created_at).toLocaleDateString()}
       </span>
     </button>
   )

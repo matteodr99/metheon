@@ -101,7 +101,7 @@ class TestWhatGetsLogged:
             ).json()
 
         assert any(
-            "created dataset {0} 'Quakes' (ingv)".format(created["id"]) == r.getMessage()
+            "created dataset {0} 'Quakes' (ingv, earthquake)".format(created["id"]) == r.getMessage()
             for r in caplog.records
         )
 

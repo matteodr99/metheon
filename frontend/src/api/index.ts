@@ -147,12 +147,16 @@ export interface Source {
   key: string
   name: string
   default_feed_url: string
+  /** The kinds of event it serves; a dataset gets one of them. */
+  kinds: string[]
 }
 
 export interface DatasetCreate {
   name: string
   source: string
   description?: string
+  /** Required only when the source serves several kinds. */
+  kind?: string
 }
 
 export type ImportStatus = 'queued' | 'processing' | 'completed' | 'failed'

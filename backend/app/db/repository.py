@@ -89,20 +89,22 @@ def create_dataset(
     name: str,
     source: str,
     description: Optional[str],
+    kind: str = "earthquake",
 ) -> Dict[str, Any]:
     """Insert a dataset and return it as stored.
 
     `status` is deliberately left to the column default, so the client
-    cannot choose the initial state of an import.
+    cannot choose the initial state of an import. `kind` is decided by the
+    caller against the source's registry entry, not here.
     """
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            INSERT INTO datasets (name, source, description)
-            VALUES (%s, %s, %s)
+            INSERT INTO datasets (name, source, description, kind)
+            VALUES (%s, %s, %s, %s)
             RETURNING id, name, source, description, created_at, status, kind
             """,
-            (name, source, description),
+            (name, source, description, kind),
         )
         row = cursor.fetchone()
 

@@ -67,6 +67,17 @@ def run_import(import_id: int) -> Dict[str, Any]:
         _fail(import_id, dataset_id, reason)
         raise UnknownSource(reason)
 
+    # The dataset's kind was checked against the source when it was
+    # created; a source that has since stopped serving it fails here, in
+    # the history, rather than fetching the wrong thing.
+    kind = dataset["kind"]
+    if kind not in source.kinds:
+        reason = "Source {0!r} does not serve {1!r} events (dataset {2})".format(
+            source.key, kind, dataset_id
+        )
+        _fail(import_id, dataset_id, reason)
+        raise UnknownSource(reason)
+
     with get_connection() as connection:
         repository.start_import(connection, import_id)
     with get_connection() as connection:
@@ -83,8 +94,8 @@ def run_import(import_id: int) -> Dict[str, Any]:
     )
 
     try:
-        payload = source.fetch_feed(url=feed_url)
-        records, errors = source.normalize_feed(payload)
+        payload = source.fetch_feed(url=feed_url, kind=kind)
+        records, errors = source.normalize_feed(payload, kind=kind)
         fetched = len(payload.get("features", []))
 
         with get_connection() as connection:

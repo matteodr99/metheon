@@ -1,7 +1,9 @@
 # Design: from earthquakes to events
 
-Status: **in progress**, 2026-09-14. Step 1 (migration mechanism, `events`
-table, API and dashboard renamed) is built; steps 2–4 are not.
+Status: **in progress**, 2026-09-14. Steps 1 (migration mechanism, `events`
+table, API and dashboard renamed) and 2 (kinds: vocabulary, per-source
+declaration, resolution at creation, re-check at each run, the form) are
+built; steps 3 and 4 are not.
 
 ## Why
 

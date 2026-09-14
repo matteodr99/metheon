@@ -14,6 +14,7 @@ export function NewDatasetForm({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [source, setSource] = useState('')
+  const [kind, setKind] = useState('')
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +38,12 @@ export function NewDatasetForm({
     return () => controller.abort()
   }, [])
 
+  // A source that serves one kind decides it; one that serves several
+  // asks. The menu appears only then, preselected like the source menu.
+  const kinds = sources?.find((entry) => entry.key === source)?.kinds ?? []
+  const asksForKind = kinds.length > 1
+  const chosenKind = kinds.includes(kind) ? kind : (kinds[0] ?? '')
+
   const canSubmit =
     !submitting && name.trim() !== '' && source !== '' && sources !== null
 
@@ -53,6 +60,8 @@ export function NewDatasetForm({
         source,
         // An empty description is sent as absent, not as an empty string.
         ...(description.trim() === '' ? {} : { description: description.trim() }),
+        // The kind travels only when there was a choice to make.
+        ...(asksForKind ? { kind: chosenKind } : {}),
       })
       setName('')
       setDescription('')
@@ -93,6 +102,18 @@ export function NewDatasetForm({
             ))}
           </select>
         </label>
+        {asksForKind && (
+          <label>
+            <span>Kind</span>
+            <select value={chosenKind} onChange={(event) => setKind(event.target.value)}>
+              {kinds.map((entry) => (
+                <option key={entry} value={entry}>
+                  {entry.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="wide">
           <span>Description (optional)</span>
           <input

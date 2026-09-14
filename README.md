@@ -363,7 +363,7 @@ logged".
 ### `GET /api/sources`
 
 Lists the sources a dataset can be created for, with the feed each one
-ingests by default.
+ingests by default and the kinds of event it serves.
 
 ```bash
 curl http://127.0.0.1:8000/api/sources
@@ -374,10 +374,15 @@ curl http://127.0.0.1:8000/api/sources
   {
     "key": "usgs",
     "name": "USGS Earthquake Hazards Program",
-    "default_feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson"
+    "default_feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
+    "kinds": ["earthquake"]
   }
 ]
 ```
+
+Every source today serves one kind, `earthquake`. A source serving several
+— a multi-category feed — would list them all, and a dataset created for it
+must say which one it holds.
 
 ### `GET /api/datasets`
 
@@ -421,14 +426,20 @@ Request fields:
 | `name` | string | yes |
 | `source` | string | yes |
 | `description` | string | no |
+| `kind` | string | only when the source serves several kinds |
 
 `id`, `created_at` and `status` are assigned by the database and must not be
 supplied by the client.
 
 `source` must be one of the keys returned by `GET /api/sources`, matched
 case-insensitively. An unknown source returns `422` listing the known ones:
-refusing it here beats accepting a dataset that can never be imported. The
-dashboard's **New dataset** form offers the same choice from a menu.
+refusing it here beats accepting a dataset that can never be imported.
+
+`kind` is which of the source's kinds the dataset holds. A source with one
+kind decides it, and a `kind` sent anyway must match; a source with several
+must be told, and refuses with `422` naming its kinds otherwise. The
+dashboard's **New dataset** form offers the same choices from menus, and
+shows the kind menu only when there is a choice to make.
 
 ### `GET /api/datasets/{id}/events`
 

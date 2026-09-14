@@ -151,8 +151,9 @@ before treating anything in it as implemented.
 
 - `generic-events.md` — from an `earthquakes` table to an `events` table
   with a kind per dataset, so that non-seismic public data (NASA EONET,
-  GDACS) can be ingested by the same pipeline. Status: step 1 of 4 done
-  (the schema, the migration and the rename); kinds, EONET and GDACS to go.
+  GDACS) can be ingested by the same pipeline. Status: steps 1 and 2 of 4
+  done (the schema, the migration, the rename, the kinds); EONET and GDACS
+  to go.
 
 ## Repository structure
 
@@ -483,9 +484,16 @@ by a worker. Datasets that have never been ingested stay at `pending`.
 
 `datasets.kind` (`VARCHAR(50) NOT NULL DEFAULT 'earthquake'`) says what
 kind of thing a dataset's events are — one kind per dataset, decided in
-`docs/design/generic-events.md`. Step 1 of that design (2026-09-14) made
-the events table generic; step 2 wires the kind through the sources and
-the create form. Until then every dataset is `earthquake`.
+`docs/design/generic-events.md`. The vocabulary is `sources.KINDS`, owned
+by the code; each source module declares the subset it serves in its
+`KINDS`, and `Source.resolve_kind` settles a new dataset's kind: a
+single-kind source needs no `kind` in the request, a multi-kind source
+refuses without one, and a kind the source does not serve is refused
+either way. The runner re-checks the dataset's kind against the source at
+every run and fails the run, in the history, if the source no longer
+serves it; it passes the kind to `fetch_feed` and `normalize_feed`, which
+the seismic modules accept and ignore. Every dataset today is
+`earthquake`.
 
 Table: `events`
 
@@ -734,8 +742,9 @@ first.
 ## Sources
 
 `app/ingestion/sources.py` is the registry: it maps a source key to the module
-that implements it. A source module provides `DEFAULT_FEED_URL`,
-`fetch_feed(url, timeout)` and `normalize_feed(payload)`, and raises the
+that implements it. A source module provides `KINDS`, `DEFAULT_FEED_URL`,
+`fetch_feed(url, timeout, kind)` and `normalize_feed(payload, kind)`, and
+raises the
 shared `app.ingestion.IngestionError` when its feed is unusable.
 
 The registry resolves those functions on the module at call time rather than
@@ -857,7 +866,8 @@ Node is a local development tool. It does not go in Docker Compose, and the
 frontend is not containerized.
 
 Implemented so far: the dataset list, a form that creates a dataset for a
-registered source, a browser for one dataset's events with the API's
+registered source (asking for the kind only when the source serves more
+than one), a browser for one dataset's events with the API's
 filters and paging, a map of the same events, a comparison with another
 dataset's reports of them, and an ingestion panel that starts a run and
 follows it. Every operation the API offers can be done from the browser.

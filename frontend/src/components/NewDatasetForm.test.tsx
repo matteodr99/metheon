@@ -164,3 +164,69 @@ describe('creating a dataset', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Rocks')
   })
 })
+
+describe('the kind', () => {
+  function mockWithKinds() {
+    const created = makeDataset({ id: 7, name: 'created', kind: 'storm' })
+    const { calls } = mockFetch(
+      (url, init) => (url === '/api/datasets' && init?.method === 'POST' ? created : []),
+      {
+        sources: [
+          makeSource({ key: 'usgs', name: 'USGS', kinds: ['earthquake'] }),
+          makeSource({ key: 'eonet', name: 'EONET', kinds: ['wildfire', 'storm', 'sea_ice'] }),
+        ],
+      },
+    )
+    return calls
+  }
+
+  it('is not asked for when the source serves one kind', async () => {
+    const calls = mockWithKinds()
+    const user = userEvent.setup()
+    render(<NewDatasetForm onCreated={vi.fn()} />)
+    await screen.findByRole('option', { name: 'USGS' })
+
+    expect(screen.queryByLabelText('Kind')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Name'), 'Quakes')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST')).toBe(true))
+    const posted = calls.find((call) => call.method === 'POST')!
+    expect(posted.body).toEqual({ name: 'Quakes', source: 'usgs' })
+  })
+
+  it('appears, preselected, when the source serves several, and is sent', async () => {
+    const calls = mockWithKinds()
+    const user = userEvent.setup()
+    render(<NewDatasetForm onCreated={vi.fn()} />)
+    await screen.findByRole('option', { name: 'EONET' })
+
+    await user.selectOptions(screen.getByLabelText('Source'), 'eonet')
+    const kindMenu = screen.getByLabelText('Kind')
+    expect(kindMenu).toHaveValue('wildfire')
+    expect(screen.getByRole('option', { name: 'sea ice' })).toBeInTheDocument()
+
+    await user.selectOptions(kindMenu, 'storm')
+    await user.type(screen.getByLabelText('Name'), 'Storms')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST')).toBe(true))
+    expect(calls.find((call) => call.method === 'POST')!.body).toEqual({
+      name: 'Storms',
+      source: 'eonet',
+      kind: 'storm',
+    })
+  })
+
+  it('goes away again when the source changes back', async () => {
+    mockWithKinds()
+    const user = userEvent.setup()
+    render(<NewDatasetForm onCreated={vi.fn()} />)
+    await screen.findByRole('option', { name: 'EONET' })
+
+    await user.selectOptions(screen.getByLabelText('Source'), 'eonet')
+    await user.selectOptions(screen.getByLabelText('Source'), 'usgs')
+
+    expect(screen.queryByLabelText('Kind')).not.toBeInTheDocument()
+  })
+})

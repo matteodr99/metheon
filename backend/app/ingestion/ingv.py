@@ -22,6 +22,9 @@ from app.ingestion.geojson import (
     seismic_attributes,
 )
 
+# One kind of event, so `kind` is accepted and ignored throughout.
+KINDS = ("earthquake",)
+
 DEFAULT_FEED_URL = os.getenv(
     "INGV_FEED_URL",
     "https://webservices.ingv.it/fdsnws/event/1/query?format=geojson&limit=5000",
@@ -42,6 +45,7 @@ def with_time_window(url: str, days: int = DEFAULT_DAYS, now: Optional[datetime]
 def fetch_feed(
     url: Optional[str] = None,
     timeout: Optional[float] = None,
+    kind: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Query the event service and return the GeoJSON as a dictionary."""
     url = with_time_window(url or DEFAULT_FEED_URL)
@@ -119,6 +123,8 @@ def normalize_feature(feature: Any) -> Tuple[Optional[Dict[str, Any]], Optional[
     return record, None
 
 
-def normalize_feed(payload: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
+def normalize_feed(
+    payload: Dict[str, Any], kind: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Normalize every feature, returning the valid records and the errors."""
     return collect_records(payload, normalize_feature)
