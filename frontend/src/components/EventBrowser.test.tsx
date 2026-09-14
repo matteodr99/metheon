@@ -372,3 +372,23 @@ describe('the kind of the dataset', () => {
     expect(screen.getByText('15.4 km')).toBeInTheDocument()
   })
 })
+
+describe('the comparison reaches the insights', () => {
+  it('asks the model about the dataset the Compare panel is set to', async () => {
+    const { calls } = mockFetch(() => makePage([makeEvent()]), {
+      ai: { configured: true, model: 'gemini-3.8-flash' },
+    })
+    const quakes = makeDataset({ id: 1, name: 'Quakes' })
+    const ingv = makeDataset({ id: 2, name: 'INGV', source: 'ingv' })
+    const user = userEvent.setup()
+
+    render(<EventBrowser datasetId={1} datasets={[quakes, ingv]} />)
+    await screen.findByText('somewhere')
+    await user.click(await screen.findByRole('button', { name: 'Analyse this view' }))
+
+    await waitFor(() => {
+      const request = calls.find((c) => c.url.includes('/insights'))
+      expect(request?.url).toBe('/api/datasets/1/insights?other=2&window_seconds=60&radius_km=100')
+    })
+  })
+})

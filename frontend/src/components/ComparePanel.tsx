@@ -59,6 +59,7 @@ export function ComparePanel({
   datasets,
   filters,
   dataVersion = 0,
+  onOtherChange,
 }: {
   datasetId: number
   /** Every dataset, this one included; the panel picks the candidates. */
@@ -66,6 +67,8 @@ export function ComparePanel({
   /** The applied filters: they narrow this dataset's side of the pairs. */
   filters: EventFilters
   dataVersion?: number
+  /** Told which dataset is being compared with, or null; the insights use it. */
+  onOtherChange?: (otherId: number | null) => void
 }) {
   // Only datasets of the same kind: the API refuses the rest, and a menu
   // offering fires to compare with quakes would be offering an error.
@@ -82,6 +85,10 @@ export function ComparePanel({
     ? chosen
     : defaultOther(datasetId, others, datasets)
   const other = others.find((candidate) => candidate.id === otherId) ?? null
+
+  useEffect(() => {
+    onOtherChange?.(otherId)
+  }, [otherId, onOtherChange])
 
   const query = JSON.stringify([datasetId, otherId, filters, dataVersion])
   const [result, setResult] = useState<{

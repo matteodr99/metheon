@@ -4,6 +4,7 @@ import {
   fetchAIStatus,
   fetchInsights,
   type AIStatus,
+  type Comparison,
   type EventFilters,
   type Insights,
 } from '../api'
@@ -27,10 +28,13 @@ function List({ title, items }: { title: string; items: string[] }) {
 export function InsightsPanel({
   datasetId,
   filters,
+  comparison = null,
   dataVersion = 0,
 }: {
   datasetId: number
   filters: EventFilters
+  /** The dataset the Compare panel is set to, so the model sees it too. */
+  comparison?: Comparison | null
   dataVersion?: number
 }) {
   const [status, setStatus] = useState<AIStatus | null>(null)
@@ -41,7 +45,7 @@ export function InsightsPanel({
   // An answer is kept with the view it describes. When the filters or the
   // data change, the view key changes and the old answer simply stops
   // matching — shown for nothing, never left to mislead.
-  const view = JSON.stringify([datasetId, filters, dataVersion])
+  const view = JSON.stringify([datasetId, filters, comparison?.otherId ?? null, dataVersion])
   const [answer, setAnswer] = useState<{
     view: string
     insights: Insights | null
@@ -67,7 +71,7 @@ export function InsightsPanel({
   async function analyse() {
     setLoading(true)
     try {
-      const result = await fetchInsights(datasetId, filters)
+      const result = await fetchInsights(datasetId, filters, comparison)
       setAnswer({ view, insights: result, error: null })
     } catch (cause: unknown) {
       setAnswer({
@@ -118,6 +122,12 @@ export function InsightsPanel({
           <List title="Key trends" items={insights.key_trends} />
           <List title="Anomalies" items={insights.anomalies} />
           <List title="Recommendations" items={insights.recommendations} />
+          {insights.agency_comparison !== '' && (
+            <div className="insights-list">
+              <h4>Agencies compared</h4>
+              <p className="insights-comparison">{insights.agency_comparison}</p>
+            </div>
+          )}
         </div>
       )}
     </section>

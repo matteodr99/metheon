@@ -229,6 +229,22 @@ class EventFilters:
         return {name: value for name, value in self.values.items() if value is not None}
 
 
+def _get_comparable_or_refuse(connection, mine: Dict[str, Any], other: int) -> Dict[str, Any]:
+    """The other dataset of a comparison: it must exist, be another one,
+    and hold the same kind of event."""
+    if other == mine["id"]:
+        raise HTTPException(status_code=422, detail="A dataset cannot be compared with itself")
+    theirs = _get_dataset_or_404(connection, other)
+    if mine["kind"] != theirs["kind"]:
+        raise HTTPException(
+            status_code=422,
+            detail="Datasets of different kinds cannot be compared: {0} holds {1} events, {2} holds {3}".format(
+                mine["id"], mine["kind"], other, theirs["kind"]
+            ),
+        )
+    return theirs
+
+
 def _refuse_if_too_soon(dataset_id: int, latest: Optional[Dict[str, Any]]) -> None:
     """The cooldown: 429 while a run is in flight or one just finished."""
     if latest is None:
@@ -539,20 +555,9 @@ def get_dataset_event_matches(
     apply to this dataset's side, so the comparison covers what a reader
     is looking at.
     """
-    if other == dataset_id:
-        raise HTTPException(
-            status_code=422, detail="A dataset cannot be compared with itself"
-        )
     with get_connection() as connection:
         mine = _get_dataset_or_404(connection, dataset_id)
-        theirs = _get_dataset_or_404(connection, other)
-        if mine["kind"] != theirs["kind"]:
-            raise HTTPException(
-                status_code=422,
-                detail="Datasets of different kinds cannot be compared: {0} holds {1} events, {2} holds {3}".format(
-                    dataset_id, mine["kind"], other, theirs["kind"]
-                ),
-            )
+        _get_comparable_or_refuse(connection, mine, other)
         events = repository.count_events(connection, dataset_id, filters.values)
         matches = repository.match_events(
             connection, dataset_id, other, window_seconds, radius_km, limit, filters.values
@@ -611,27 +616,42 @@ def ai_status():
 )
 def get_dataset_insights(
     dataset_id: int,
+    other: Optional[int] = Query(None, description="A dataset of the same kind to compare with."),
+    window_seconds: float = Query(60, gt=0, le=604800),
+    radius_km: float = Query(100, gt=0, le=1000),
     filters: EventFilters = Depends(),
 ):
     """Ask Gemini what the filtered data shows.
 
     The model is given the same summary the summary endpoint returns, plus
     the strongest events — never the rows. Same filters, so the reader and
-    the model are looking at the same thing.
+    the model are looking at the same thing. With `other`, it is also given
+    what the matches endpoint would answer for that dataset — the counts,
+    the mean differences, the most discordant pairs — and asked to say how
+    the two agencies compare.
 
     503 when no key is configured: the feature is off, the rest of the API
     is not. 502 when Gemini fails or answers outside its schema.
     """
+    comparison = None
     with get_connection() as connection:
         dataset = _get_dataset_or_404(connection, dataset_id)
         summary = repository.summarize_events(connection, dataset_id, filters.values)
         strongest = repository.strongest_events(
             connection, dataset_id, insights.STRONGEST_EVENTS, filters.values
         )
+        if other is not None:
+            theirs = _get_comparable_or_refuse(connection, dataset, other)
+            matches = repository.match_events(
+                connection, dataset_id, other, window_seconds, radius_km,
+                insights.COMPARISON_PAIRS, filters.values,
+            )
+            matches["events"] = summary["total"]
+            comparison = insights.build_comparison(theirs, matches, window_seconds, radius_km)
     summary["filters"] = filters.applied()
 
     try:
-        answer = insights.generate_insights(dataset, summary, strongest)
+        answer = insights.generate_insights(dataset, summary, strongest, comparison)
     except AIError as exc:
         if not exc.configured:
             logger.info("insights requested for dataset %s but AI is not configured", dataset_id)
@@ -642,6 +662,7 @@ def get_dataset_insights(
     logger.info("insights produced for dataset %s (%s)", dataset_id, gemini.DEFAULT_MODEL)
     return {
         "dataset_id": dataset_id,
+        "other_id": other,
         "filters": filters.applied(),
         "model": gemini.DEFAULT_MODEL,
         **answer,

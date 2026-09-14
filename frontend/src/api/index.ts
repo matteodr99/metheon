@@ -198,6 +198,15 @@ export interface Insights {
   key_trends: string[]
   anomalies: string[]
   recommendations: string[]
+  /** How another agency's reports compare; empty unless one was asked for. */
+  agency_comparison: string
+  other_id: number | null
+}
+
+/** What to compare the dataset with, when asking for insights. */
+export interface Comparison {
+  otherId: number
+  window: MatchWindow
 }
 
 export interface Summary {
@@ -395,10 +404,18 @@ export function fetchAIStatus(signal?: AbortSignal): Promise<AIStatus> {
 export function fetchInsights(
   datasetId: number,
   filters: EventFilters,
+  comparison: Comparison | null = null,
   signal?: AbortSignal,
 ): Promise<Insights> {
-  return getJson<Insights>(
-    `/api/datasets/${datasetId}/insights?${queryFor(filters)}`,
-    signal,
+  const query = queryFor(
+    filters,
+    comparison === null
+      ? {}
+      : {
+          other: String(comparison.otherId),
+          window_seconds: String(comparison.window.windowSeconds),
+          radius_km: String(comparison.window.radiusKm),
+        },
   )
+  return getJson<Insights>(`/api/datasets/${datasetId}/insights?${query}`, signal)
 }

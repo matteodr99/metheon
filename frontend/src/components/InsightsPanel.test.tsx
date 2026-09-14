@@ -17,6 +17,8 @@ function makeInsights(overrides: Partial<Insights> = {}): Insights {
     key_trends: ['Activity peaked on 09-10.'],
     anomalies: ['An M6.3 event far above the rest.'],
     recommendations: ['Filter to M3+ to see the significant events.'],
+    agency_comparison: '',
+    other_id: null,
     ...overrides,
   }
 }
@@ -137,6 +139,60 @@ describe('when AI is configured', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('quota exceeded')
     expect(screen.getByRole('button', { name: 'Analyse this view' })).toBeEnabled()
+  })
+})
+
+describe('comparing with another agency', () => {
+  it('asks with the compared dataset and its window, and shows the answer', async () => {
+    const { calls } = mockAI(ON, () =>
+      makeInsights({
+        other_id: 5,
+        agency_comparison: 'GDACS reported 45 of these fires, on average 4 km away.',
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(
+      <InsightsPanel
+        datasetId={3}
+        filters={EMPTY_FILTERS}
+        comparison={{ otherId: 5, window: { windowSeconds: 259200, radiusKm: 50 } }}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Analyse this view' }))
+
+    expect(await screen.findByText('GDACS reported 45 of these fires, on average 4 km away.')).toBeInTheDocument()
+    expect(screen.getByText('Agencies compared')).toBeInTheDocument()
+    const request = calls.find((c) => c.url.includes('/insights'))!
+    expect(request.url).toBe('/api/datasets/3/insights?other=5&window_seconds=259200&radius_km=50')
+  })
+
+  it('asks for nothing of the sort without a comparison, and shows no heading', async () => {
+    const { calls } = mockAI(ON, () => makeInsights())
+    const user = userEvent.setup()
+
+    render(<InsightsPanel datasetId={3} filters={EMPTY_FILTERS} />)
+    await user.click(await screen.findByRole('button', { name: 'Analyse this view' }))
+
+    await screen.findByText('A quiet week with one notable event.')
+    expect(screen.queryByText('Agencies compared')).not.toBeInTheDocument()
+    expect(calls.find((c) => c.url.includes('/insights'))!.url).toBe('/api/datasets/3/insights?')
+  })
+
+  it('drops the answer when the compared dataset changes', async () => {
+    mockAI(ON, () => makeInsights())
+    const user = userEvent.setup()
+    const window = { windowSeconds: 60, radiusKm: 100 }
+
+    const { rerender } = render(
+      <InsightsPanel datasetId={3} filters={EMPTY_FILTERS} comparison={{ otherId: 5, window }} />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Analyse this view' }))
+    await screen.findByText('A quiet week with one notable event.')
+
+    rerender(<InsightsPanel datasetId={3} filters={EMPTY_FILTERS} comparison={{ otherId: 6, window }} />)
+
+    expect(screen.queryByText('A quiet week with one notable event.')).not.toBeInTheDocument()
   })
 })
 

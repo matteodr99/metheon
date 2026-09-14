@@ -245,6 +245,10 @@ class Insights(BaseModel):
     key_trends: List[str]
     anomalies: List[str]
     recommendations: List[str]
+    agency_comparison: str = Field(
+        description="How another agency's reports of the same events compare; empty unless `other` was given."
+    )
+    other_id: Optional[int] = Field(description="The dataset compared with, when one was.")
 
 
 class AIStatus(BaseModel):

@@ -1038,8 +1038,24 @@ and tells the model what each source covers. `RESPONSE_SCHEMA` mirrors
 
 `AIError.configured` distinguishes "no key" (503: the feature is off, the
 API is up) from "the call failed" (502, with Google's message). The
-endpoint takes the same `EarthquakeFilters` as the summary, so the model
+endpoint takes the same `EventFilters` as the summary, so the model
 describes exactly what the reader is looking at.
+
+With `other`, the route runs the same pairing as the matches endpoint
+(`insights.COMPARISON_PAIRS` of them, the comparison's own cap) and
+`insights.build_comparison` reduces it to what the model needs: the counts,
+the means, and the `MOST_DISCORDANT` pairs by `|Δmeasure|` — pairs without
+a measure on both sides cannot be discordant and are left out. The schema
+gains `agency_comparison`, required so the model cannot omit the key, and
+`generate_insights` blanks it when no comparison was given, whatever the
+model wrote. `_get_comparable_or_refuse` in `main.py` is the one check —
+another dataset, existing, same kind — shared by matches and insights.
+
+In the dashboard the Compare panel reports its selection upward through
+`onOtherChange`; `EventBrowser` keeps it and hands `InsightsPanel` a
+`Comparison` with the kind's match window from `kinds.ts`. The answer's
+view key includes the compared dataset, so changing it drops the answer
+like a filter change does.
 
 No automatic retry. The free tier of the model overloads at times — seen
 live as a 500 "currently experiencing high demand" after forty seconds —

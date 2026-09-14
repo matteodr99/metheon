@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
   EMPTY_FILTERS,
@@ -45,6 +45,11 @@ export function EventBrowser({
   // browser handed no datasets (the tests, mostly) assumes earthquakes.
   const kind = datasets.find((dataset) => dataset.id === datasetId)?.kind ?? 'earthquake'
   const labels = labelsFor(kind)
+
+  // What the Compare panel is set to, so the insights can speak of it too.
+  const [otherId, setOtherId] = useState<number | null>(null)
+  const handleOtherChange = useCallback((id: number | null) => setOtherId(id), [])
+  const comparison = otherId === null ? null : { otherId, window: labels.match }
 
   const [form, setForm] = useState<EventFilters>(EMPTY_FILTERS)
   const [applied, setApplied] = useState<EventFilters>(EMPTY_FILTERS)
@@ -231,12 +236,18 @@ export function EventBrowser({
         dataVersion={dataVersion}
         onFilterToView={filterToView}
       />
-      <InsightsPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
+      <InsightsPanel
+        datasetId={datasetId}
+        filters={applied}
+        comparison={comparison}
+        dataVersion={dataVersion}
+      />
       <ComparePanel
         datasetId={datasetId}
         datasets={datasets}
         filters={applied}
         dataVersion={dataVersion}
+        onOtherChange={handleOtherChange}
       />
 
       {error !== null && (

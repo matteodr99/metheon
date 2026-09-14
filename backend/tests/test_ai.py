@@ -31,6 +31,7 @@ GOOD_ANSWER = {
     "key_trends": ["Activity peaked on 2026-09-10 with 61 events."],
     "anomalies": ["One M6.3 event off Vanuatu stands far above the rest."],
     "recommendations": ["Filter to magnitude 3 and above to see the significant events."],
+    "agency_comparison": "GDACS reported 45 of these fires, on average 4 km away and three times larger.",
 }
 
 
@@ -279,7 +280,59 @@ class TestTheDigest:
             "key_trends": ["a"],
             "anomalies": [],
             "recommendations": [],
+            "agency_comparison": "",
         }
+
+    def test_a_comparison_is_folded_in_with_its_most_discordant_pairs(self):
+        other = {"name": "GDACS wildfires", "source": "gdacs"}
+        pair = lambda title, mine, theirs, delta: {  # noqa: E731
+            "event": {"title": title, "magnitude": mine, "magnitude_unit": "hectares"},
+            "other": {"title": title + " (GDACS)", "magnitude": theirs},
+            "delta_magnitude": delta, "distance_km": 3.14159, "delta_seconds": -18000.0,
+        }
+        matches = {
+            "events": 49, "matched": 3,
+            "mean_abs_delta_seconds": 18000.0, "mean_distance_km": 3.6, "mean_abs_delta_magnitude": 2752.7,
+            "pairs": [
+                pair("Namibia", 10146.0, 61629.0, 51483.0),
+                pair("Angola", 7070.0, 22193.0, 15123.0),
+                pair("Botswana", 11123.0, 15357.0, 4234.0),
+                {"event": {"title": "unmeasured", "magnitude": None, "magnitude_unit": None},
+                 "other": {"title": "u", "magnitude": 5.0}, "delta_magnitude": None,
+                 "distance_km": 1.0, "delta_seconds": 0.0},
+            ],
+        }
+
+        comparison = insights.build_comparison(other, matches, 259200, 50)
+        digest = insights.build_digest(self.dataset, self.summary, self.strongest, comparison)
+
+        assert digest["comparison"]["other"] == other
+        assert (digest["comparison"]["matched"], digest["comparison"]["unmatched"]) == (3, 46)
+        assert digest["comparison"]["mean_abs_delta_magnitude"] == 2752.7
+        titles = [p["title"] for p in digest["comparison"]["most_discordant"]]
+        assert titles == ["Namibia", "Angola", "Botswana"]
+        assert digest["comparison"]["most_discordant"][0]["distance_km"] == 3.1
+
+    def test_at_most_five_discordant_pairs_are_named(self):
+        pairs = [
+            {"event": {"title": str(i), "magnitude": 1.0, "magnitude_unit": "m"}, "other": {"title": "o", "magnitude": 1.0 + i},
+             "delta_magnitude": float(i), "distance_km": 1.0, "delta_seconds": 1.0}
+            for i in range(12)
+        ]
+        matches = {"events": 12, "matched": 12, "mean_abs_delta_seconds": 1.0, "mean_distance_km": 1.0, "mean_abs_delta_magnitude": 5.5, "pairs": pairs}
+
+        comparison = insights.build_comparison({"name": "o", "source": "s"}, matches, 60, 100)
+
+        assert [p["title"] for p in comparison["most_discordant"]] == ["11", "10", "9", "8", "7"]
+
+    def test_without_a_comparison_the_digest_has_none_and_the_answer_is_blanked(self, monkeypatch):
+        monkeypatch.setattr(gemini, "generate_json", lambda **kwargs: {**GOOD_ANSWER})
+
+        digest = insights.build_digest(self.dataset, self.summary, self.strongest)
+        answer = insights.generate_insights(self.dataset, self.summary, self.strongest)
+
+        assert "comparison" not in digest
+        assert answer["agency_comparison"] == ""
 
     def test_the_system_instruction_forbids_invention(self):
         assert "Do not invent" in insights.SYSTEM_INSTRUCTION
@@ -354,6 +407,62 @@ class TestTheEndpoint:
         digest = json.loads(calls["json"]["input"].split("\n\n", 1)[1])
         magnitudes = [e["magnitude"] for e in digest["strongest_events"]]
         assert magnitudes == [7.0, 6.0, 5.0, 4.0, 3.0]
+
+    @pytest.fixture
+    def other(self, db, seeded):
+        """A second earthquake dataset with the same events an hour later
+        and a tenth of a magnitude up: every event pairs, every pair differs."""
+        with db() as connection:
+            theirs = repository.create_dataset(connection, "GDACS earthquakes", "gdacs", None)
+            repository.upsert_events(connection, theirs["id"], [
+                {
+                    "external_id": "EQ{0}".format(i), "magnitude": float(i) + 0.1, "magnitude_unit": "m",
+                    "title": "Earthquake {0}".format(i), "event_type": "earthquake",
+                    "occurred_at": datetime(2026, 9, 9, i, 0, 10), "source_updated_at": None,
+                    "longitude": 0.01, "latitude": 0.0, "attributes": {"alert_level": "green"}, "url": None,
+                }
+                for i in range(1, 8)
+            ])
+        return theirs
+
+    def test_with_other_the_model_is_shown_the_comparison(self, client, seeded, other, with_key, fake_post):
+        calls = fake_post(FakeResponse(interaction(json.dumps(GOOD_ANSWER))))
+
+        response = client.get(
+            "/api/datasets/{0}/insights?other={1}&min_magnitude=5".format(seeded["id"], other["id"])
+        )
+
+        assert response.status_code == 200
+        assert response.json()["other_id"] == other["id"]
+        assert response.json()["agency_comparison"] == GOOD_ANSWER["agency_comparison"]
+        digest = json.loads(calls["json"]["input"].split("\n\n", 1)[1])
+        comparison = digest["comparison"]
+        assert comparison["other"]["name"] == "GDACS earthquakes"
+        assert (comparison["events"], comparison["matched"], comparison["unmatched"]) == (3, 3, 0)
+        assert comparison["mean_abs_delta_magnitude"] == pytest.approx(0.1)
+        assert comparison["window_seconds"] == 60.0
+        assert len(comparison["most_discordant"]) == 3
+
+    def test_without_other_the_model_sees_no_comparison(self, client, seeded, with_key, fake_post):
+        calls = fake_post(FakeResponse(interaction(json.dumps(GOOD_ANSWER))))
+
+        response = client.get("/api/datasets/{0}/insights".format(seeded["id"]))
+
+        digest = json.loads(calls["json"]["input"].split("\n\n", 1)[1])
+        assert "comparison" not in digest
+        assert response.json()["other_id"] is None
+        assert response.json()["agency_comparison"] == ""
+
+    def test_other_must_exist_be_another_and_hold_the_same_kind(self, client, db, seeded, with_key, fake_post):
+        fake_post(FakeResponse(interaction(json.dumps(GOOD_ANSWER))))
+        with db() as connection:
+            fires = repository.create_dataset(connection, "Fires", "eonet", None, "wildfire")
+
+        assert client.get("/api/datasets/{0}/insights?other=999999".format(seeded["id"])).status_code == 404
+        assert client.get("/api/datasets/{0}/insights?other={0}".format(seeded["id"])).status_code == 422
+        refused = client.get("/api/datasets/{0}/insights?other={1}".format(seeded["id"], fires["id"]))
+        assert refused.status_code == 422
+        assert "different kinds" in refused.json()["detail"]
 
     def test_an_upstream_failure_is_a_502(self, client, seeded, with_key, fake_post):
         fake_post(FakeResponse({"error": {"message": "quota exceeded"}}, status=429))

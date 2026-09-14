@@ -759,7 +759,9 @@ curl "http://127.0.0.1:8000/api/datasets/3/insights?min_magnitude=2"
   "summary": "This INGV dataset contains 56 earthquake events recorded between September 4 and 13, 2026, with magnitudes from 2.0 to 6.3 …",
   "key_trends": ["Daily event counts varied from a low of 2 on September 7 to a peak of 11 on September 5."],
   "anomalies": ["A magnitude 6.3 earthquake at a depth of 318.8 km offshore Jawa, Indonesia, was far deeper and stronger than the 2.93 average."],
-  "recommendations": ["Apply a regional bounding box to separate domestic Italian events from global detections catalogued by INGV."]
+  "recommendations": ["Apply a regional bounding box to separate domestic Italian events from global detections catalogued by INGV."],
+  "agency_comparison": "",
+  "other_id": null
 }
 ```
 
@@ -769,6 +771,25 @@ endpoint returns — totals, magnitude statistics, counts per day and per type
 instruction that forbids inventing anything not in that data. The answer is
 constrained to a JSON Schema on Gemini's side and validated against the
 response model on ours.
+
+With `other={id2}` — and `window_seconds` / `radius_km` as for the matches
+endpoint — the model is also given what that comparison would answer: the
+counts, the mean differences in time, distance and measure, and the five
+pairs where the two agencies disagree most. It is asked to describe the
+agreement in `agency_comparison`, and told that different networks and
+methods explain most differences, so it does not call either agency wrong.
+The dashboard passes whatever the **Compare** panel is set to. A first real
+run, GDACS wildfires against NASA EONET's:
+
+> Out of 222 GDACS wildfire events, NASA EONET matched 45, leaving 177
+> unmatched within the 50.0 km and 72-hour window. On average, the matched
+> events were located 3.59 km apart, separated by 8.6 hours, with a mean
+> absolute magnitude difference of 2,752.73 hectares. The most discordant
+> match was a fire in Namibia where GDACS reported 61,629.0 hectares while
+> EONET reported 10,146.0 hectares.
+
+`other` must be another dataset of the same kind (`422` otherwise, `404` if
+unknown).
 
 | Status | Meaning |
 | --- | --- |
