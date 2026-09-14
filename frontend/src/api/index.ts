@@ -302,13 +302,25 @@ export function fetchPoints(
   )
 }
 
+export interface MatchWindow {
+  /** How far apart in time two reports of one event may be. */
+  windowSeconds: number
+  /** How far apart in space. */
+  radiusKm: number
+}
+
 export function fetchMatches(
   datasetId: number,
   otherId: number,
   filters: EventFilters,
+  window: MatchWindow,
   signal?: AbortSignal,
 ): Promise<Matches> {
-  const query = queryFor(filters, { other: String(otherId) })
+  const query = queryFor(filters, {
+    other: String(otherId),
+    window_seconds: String(window.windowSeconds),
+    radius_km: String(window.radiusKm),
+  })
   return getJson<Matches>(
     `/api/datasets/${datasetId}/events/matches?${query}`,
     signal,

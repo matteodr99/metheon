@@ -347,6 +347,20 @@ describe('the kind of the dataset', () => {
     expect(screen.getByText('Area range')).toBeInTheDocument()
   })
 
+  it('shows the alert level, the network and the country as details', async () => {
+    mockFetch(() =>
+      makePage([makeEvent({ title: 'Forest fires in Namibia', attributes: { alert_level: 'orange', network: 'JRC', country: 'Namibia', episode_id: 5, severity_text: 'long text' } })]),
+    )
+    const fires = makeDataset({ id: 1, name: 'Fires', source: 'gdacs', kind: 'wildfire' })
+
+    render(<EventBrowser datasetId={1} datasets={[fires]} />)
+
+    const row = (await screen.findByText('Forest fires in Namibia')).closest('tr')!
+    const cells = Array.from(row.querySelectorAll('td'))
+    expect(cells.at(-1)).toHaveTextContent('orange · JRC · Namibia')
+    expect(cells.at(-1)!.textContent).toBe('orange · JRC · Namibia')
+  })
+
   it('keeps the seismic words and the depth for earthquakes', async () => {
     mockFetch(() => makePage([makeEvent()]))
 

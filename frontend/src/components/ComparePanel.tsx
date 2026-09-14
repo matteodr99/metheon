@@ -15,6 +15,18 @@ function signed(value: number, digits: number, unit = ''): string {
   return `${sign}${value.toFixed(digits)}${unit}`
 }
 
+/** Seconds for an instant, hours or days for an event reported over days. */
+function elapsed(seconds: number): string {
+  const magnitude = Math.abs(seconds)
+  if (magnitude < 120) {
+    return signed(seconds, 1, ' s')
+  }
+  if (magnitude < 2 * 24 * 3600) {
+    return signed(seconds / 3600, 1, ' h')
+  }
+  return signed(seconds / 86400, 1, ' d')
+}
+
 function depth(value: number | null): string {
   return value === null ? '—' : `${value.toFixed(0)} km`
 }
@@ -36,7 +48,7 @@ function caption(matches: Matches, other: Dataset, kind: string): string {
   }
   if (matches.mean_abs_delta_magnitude !== null) {
     parts.push(
-      `${labels.measure.toLowerCase()}s differ by ${matches.mean_abs_delta_magnitude.toFixed(2)} on average`,
+      `${labels.measure.toLowerCase()}s differ by ${matches.mean_abs_delta_magnitude.toFixed(labels.decimals + 1)} on average`,
     )
   }
   return parts.join(' · ')
@@ -86,7 +98,7 @@ export function ComparePanel({
       return
     }
     const controller = new AbortController()
-    fetchMatches(datasetId, otherId, filters, controller.signal)
+    fetchMatches(datasetId, otherId, filters, labels.match, controller.signal)
       .then((loaded) => {
         setResult({ query, matches: loaded, error: null })
       })
@@ -101,7 +113,7 @@ export function ComparePanel({
         })
       })
     return () => controller.abort()
-  }, [datasetId, otherId, filters, dataVersion, query])
+  }, [datasetId, otherId, filters, dataVersion, query, labels.match])
 
   if (others.length === 0) {
     return (
@@ -177,7 +189,7 @@ export function ComparePanel({
                   <td className="numeric">
                     {pair.delta_magnitude === null ? '—' : signed(pair.delta_magnitude, labels.decimals)}
                   </td>
-                  <td className="numeric">{signed(pair.delta_seconds, 1, ' s')}</td>
+                  <td className="numeric">{elapsed(pair.delta_seconds)}</td>
                   <td className="numeric">{pair.distance_km.toFixed(1)} km</td>
                   {labels.depth && (
                     <td className="numeric">

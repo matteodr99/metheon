@@ -151,9 +151,8 @@ before treating anything in it as implemented.
 
 - `generic-events.md` — from an `earthquakes` table to an `events` table
   with a kind per dataset, so that non-seismic public data (NASA EONET,
-  GDACS) can be ingested by the same pipeline. Status: steps 1–3 of 4
-  done (the schema, the migration, the rename, the kinds, EONET with the
-  dashboard's per-kind words and colours); GDACS to go.
+  GDACS) can be ingested by the same pipeline. Status: **done**, all four
+  steps (2026-09-15); kept for the reasoning behind the shape.
 
 ## Repository structure
 
@@ -191,6 +190,7 @@ metheon/
 │   │       ├── ingv.py
 │   │       ├── emsc.py
 │   │       ├── eonet.py
+│   │       ├── gdacs.py
 │   │       └── runner.py
 │   ├── tests/
 │   │   ├── conftest.py
@@ -763,7 +763,7 @@ endpoint refuses to queue one with `422`.
 
 Nothing else in the pipeline knows which sources exist.
 
-Registered: `usgs`, `ingv`, `emsc` and `eonet`. The three seismic ones
+Registered: `usgs`, `ingv`, `emsc`, `eonet` and `gdacs`. The three seismic ones
 publish GeoJSON point features, so the envelope checks — id, geometry,
 coordinate ranges, duplicate ids in one feed — live once in `geojson.py`;
 each module maps only its own properties. `collect_records` takes the name
@@ -810,6 +810,27 @@ covered by tests on the captured fixture: polygons arrive as
 flood polygon captured on 2026-09-14 put Croatia at 43.5, 16.3), so a
 polygon's centroid is swapped; and EONET's `link` is an API document, so
 the first partner source's url is preferred as the event's page.
+
+GDACS is read from its seven-day RSS, not its JSON search: the search
+answers at most a hundred features per query with no paging — a week of
+wildfires is over two hundred — and slicing it by day returned the same
+active fires every day, and still hit the cap. The RSS carries every alert
+of every type, uncapped, so `fetch_feed` makes one request and keeps the
+items of the dataset's kind; `parse_feed` flattens each `<item>` with
+`xml.etree` (namespaces dropped, `severity` keeping its `unit` and `value`
+attributes, the point lifted out of `geo:Point`). Everything in RSS is
+text, so the module has its own `_number`; `geojson.optional_number`
+rightly refuses strings. Dates are RFC 2822. The `guid` (`WF1031934`) is
+the external id — GDACS reuses numbers across types. Units follow the other
+sources (`km/h` → knots, `ha` → hectares), an earthquake's depth is parsed
+out of the severity text under the seismic key `depth_km`, and the alert
+level, score, country and episode go to `attributes`. There is no window
+setting: the feed is the window.
+
+The matches endpoint allows `window_seconds` up to a week, since fires and
+storms are reported over days; `src/kinds.ts` holds the per-kind defaults
+the dashboard asks with (a minute and 100 km for quakes, three days and
+50 km for fires, wider for storms, floods and droughts).
 
 ## Asynchronous processing
 
@@ -942,7 +963,10 @@ the browser takes from the dataset list it is handed; with no list it
 assumes earthquakes, which is what every test that predates kinds relies
 on. Markers get a `kind-<kind>` class for their colour and are sized by
 where their magnitude sits in the range of the points drawn, so the scale
-works for any unit.
+works for any unit. The events table ends with a *Details* column listing
+a few string attributes worth a glance (`DETAIL_KEYS` in `EventBrowser`:
+alert level, network, country, category); numbers and long texts stay in
+the API.
 
 The map is the one place that rule gave way. `EarthquakeMap.tsx` uses
 Leaflet — zoom, pan and tiles are a project of their own — pinned to `~1.9`

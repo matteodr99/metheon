@@ -1,12 +1,12 @@
 # Design: from earthquakes to events
 
-Status: **in progress**, 2026-09-15. Steps 1 (migration mechanism, `events`
-table, API and dashboard renamed), 2 (kinds: vocabulary, per-source
-declaration, resolution at creation, re-check at each run, the form) and 3
-(NASA EONET, the dashboard's per-kind words and colours) are built; step 4
-(GDACS) is not. Two kinds were added to the vocabulary for EONET's
-categories, `snow` and `water_color`; the peak measurement was chosen over
-the latest, for the reason given in CLAUDE.md.
+Status: **done**, 2026-09-15. All four steps are built. Departures from
+the text below, each explained in CLAUDE.md: two kinds were added to the
+vocabulary for EONET's categories, `snow` and `water_color`; EONET's peak
+measurement was chosen over its latest; GDACS is read from its RSS rather
+than its JSON API, whose hundred-feature cap cannot be paged past; the
+matches window may be up to a week, with per-kind defaults in the
+dashboard, because fires and storms are reported over days.
 
 ## Why
 

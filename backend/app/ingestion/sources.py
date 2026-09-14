@@ -20,7 +20,7 @@ serves several (a multi-category feed) is told which one each run wants.
 from types import ModuleType
 from typing import Dict, List, Optional, Tuple
 
-from app.ingestion import emsc, eonet, ingv, usgs
+from app.ingestion import emsc, eonet, gdacs, ingv, usgs
 
 # The vocabulary of kinds, owned here and not by any source. A dataset's
 # `kind` is one of these; a source declares the subset it can serve.
@@ -109,6 +109,7 @@ SOURCES: Dict[str, Source] = {
     "ingv": Source("ingv", "INGV Istituto Nazionale di Geofisica e Vulcanologia", ingv),
     "emsc": Source("emsc", "EMSC European-Mediterranean Seismological Centre", emsc),
     "eonet": Source("eonet", "NASA EONET Earth Observatory Natural Event Tracker", eonet),
+    "gdacs": Source("gdacs", "GDACS Global Disaster Alert and Coordination System", gdacs),
 }
 
 

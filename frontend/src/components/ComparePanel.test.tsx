@@ -37,7 +37,7 @@ describe('choosing what to compare with', () => {
 
     await waitFor(() => expect(calls).toHaveLength(1))
 
-    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2')
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2&window_seconds=60&radius_km=100')
     expect(screen.getByRole('combobox')).toHaveValue('2')
   })
 
@@ -55,7 +55,7 @@ describe('choosing what to compare with', () => {
     await userEvent.selectOptions(screen.getByRole('combobox'), '3')
 
     await waitFor(() => {
-      expect(urlsOf(calls).at(-1)).toBe('/api/datasets/1/events/matches?other=3')
+      expect(urlsOf(calls).at(-1)).toBe('/api/datasets/1/events/matches?other=3&window_seconds=60&radius_km=100')
     })
   })
 
@@ -64,7 +64,7 @@ describe('choosing what to compare with', () => {
 
     await waitFor(() => expect(calls).toHaveLength(1))
 
-    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2&min_magnitude=5')
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2&window_seconds=60&radius_km=100&min_magnitude=5')
   })
 })
 
@@ -75,6 +75,17 @@ describe('kinds', () => {
 
     expect(screen.queryByRole('option', { name: /Fires/ })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Terremoti Italia (ingv)' })).toBeInTheDocument()
+  })
+
+  it('gives fires days and kilometres, not the seconds a quake gets', async () => {
+    const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+    const gdacs = makeDataset({ id: 5, name: 'GDACS fires', source: 'gdacs', kind: 'wildfire' })
+    const { calls } = mockFetch(() => null)
+    render(<ComparePanel datasetId={4} datasets={[fires, gdacs]} filters={EMPTY_FILTERS} />)
+
+    await waitFor(() => expect(calls).toHaveLength(1))
+
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/4/events/matches?other=5&window_seconds=259200&radius_km=50')
   })
 
   it('says what kind is missing when nothing can be compared', () => {
@@ -105,6 +116,24 @@ describe('kinds', () => {
     expect(row).toHaveTextContent('5747 hectares')
     expect(row).toHaveTextContent('+153')
     expect(screen.getByText(/positions 30 km apart/)).toBeInTheDocument()
+    expect(screen.getByText(/areas differ by 0.3 on average/)).toBeInTheDocument()
+  })
+
+  it('says a time gap in hours or days once it is no longer an instant', async () => {
+    const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+    const gdacs = makeDataset({ id: 5, name: 'GDACS fires', source: 'gdacs', kind: 'wildfire' })
+    mockFetch(() => null, {
+      matches: makeMatches([
+        makeMatch({ event: makeMatchedEvent({ id: 1, title: 'a' }), delta_seconds: -18000 }),
+        makeMatch({ event: makeMatchedEvent({ id: 2, title: 'b' }), delta_seconds: 3 * 86400 }),
+        makeMatch({ event: makeMatchedEvent({ id: 3, title: 'c' }), delta_seconds: 90 }),
+      ]),
+    })
+    render(<ComparePanel datasetId={4} datasets={[fires, gdacs]} filters={EMPTY_FILTERS} />)
+
+    expect((await screen.findByText('a')).closest('tr')).toHaveTextContent('-5.0 h')
+    expect(screen.getByText('b').closest('tr')).toHaveTextContent('+3.0 d')
+    expect(screen.getByText('c').closest('tr')).toHaveTextContent('+90.0 s')
   })
 })
 

@@ -5,8 +5,9 @@
 
 A cloud-native platform for ingesting, processing, and analyzing public seismic
 data — the earthquake catalogues of USGS, INGV and EMSC, which observe the
-same earthquakes with different networks and report them differently, and
-NASA EONET's curated wildfires, storms, floods and other natural events.
+same earthquakes with different networks and report them differently, NASA
+EONET's curated wildfires, storms, floods and other natural events, and the
+graded disaster alerts of GDACS.
 
 ```text
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
@@ -20,8 +21,8 @@ behind that is in [docs/design/generic-events.md](docs/design/generic-events.md)
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
-> worker ingest earthquakes from USGS, INGV and EMSC and natural events from
-> NASA EONET asynchronously, with every
+> worker ingest earthquakes from USGS, INGV and EMSC, natural events from
+> NASA EONET and graded alerts from GDACS asynchronously, with every
 > run recorded. The API supports filtering and aggregation; a React dashboard
 > browses the events with filters, paging and charts, creates datasets, starts
 > ingestions and follows them, and — with a Gemini key — asks the model what
@@ -125,6 +126,20 @@ when it is more than a point. Fires reported in acres are converted to
 hectares so a dataset has one unit. EONET's polygons come with latitude
 first, unlike its points; the marker is placed accordingly.
 
+**GDACS** — the [Global Disaster Alert and Coordination System][gdacs] of
+the UN and the European Commission, which grades earthquakes, tropical
+cyclones, floods, volcanoes, wildfires and droughts by their expected
+humanitarian impact: a Green, Orange or Red alert. It reports the same
+storms and fires EONET does — EONET cites it as a source — so the two can
+be compared outside seismology; and the alert level is the attribute no
+other source has. The feed is the seven-day RSS rather than the JSON search
+API, which answers at most a hundred events per query and cannot page; the
+RSS carries every alert of every type and one request serves any kind.
+Parsed with the standard library. Winds in km/h become knots and areas in
+`ha` become hectares, so a storm or a fire dataset has the same unit whether
+EONET or GDACS filled it; an earthquake's depth is read from the severity
+text so it lines up with the seismic sources in a comparison.
+
 `backend/app/ingestion/sources.py` maps a source name to the module that
 fetches and normalizes it. Adding a source means writing such a module and
 registering it there; the GeoJSON envelope checks are shared in
@@ -133,6 +148,7 @@ registering it there; the GeoJSON envelope checks are shared in
 [ingv]: https://webservices.ingv.it/
 [emsc]: https://www.seismicportal.eu/fdsn-wsevent.html
 [eonet]: https://eonet.gsfc.nasa.gov/docs/v3
+[gdacs]: https://www.gdacs.org/
 
 [usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
@@ -226,7 +242,8 @@ all of them, and **Filter to this view** on the map turns the visible area
 into the box. The words follow the dataset's kind: a wildfire dataset has an
 *Area* column in hectares and no depth, a storm dataset *Wind* in knots, and
 the map colours its markers by kind and sizes them within the dataset's own
-range.
+range. A *Details* column shows what a source knew beyond the shared
+columns — an alert level, the reporting network, the country.
 Its dev server proxies
 `/api` to the backend on port 8000, so the browser sees a single origin and
 the API needs no CORS configuration. That proxy is a development arrangement
@@ -279,6 +296,8 @@ project runs out of the box without any configuration.
 | `EONET_FEED_URL` | `…/api/v3/events?status=all` | EONET query; `category` and `days` are added per run |
 | `EONET_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EONET request |
 | `EONET_DAYS` | `7` | Length of the EONET window, in days |
+| `GDACS_FEED_URL` | `…/xml/rss_7d.xml` | GDACS RSS; the feed is the window |
+| `GDACS_TIMEOUT_SECONDS` | `30` | HTTP timeout for the GDACS request |
 | `REDIS_HOST` | `localhost` | Redis host (`redis` inside Compose) |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
@@ -403,8 +422,8 @@ curl http://127.0.0.1:8000/api/sources
 ]
 ```
 
-The seismic sources serve one kind, `earthquake`; EONET lists thirteen, and
-a dataset created for it must say which one it holds.
+The seismic sources serve one kind, `earthquake`; EONET lists thirteen and
+GDACS six, and a dataset created for either must say which one it holds.
 
 ### `GET /api/datasets`
 
@@ -606,8 +625,11 @@ curl "http://127.0.0.1:8000/api/datasets/1/events/matches?other=2&min_magnitude=
 ```
 
 A pair is an event of `{id}` and the report in `other` nearest in time
-within `window_seconds` (default 60, up to 3600) and no farther than
-`radius_km` (default 100, up to 1000). Each event pairs at most once. The
+within `window_seconds` (default 60, up to a week) and no farther than
+`radius_km` (default 100, up to 1000). A quake is an instant and a minute
+is generous; a fire or a storm is reported over days, and two curators can
+date its start a day apart, so the dashboard asks for days and tens of
+kilometres for those kinds. Each event pairs at most once. The
 deltas are *other minus event*; `delta_magnitude` is null when either side
 has no magnitude, and the magnitude mean covers only the pairs where both
 do. The listing filters apply to the `{id}` side, so `events` is the

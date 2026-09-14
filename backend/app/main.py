@@ -461,7 +461,9 @@ def get_dataset_event_points(
 def get_dataset_event_matches(
     dataset_id: int,
     other: int = Query(description="The dataset to compare with."),
-    window_seconds: float = Query(60, gt=0, le=3600),
+    # Up to a week: a quake is an instant, but a fire or a storm is reported
+    # over days, and two curators' start dates can be a day apart.
+    window_seconds: float = Query(60, gt=0, le=604800),
     radius_km: float = Query(100, gt=0, le=1000),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     filters: EventFilters = Depends(),

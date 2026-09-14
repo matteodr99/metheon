@@ -183,6 +183,6 @@ class TestFiltersAndRefusals:
         dataset, _ = two
         assert client.get("/api/datasets/{0}/events/matches".format(dataset["id"])).status_code == 422
 
-    @pytest.mark.parametrize("query", ["window_seconds=0", "window_seconds=3601", "radius_km=0", "radius_km=1001"])
+    @pytest.mark.parametrize("query", ["window_seconds=0", "window_seconds=604801", "radius_km=0", "radius_km=1001"])
     def test_out_of_range_parameters_are_refused(self, client, two, query):
         assert matches(client, *two, query).status_code == 422

@@ -16,6 +16,16 @@ import { InsightsPanel } from './InsightsPanel'
 import { SummaryPanel } from './Summary'
 import { formatMeasure, labelsFor } from '../kinds'
 
+// Attributes worth a glance in the table: an alert level, who reported it,
+// where. The rest — numbers, texts, ids — stays in the API.
+const DETAIL_KEYS = ['alert_level', 'network', 'country', 'category']
+
+function details(attributes: Record<string, unknown>): string {
+  return DETAIL_KEYS.map((key) => attributes[key])
+    .filter((value): value is string => typeof value === 'string' && value !== '')
+    .join(' · ')
+}
+
 const PAGE_SIZE = 25
 
 export function EventBrowser({
@@ -254,6 +264,7 @@ export function EventBrowser({
               <th>Place</th>
               <th>Type</th>
               {labels.depth && <th className="numeric">Depth</th>}
+              <th>Details</th>
             </tr>
           </thead>
           <tbody>
@@ -282,6 +293,7 @@ export function EventBrowser({
                       : `${depthOf(event.attributes)!.toFixed(1)} km`}
                   </td>
                 )}
+                <td className="muted">{details(event.attributes)}</td>
               </tr>
             ))}
           </tbody>
