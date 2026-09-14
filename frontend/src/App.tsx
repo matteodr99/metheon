@@ -119,7 +119,11 @@ function App() {
         <section className="panel">
           <h2>{selected.name}</h2>
           <IngestionPanel datasetId={selected.id} onRunFinished={handleRunFinished} />
-          <EarthquakeBrowser datasetId={selected.id} dataVersion={dataVersion} />
+          <EarthquakeBrowser
+            datasetId={selected.id}
+            datasets={datasets ?? []}
+            dataVersion={dataVersion}
+          />
         </section>
       )}
     </main>

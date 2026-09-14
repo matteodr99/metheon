@@ -1,0 +1,135 @@
+import { describe, expect, it } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+
+import { EMPTY_FILTERS } from '../api'
+import { ComparePanel } from './ComparePanel'
+import {
+  makeDataset,
+  makeMatch,
+  makeMatchedEvent,
+  makeMatches,
+  mockFetch,
+  urlsOf,
+} from '../test/helpers'
+
+const USGS = makeDataset({ id: 1, name: 'Global Earthquakes', source: 'USGS' })
+const INGV = makeDataset({ id: 2, name: 'Terremoti Italia', source: 'ingv' })
+const USGS_TOO = makeDataset({ id: 3, name: 'US Quakes', source: 'usgs' })
+
+function renderPanel(datasets = [USGS, INGV], filters = EMPTY_FILTERS, options = {}) {
+  const { calls } = mockFetch(() => null, options)
+  render(<ComparePanel datasetId={1} datasets={datasets} filters={filters} />)
+  return { calls }
+}
+
+describe('choosing what to compare with', () => {
+  it('needs a second dataset', () => {
+    const { calls } = renderPanel([USGS])
+
+    expect(screen.getByText(/Add a dataset from another agency/)).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(calls).toHaveLength(0)
+  })
+
+  it('prefers a dataset from another agency', async () => {
+    const { calls } = renderPanel([USGS_TOO, USGS, INGV])
+
+    await waitFor(() => expect(calls).toHaveLength(1))
+
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/earthquakes/matches?other=2')
+    expect(screen.getByRole('combobox')).toHaveValue('2')
+  })
+
+  it('never offers the dataset itself', () => {
+    renderPanel([USGS, INGV])
+
+    expect(screen.queryByRole('option', { name: /Global Earthquakes/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Terremoti Italia (ingv)' })).toBeInTheDocument()
+  })
+
+  it('re-requests when another dataset is picked', async () => {
+    const { calls } = renderPanel([USGS, INGV, USGS_TOO])
+    await waitFor(() => expect(calls).toHaveLength(1))
+
+    await userEvent.selectOptions(screen.getByRole('combobox'), '3')
+
+    await waitFor(() => {
+      expect(urlsOf(calls).at(-1)).toBe('/api/datasets/1/earthquakes/matches?other=3')
+    })
+  })
+
+  it('sends the applied filters, which narrow this side', async () => {
+    const { calls } = renderPanel([USGS, INGV], { ...EMPTY_FILTERS, min_magnitude: '5' })
+
+    await waitFor(() => expect(calls).toHaveLength(1))
+
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/earthquakes/matches?other=2&min_magnitude=5')
+  })
+})
+
+describe('showing the pairs', () => {
+  it('sums up the comparison in a sentence', async () => {
+    renderPanel([USGS, INGV], EMPTY_FILTERS, {
+      matches: makeMatches([makeMatch()], { events: 4, matched: 1, unmatched: 3 }),
+    })
+
+    expect(
+      await screen.findByText(
+        '1 of 4 events also reported by Terremoti Italia · epicentres 30 km apart on average · magnitudes differ by 0.27 on average',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('leaves the means out when there are no pairs', async () => {
+    renderPanel([USGS, INGV], EMPTY_FILTERS, { matches: makeMatches([]) })
+
+    expect(await screen.findByText('0 of 4 events also reported by Terremoti Italia')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('puts both reports in one row, with the deltas as other minus this', async () => {
+    renderPanel([USGS, INGV], EMPTY_FILTERS, { matches: makeMatches([makeMatch()]) })
+
+    const row = (await screen.findByText('Isangel, Vanuatu')).closest('tr')!
+    expect(row).toHaveTextContent('Vanuatu Islands [Sea: Vanuatu]')
+    expect(row).toHaveTextContent('5.6 mww')
+    expect(row).toHaveTextContent('5.9 mwp')
+    expect(row).toHaveTextContent('+0.3')
+    expect(row).toHaveTextContent('+6.7 s')
+    expect(row).toHaveTextContent('33.3 km')
+    expect(row).toHaveTextContent('10 km')
+    expect(row).toHaveTextContent('68 km')
+  })
+
+  it('shows a negative time delta as such', async () => {
+    renderPanel([USGS, INGV], EMPTY_FILTERS, {
+      matches: makeMatches([makeMatch({ delta_seconds: -0.1, delta_magnitude: -0.2 })]),
+    })
+
+    const row = (await screen.findByText('Isangel, Vanuatu')).closest('tr')!
+    expect(row).toHaveTextContent('-0.1 s')
+    expect(row).toHaveTextContent('-0.2')
+  })
+
+  it('shows a dash where a magnitude is missing', async () => {
+    renderPanel([USGS, INGV], EMPTY_FILTERS, {
+      matches: makeMatches([
+        makeMatch({
+          event: makeMatchedEvent({ magnitude: null, magnitude_type: null }),
+          delta_magnitude: null,
+        }),
+      ]),
+    })
+
+    const row = (await screen.findByText('Isangel, Vanuatu')).closest('tr')!
+    expect(row.querySelectorAll('td')[3]).toHaveTextContent('—')
+  })
+
+  it('reports a failing request', async () => {
+    mockFetch(() => ({ detail: 'The database is unavailable' }), { ok: false, status: 503 })
+    render(<ComparePanel datasetId={1} datasets={[USGS, INGV]} filters={EMPTY_FILTERS} />)
+
+    expect(await screen.findByText(/Could not compare/)).toBeInTheDocument()
+  })
+})

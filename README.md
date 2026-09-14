@@ -190,9 +190,11 @@ npm run dev
 ```
 
 The dashboard is then at `http://localhost:5173`. It shows each dataset's
-events in a table, a summary with charts and a map; the filters — magnitude,
-time, type and a bounding box — apply to all three, and **Filter to this
-view** on the map turns the visible area into the box. Its dev server proxies
+events in a table, a summary with charts, a map and, with a second dataset,
+a comparison of how the two agencies reported the same earthquakes; the
+filters — magnitude, time, type and a bounding box — apply to all of them,
+and **Filter to this view** on the map turns the visible area into the box.
+Its dev server proxies
 `/api` to the backend on port 8000, so the browser sees a single origin and
 the API needs no CORS configuration. That proxy is a development arrangement
 only. A deployed build sets `VITE_API_URL` to the API's origin at build

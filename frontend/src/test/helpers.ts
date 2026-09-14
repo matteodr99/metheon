@@ -1,6 +1,18 @@
 import { vi } from 'vitest'
 
-import type { Dataset, Earthquake, ImportRun, Page, Point, Points, Source, Summary } from '../api'
+import type {
+  Dataset,
+  Earthquake,
+  ImportRun,
+  Match,
+  MatchedEvent,
+  Matches,
+  Page,
+  Point,
+  Points,
+  Source,
+  Summary,
+} from '../api'
 
 export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
   return {
@@ -57,6 +69,59 @@ export function makeSummary(overrides: Partial<Summary> = {}): Summary {
     occurred_at: { first: '2026-09-09T10:54:00', last: '2026-09-09T10:54:00' },
     by_event_type: [{ event_type: 'earthquake', count: 1 }],
     by_day: [{ day: '2026-09-09', count: 1 }],
+    ...overrides,
+  }
+}
+
+export function makeMatchedEvent(overrides: Partial<MatchedEvent> = {}): MatchedEvent {
+  return {
+    id: 1,
+    external_id: 'us1',
+    magnitude: 5.6,
+    magnitude_type: 'mww',
+    place: 'Isangel, Vanuatu',
+    occurred_at: '2026-09-10T03:11:52',
+    longitude: 169.98,
+    latitude: -19.85,
+    depth_km: 10,
+    ...overrides,
+  }
+}
+
+export function makeMatch(overrides: Partial<Match> = {}): Match {
+  return {
+    event: makeMatchedEvent(),
+    other: makeMatchedEvent({
+      id: 2,
+      external_id: 'ingv1',
+      magnitude: 5.9,
+      magnitude_type: 'mwp',
+      place: 'Vanuatu Islands [Sea: Vanuatu]',
+      occurred_at: '2026-09-10T03:11:59',
+      depth_km: 68,
+    }),
+    delta_seconds: 6.7,
+    distance_km: 33.3,
+    delta_magnitude: 0.3,
+    ...overrides,
+  }
+}
+
+export function makeMatches(pairs: Match[] = [], overrides: Partial<Matches> = {}): Matches {
+  return {
+    dataset_id: 1,
+    other_id: 2,
+    window_seconds: 60,
+    radius_km: 100,
+    limit: 50,
+    filters: {},
+    events: 4,
+    matched: pairs.length,
+    unmatched: 4 - pairs.length,
+    mean_abs_delta_seconds: pairs.length === 0 ? null : 3.4,
+    mean_distance_km: pairs.length === 0 ? null : 29.7,
+    mean_abs_delta_magnitude: pairs.length === 0 ? null : 0.27,
+    pairs,
     ...overrides,
   }
 }
@@ -124,6 +189,7 @@ export function mockFetch(
     // A list of points, or the whole body when a test needs `total` to
     // differ from the number of points.
     points = [] as Point[] | Points,
+    matches = makeMatches() as Matches,
   } = {},
 ) {
   const calls: FetchCall[] = []
@@ -150,6 +216,8 @@ export function mockFetch(
         body = ai
       } else if (url.includes('/summary')) {
         body = summary
+      } else if (url.includes('/matches')) {
+        body = matches
       } else if (url.includes('/points')) {
         body = Array.isArray(points)
           ? { dataset_id: 1, total: points.length, limit: 5000, filters: {}, points }

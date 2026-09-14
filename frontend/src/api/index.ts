@@ -83,6 +83,44 @@ export type BoundingBox = Pick<
 /** `[longitude, latitude, magnitude, id]`, as the points endpoint sends it. */
 export type Point = [number, number, number | null, number]
 
+export interface MatchedEvent {
+  id: number
+  external_id: string
+  magnitude: number | null
+  magnitude_type: string | null
+  place: string | null
+  occurred_at: string
+  longitude: number
+  latitude: number
+  depth_km: number | null
+}
+
+export interface Match {
+  event: MatchedEvent
+  other: MatchedEvent
+  /** Other minus event. */
+  delta_seconds: number
+  distance_km: number
+  /** Other minus event; null when either side has no magnitude. */
+  delta_magnitude: number | null
+}
+
+export interface Matches {
+  dataset_id: number
+  other_id: number
+  window_seconds: number
+  radius_km: number
+  limit: number
+  filters: Record<string, string | number>
+  events: number
+  matched: number
+  unmatched: number
+  mean_abs_delta_seconds: number | null
+  mean_distance_km: number | null
+  mean_abs_delta_magnitude: number | null
+  pairs: Match[]
+}
+
 export interface Points {
   dataset_id: number
   total: number
@@ -242,6 +280,19 @@ export function fetchPoints(
 ): Promise<Points> {
   return getJson<Points>(
     `/api/datasets/${datasetId}/earthquakes/points?${queryFor(filters)}`,
+    signal,
+  )
+}
+
+export function fetchMatches(
+  datasetId: number,
+  otherId: number,
+  filters: EarthquakeFilters,
+  signal?: AbortSignal,
+): Promise<Matches> {
+  const query = queryFor(filters, { other: String(otherId) })
+  return getJson<Matches>(
+    `/api/datasets/${datasetId}/earthquakes/matches?${query}`,
     signal,
   )
 }

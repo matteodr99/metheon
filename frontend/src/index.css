@@ -733,3 +733,55 @@ td a:hover {
 .leaflet-container {
   font: inherit;
 }
+
+/* ---------- compare ---------- */
+
+.compare {
+  margin-bottom: calc(var(--step) * 3);
+}
+
+.compare-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) * 1.5);
+  margin-bottom: var(--step);
+}
+
+.compare-with {
+  align-items: center;
+  display: flex;
+  font-size: 0.8rem;
+  gap: 0.4rem;
+}
+
+.compare-with span {
+  color: var(--muted);
+}
+
+.compare-with select {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.compare-caption {
+  color: var(--muted);
+  flex: 1;
+  font-size: 0.8rem;
+}
+
+/* Two reports of one earthquake share a row: this dataset's on top, the
+   other agency's underneath and muted, so the eye compares down a column. */
+.compare-side {
+  display: block;
+}
+
+.compare-legend {
+  font-size: 0.75rem;
+  margin: var(--step) 0 0;
+}

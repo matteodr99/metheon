@@ -190,6 +190,7 @@ metheon/
 │   │   │   └── index.ts
 │   │   ├── components/
 │   │   │   ├── BarChart.tsx
+│   │   │   ├── ComparePanel.tsx
 │   │   │   ├── EarthquakeBrowser.tsx
 │   │   │   ├── EarthquakeMap.tsx
 │   │   │   ├── IngestionPanel.tsx
@@ -799,9 +800,17 @@ frontend is not containerized.
 
 Implemented so far: the dataset list, a form that creates a dataset for a
 registered source, a browser for one dataset's events with the API's
-filters and paging, a map of the same events, and an ingestion panel that
-starts a run and follows it. Every operation the API offers can be done
-from the browser.
+filters and paging, a map of the same events, a comparison with another
+dataset's reports of them, and an ingestion panel that starts a run and
+follows it. Every operation the API offers can be done from the browser.
+
+`ComparePanel` gets the whole dataset list from `App` through the browser
+and picks its own candidates: never the dataset itself, and by default one
+from another agency, since two USGS datasets would agree with each other.
+A choice that stops existing falls back to that default rather than
+sticking to an id. Each pair is one table row with this dataset's report
+above and the other's beneath, muted, so the eye compares down a column;
+the deltas are the other agency minus this one, and the legend says so.
 
 The panel polls `/imports` only while a run is in flight, and reports a run
 finishing exactly once, through `onRunFinished`; `App` answers by bumping a

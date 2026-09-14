@@ -180,6 +180,11 @@ describe('creating a dataset from the dashboard', () => {
         body = makeSummary()
       } else if (url.includes('/imports')) {
         body = { dataset_id: 2, total: 0, limit: 5, offset: 0, filters: {}, items: [] }
+      } else if (url.includes('/matches')) {
+        const { makeMatches } = await import('./test/helpers')
+        body = makeMatches()
+      } else if (url.includes('/points')) {
+        body = { dataset_id: 2, total: 0, limit: 5000, filters: {}, points: [] }
       } else {
         body = makePage([makeEarthquake({ place: 'an event' })])
       }
@@ -197,5 +202,10 @@ describe('creating a dataset from the dashboard', () => {
     const card = await screen.findByRole('button', { name: /Terremoti Italia/ })
     expect(card).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Terremoti Italia')
+    // With a second dataset the comparison has something to compare with,
+    // and it is the other one: the browser was handed the whole list.
+    expect(
+      await screen.findByRole('option', { name: 'Quakes (USGS)' }),
+    ).toBeInTheDocument()
   })
 })

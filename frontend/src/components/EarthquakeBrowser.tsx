@@ -4,10 +4,12 @@ import {
   EMPTY_FILTERS,
   fetchEarthquakes,
   type BoundingBox,
+  type Dataset,
   type Earthquake,
   type EarthquakeFilters,
   type Page,
 } from '../api'
+import { ComparePanel } from './ComparePanel'
 import { EarthquakeMap } from './EarthquakeMap'
 import { InsightsPanel } from './InsightsPanel'
 import { SummaryPanel } from './Summary'
@@ -25,9 +27,12 @@ function formatMagnitude(earthquake: Earthquake): string {
 
 export function EarthquakeBrowser({
   datasetId,
+  datasets = [],
   dataVersion = 0,
 }: {
   datasetId: number
+  /** Every dataset, for the comparison; the browser itself shows one. */
+  datasets?: Dataset[]
   /** Changes when the stored data changed, forcing a re-read. */
   dataVersion?: number
 }) {
@@ -218,6 +223,12 @@ export function EarthquakeBrowser({
         onFilterToView={filterToView}
       />
       <InsightsPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
+      <ComparePanel
+        datasetId={datasetId}
+        datasets={datasets}
+        filters={applied}
+        dataVersion={dataVersion}
+      />
 
       {error !== null && (
         <p role="alert" className="error">
