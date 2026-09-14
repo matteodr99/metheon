@@ -8,7 +8,7 @@ A cloud-native platform for ingesting, processing, and analyzing public datasets
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
 ```
 
-Metheon is a personal portfolio / open-source project. It works exclusively with
+Metheon is a personal portfolio project. It works exclusively with
 public datasets and does not handle personal or sensitive user data.
 
 > **Project status: all six phases of the roadmap are complete.**
@@ -965,9 +965,18 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   work, the API exposes readiness and liveness checks and answers failures
   with the right status, both processes log in one format, abandoned runs
   are reaped, one unprivileged image serves both processes, and Swagger
-  describes every response. Done, save for a licence, which is a deliberate
-  open decision rather than a gap
+  describes every response. Done. There is no licence by choice: the code
+  is public to be read, not reused — see [Licence](#licence)
 - [x] **Phase 6 — Kubernetes:** the whole system on a local Kind cluster,
   with liveness and readiness probes shown to behave differently
 
 See [CLAUDE.md](CLAUDE.md) for the detailed architecture and design principles.
+
+## Licence
+
+None, on purpose. The repository is public so the work can be read; it is
+not offered for reuse. Without a licence the code is under ordinary
+copyright — all rights reserved — and that is the intended state for now.
+
+The data the project ingests is not covered by this: USGS data is in the
+public domain, and INGV data carries INGV's own terms.

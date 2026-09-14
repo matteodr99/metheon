@@ -8,7 +8,10 @@ Core idea:
 
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
 
-The project is a personal portfolio/open-source project. It must not use personal or sensitive user data.
+The project is a personal portfolio project, public but **not licensed for
+reuse**: there is no licence file by choice, so the code is under ordinary
+copyright. Do not add a licence, and do not describe the project as
+open-source. It must not use personal or sensitive user data.
 
 ## Development approach
 
@@ -838,7 +841,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Health/readiness checks
 - [x] Docker optimization
 - [x] GitHub Actions
-- [x] Documentation (a licence remains a deliberate open decision)
+- [x] Documentation (no licence, by decision: public to read, not to reuse)
 
 ### Phase 6 — Kubernetes
 - [x] Local Kubernetes setup
