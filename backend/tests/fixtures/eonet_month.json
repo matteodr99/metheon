@@ -1,0 +1,1621 @@
+{
+ "title": "EONET Events",
+ "description": "Captured on 2026-09-14 from https://eonet.gsfc.nasa.gov/api/v3/events?days=30&status=all and trimmed to 26 events across four categories.",
+ "link": "https://eonet.gsfc.nasa.gov/api/v3/events",
+ "events": [
+  {
+   "id": "EONET_24268",
+   "title": "Wildfire in Namibia 1031934",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24268",
+   "closed": "2026-09-12T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031934"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 5747.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-11T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      16.525371955075,
+      -19.219845995937
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24269",
+   "title": "Wildfire in Namibia 1031935",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24269",
+   "closed": "2026-09-12T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031935"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 8138.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-11T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      16.853097248467,
+      -19.010826514308
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24288",
+   "title": "Wildfire in Australia 1031957",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24288",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031957"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 6449.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-11T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      123.83814476183,
+      -17.785345067781
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24289",
+   "title": "Wildfire in Brazil 1031958",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24289",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031958"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 5015.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-11T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -46.821645175035,
+      -11.366068693712
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24290",
+   "title": "Wildfire in Zambia 1031940",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24290",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031940"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 6576.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-10T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      23.624330877053,
+      -17.296344622414
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24291",
+   "title": "Wildfire in Brazil 1031959",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24291",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031959"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 6936.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-10T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -50.133013156616,
+      -9.3969353889694
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24292",
+   "title": "Wildfire in Brazil 1031952",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24292",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031952"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 5723.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-10T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -51.673864324419,
+      -13.316752180446
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24245",
+   "title": "Wildfire in Australia 1031915",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24245",
+   "closed": "2026-09-11T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031915"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 5556.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-09T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      123.6974310692,
+      -20.503068317887
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24246",
+   "title": "Wildfire in Australia 1031916",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24246",
+   "closed": "2026-09-11T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031916"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 6791.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-09T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      123.93079294141,
+      -17.97505203661
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24247",
+   "title": "Wildfire in Angola 1031899",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24247",
+   "closed": "2026-09-10T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031899"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 6250.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-09T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      20.498908523505,
+      -16.51419243014
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24248",
+   "title": "Wildfire in Zambia 1031900",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24248",
+   "closed": "2026-09-10T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031900"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 5102.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-09T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      31.823007365441,
+      -10.941649111769
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24249",
+   "title": "Wildfire in Botswana 1031898",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24249",
+   "closed": "2026-09-11T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=WF&eventid=1031898"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 11123.0,
+     "magnitudeUnit": "hectare",
+     "date": "2026-09-09T19:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      24.324062224471,
+      -23.632054795735
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24184",
+   "title": "Tropical Storm Norbert",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24184",
+   "closed": null,
+   "categories": [
+    {
+     "id": "severeStorms",
+     "title": "Severe Storms"
+    }
+   ],
+   "sources": [
+    {
+     "id": "JTWC",
+     "url": "https://www.metoc.navy.mil/jtwc/products/ep1426.tcw"
+    },
+    {
+     "id": "NOAA_NHC",
+     "url": "https://www.nhc.noaa.gov/archive/2026/NORBERT.shtml"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-10T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -117.3,
+      16.4
+     ]
+    },
+    {
+     "magnitudeValue": 40.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-11T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -121.3,
+      16.4
+     ]
+    },
+    {
+     "magnitudeValue": 55.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-11T18:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -125.2,
+      16.7
+     ]
+    },
+    {
+     "magnitudeValue": 50.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-12T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -127.8,
+      17.2
+     ]
+    },
+    {
+     "magnitudeValue": 45.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-13T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -131.2,
+      17.9
+     ]
+    },
+    {
+     "magnitudeValue": 40.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-14T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -134.6,
+      18.9
+     ]
+    },
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-14T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -137.1,
+      19.3
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_23800",
+   "title": "Cyclone Marie",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_23800",
+   "closed": "2026-09-13T00:00:00Z",
+   "categories": [
+    {
+     "id": "severeStorms",
+     "title": "Severe Storms"
+    }
+   ],
+   "sources": [
+    {
+     "id": "JTWC",
+     "url": "https://www.metoc.navy.mil/jtwc/products/ep1326.tcw"
+    },
+    {
+     "id": "NOAA_NHC",
+     "url": "https://www.nhc.noaa.gov/archive/2026/MARIE.shtml"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 40.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -108.1,
+      14.1
+     ]
+    },
+    {
+     "magnitudeValue": 60.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -111.3,
+      16.8
+     ]
+    },
+    {
+     "magnitudeValue": 80.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-03T18:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -115.1,
+      19.1
+     ]
+    },
+    {
+     "magnitudeValue": 85.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-05T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -118.7,
+      20.6
+     ]
+    },
+    {
+     "magnitudeValue": 80.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-06T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -121.7,
+      22.9
+     ]
+    },
+    {
+     "magnitudeValue": 55.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-07T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -124.1,
+      24.5
+     ]
+    },
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-08T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -127.1,
+      25.5
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_23739",
+   "title": "Tropical Storm Edouard",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_23739",
+   "closed": "2026-09-08T00:00:00Z",
+   "categories": [
+    {
+     "id": "severeStorms",
+     "title": "Severe Storms"
+    }
+   ],
+   "sources": [
+    {
+     "id": "EO",
+     "url": "https://science.nasa.gov/earth/earth-observatory/a-trio-of-tropical-cyclones-in-the-pacific/"
+    },
+    {
+     "id": "NOAA_NHC",
+     "url": "https://www.nhc.noaa.gov/archive/2026/EDOUARD.shtml"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T03:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -91.8,
+      28.6
+     ]
+    },
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T09:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -92.8,
+      29
+     ]
+    },
+    {
+     "magnitudeValue": 45.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T15:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -93.3,
+      29.4
+     ]
+    },
+    {
+     "magnitudeValue": 45.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T21:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -94,
+      29.945
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T03:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -94.6,
+      30.5
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T09:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -95,
+      30.8
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T15:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -95,
+      31.3
+     ]
+    },
+    {
+     "magnitudeValue": 20.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T21:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -95.2,
+      31.6
+     ]
+    },
+    {
+     "magnitudeValue": 20.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-03T03:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -95.7,
+      32.2
+     ]
+    },
+    {
+     "magnitudeValue": 20.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-03T09:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -96.5,
+      32.5
+     ]
+    },
+    {
+     "magnitudeValue": 20.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-03T09:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -96.5,
+      32.5
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_23738",
+   "title": "Tropical Storm Krovanh",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_23738",
+   "closed": "2026-09-14T00:00:00Z",
+   "categories": [
+    {
+     "id": "severeStorms",
+     "title": "Severe Storms"
+    }
+   ],
+   "sources": [
+    {
+     "id": "JTWC",
+     "url": "https://www.metoc.navy.mil/jtwc/products/wp2226.tcw"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-01T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      131.5,
+      22.4
+     ]
+    },
+    {
+     "magnitudeValue": 35.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-02T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      132.4,
+      23.1
+     ]
+    },
+    {
+     "magnitudeValue": 40.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-03T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      128.9,
+      28
+     ]
+    },
+    {
+     "magnitudeValue": 45.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-04T18:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      127.1,
+      28.4
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-06T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      129.7,
+      25.9
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-07T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      132.6,
+      27.1
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-08T12:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      133.1,
+      31.9
+     ]
+    },
+    {
+     "magnitudeValue": 25.0,
+     "magnitudeUnit": "kts",
+     "date": "2026-09-09T06:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      135.9,
+      34.3
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24267",
+   "title": "Flood in Croatia 1104153",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24267",
+   "closed": "2026-09-12T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104153"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-10T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        43.541855,
+        16.3109686
+       ],
+       [
+        43.5500482,
+        16.3297423
+       ],
+       [
+        43.5470966,
+        16.3378104
+       ],
+       [
+        43.5512782,
+        16.3413762
+       ],
+       [
+        43.5572482,
+        16.3338324
+       ],
+       [
+        43.5673079,
+        16.3258728
+       ],
+       [
+        43.5707091,
+        16.3194482
+       ],
+       [
+        43.5635848,
+        16.2925693
+       ],
+       [
+        43.5573361,
+        16.3048308
+       ],
+       [
+        43.5530072,
+        16.3074467
+       ],
+       [
+        43.541855,
+        16.3109686
+       ],
+       [
+        43.541855,
+        16.3109686
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24244",
+   "title": "Flood in Slovenia 1104152",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24244",
+   "closed": "2026-09-11T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104152"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-09T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        45.6220073,
+        13.5931973
+       ],
+       [
+        45.4458437,
+        13.6707198
+       ],
+       [
+        45.4588385,
+        13.7308897
+       ],
+       [
+        45.4661427,
+        13.785583
+       ],
+       [
+        45.4272073,
+        13.8603547
+       ],
+       [
+        45.4517244,
+        13.9760111
+       ],
+       [
+        45.4644797,
+        13.9865557
+       ],
+       [
+        45.4742653,
+        13.9945856
+       ],
+       [
+        45.5139346,
+        13.9798933
+       ],
+       [
+        45.599077,
+        13.8662517
+       ],
+       [
+        45.6220073,
+        13.5931973
+       ],
+       [
+        45.6220073,
+        13.5931973
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24215",
+   "title": "Flood in France 1104149",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24215",
+   "closed": "2026-09-10T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104149"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-08T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        44.8106754,
+        6.7478353
+       ],
+       [
+        44.7791046,
+        6.757035
+       ],
+       [
+        44.7454901,
+        6.7674329
+       ],
+       [
+        44.7318736,
+        6.7674394
+       ],
+       [
+        44.713226,
+        6.7673953
+       ],
+       [
+        44.723217,
+        6.8055466
+       ],
+       [
+        44.7399192,
+        6.8324567
+       ],
+       [
+        44.7696992,
+        6.8380249
+       ],
+       [
+        44.7821878,
+        6.8426212
+       ],
+       [
+        44.815206,
+        6.8087035
+       ],
+       [
+        44.8136282,
+        6.7569031
+       ],
+       [
+        44.8106754,
+        6.7478353
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24216",
+   "title": "Flood in Spain 1104151",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24216",
+   "closed": "2026-09-10T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104151"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-08T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        39.1147508,
+        1.5171675
+       ],
+       [
+        39.115245,
+        1.5182754
+       ],
+       [
+        39.1160952,
+        1.5180162
+       ],
+       [
+        39.1163796,
+        1.5171452
+       ],
+       [
+        39.1161444,
+        1.5167326
+       ],
+       [
+        39.1165656,
+        1.5162206
+       ],
+       [
+        39.1167729,
+        1.5154397
+       ],
+       [
+        39.1165032,
+        1.5147017
+       ],
+       [
+        39.1167808,
+        1.5143044
+       ],
+       [
+        39.1161923,
+        1.5147942
+       ],
+       [
+        39.1161883,
+        1.515914
+       ],
+       [
+        39.1150869,
+        1.5161709
+       ],
+       [
+        39.1147508,
+        1.5171675
+       ],
+       [
+        39.1147508,
+        1.5171675
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24217",
+   "title": "Flood in Germany 1104150",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24217",
+   "closed": "2026-09-08T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104150"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-07T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        47.519391454954956,
+        9.680614
+       ],
+       [
+        47.526982913860245,
+        9.705639686172054
+       ],
+       [
+        47.54719850755112,
+        9.722230195158167
+       ],
+       [
+        47.57322435234307,
+        9.72479351713528
+       ],
+       [
+        47.5962881568102,
+        9.712465656810204
+       ],
+       [
+        47.608616017135276,
+        9.68940185234307
+       ],
+       [
+        47.60605269515816,
+        9.663376007551122
+       ],
+       [
+        47.58946218617206,
+        9.643160413860246
+       ],
+       [
+        47.5644365,
+        9.635568954954955
+       ],
+       [
+        47.53941081382794,
+        9.643160413860246
+       ],
+       [
+        47.52282030484184,
+        9.663376007551122
+       ],
+       [
+        47.519391454954956,
+        9.680614
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24193",
+   "title": "Flood in Islamic Republic of Iran 1104147",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24193",
+   "closed": "2026-09-09T00:00:00Z",
+   "categories": [
+    {
+     "id": "floods",
+     "title": "Floods"
+    }
+   ],
+   "sources": [
+    {
+     "id": "GDACS",
+     "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104147"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": null,
+     "magnitudeUnit": null,
+     "date": "2026-09-06T20:00:00Z",
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        36.504826,
+        54.1729727
+       ],
+       [
+        37.6111783,
+        56.0739149
+       ],
+       [
+        37.9796164,
+        55.2287657
+       ],
+       [
+        37.9213777,
+        55.0945232
+       ],
+       [
+        37.8296127,
+        54.9978044
+       ],
+       [
+        37.7533788,
+        54.8553502
+       ],
+       [
+        37.6626185,
+        54.8028287
+       ],
+       [
+        37.4995511,
+        54.7664997
+       ],
+       [
+        37.4483567,
+        54.5782855
+       ],
+       [
+        37.1667896,
+        53.7011251
+       ],
+       [
+        36.5067781,
+        54.1709785
+       ],
+       [
+        36.504826,
+        54.1729727
+       ]
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_12618",
+   "title": "Iceberg A84",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_12618",
+   "closed": null,
+   "categories": [
+    {
+     "id": "seaLakeIce",
+     "title": "Sea and Lake Ice"
+    }
+   ],
+   "sources": [
+    {
+     "id": "NATICE",
+     "url": "https://usicecenter.gov/pub/Iceberg_Tabular.csv"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 144.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-01-31T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -75.8,
+      -72.69
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-03-13T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -82.43,
+      -73.6
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-04-18T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -90.64,
+      -72.11
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-01-02T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -96.27,
+      -71.64
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-04-10T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -104.89,
+      -73.86
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-07-17T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -107.7,
+      -72.02
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-09-10T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -101.65,
+      -71.19
+     ]
+    },
+    {
+     "magnitudeValue": 72.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-09-10T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -101.65,
+      -71.19
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_6474",
+   "title": "Iceberg D35",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_6474",
+   "closed": null,
+   "categories": [
+    {
+     "id": "seaLakeIce",
+     "title": "Sea and Lake Ice"
+    }
+   ],
+   "sources": [
+    {
+     "id": "NATICE",
+     "url": "https://usicecenter.gov/pub/Iceberg_Tabular.csv"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2024-01-11T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      21.01,
+      -69.83
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2024-03-22T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      12.63,
+      -69.36
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-04-24T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -31.03,
+      -74.14
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-08-14T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -37.49,
+      -71.87
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-11-14T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -43.35,
+      -68.51
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-03-13T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -48.19,
+      -65.87
+     ]
+    },
+    {
+     "magnitudeValue": 168.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-07-03T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -45.53,
+      -62.45
+     ]
+    },
+    {
+     "magnitudeValue": 90.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-09-04T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -44.63,
+      -60.41
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_12716",
+   "title": "Iceberg A85",
+   "description": null,
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_12716",
+   "closed": null,
+   "categories": [
+    {
+     "id": "seaLakeIce",
+     "title": "Sea and Lake Ice"
+    }
+   ],
+   "sources": [
+    {
+     "id": "NATICE",
+     "url": "https://usicecenter.gov/pub/Iceberg_Tabular.csv"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-02-21T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -48.54,
+      -77.51
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-05-22T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -54.83,
+      -75.23
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-08-21T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -54.56,
+      -72.37
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2025-10-16T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -55.01,
+      -69.44
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-04-24T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -57.29,
+      -68.1
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-07-10T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -53.69,
+      -65.57
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-08-27T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -53.38,
+      -62.85
+     ]
+    },
+    {
+     "magnitudeValue": 30.0,
+     "magnitudeUnit": "NM^2",
+     "date": "2026-09-10T00:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -53.02,
+      -61.72
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EONET_24191",
+   "title": "Wildfire Four Corner, Stanley, South Dakota",
+   "description": "27 Miles NE from Murdo, SD",
+   "link": "https://eonet.gsfc.nasa.gov/api/v3/events/EONET_24191",
+   "closed": "2026-09-09T00:00:00Z",
+   "categories": [
+    {
+     "id": "wildfires",
+     "title": "Wildfires"
+    }
+   ],
+   "sources": [
+    {
+     "id": "IRWIN",
+     "url": "https://irwin.doi.gov/observer/incidents/2026-SDSTX-260972"
+    }
+   ],
+   "geometry": [
+    {
+     "magnitudeValue": 665.0,
+     "magnitudeUnit": "acres",
+     "date": "2026-09-08T18:00:00Z",
+     "type": "Point",
+     "coordinates": [
+      -101.036867,
+      44.56145
+     ]
+    }
+   ]
+  }
+ ]
+}

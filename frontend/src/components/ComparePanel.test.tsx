@@ -27,7 +27,7 @@ describe('choosing what to compare with', () => {
   it('needs a second dataset', () => {
     const { calls } = renderPanel([USGS])
 
-    expect(screen.getByText(/Add a dataset from another agency/)).toBeInTheDocument()
+    expect(screen.getByText(/Add a dataset of earthquakes from another agency/)).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(calls).toHaveLength(0)
   })
@@ -65,6 +65,46 @@ describe('choosing what to compare with', () => {
     await waitFor(() => expect(calls).toHaveLength(1))
 
     expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2&min_magnitude=5')
+  })
+})
+
+describe('kinds', () => {
+  it('offers only datasets of the same kind', async () => {
+    const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+    renderPanel([USGS, fires, INGV])
+
+    expect(screen.queryByRole('option', { name: /Fires/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Terremoti Italia (ingv)' })).toBeInTheDocument()
+  })
+
+  it('says what kind is missing when nothing can be compared', () => {
+    const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+    mockFetch(() => null)
+    render(<ComparePanel datasetId={4} datasets={[USGS, fires]} filters={EMPTY_FILTERS} />)
+
+    expect(screen.getByText(/Add a dataset of wildfires from another agency/)).toBeInTheDocument()
+  })
+
+  it('labels the measure and drops the depth for a kind without one', async () => {
+    const fires = makeDataset({ id: 4, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+    const gdacs = makeDataset({ id: 5, name: 'GDACS fires', source: 'gdacs', kind: 'wildfire' })
+    mockFetch(() => null, {
+      matches: makeMatches([
+        makeMatch({
+          event: makeMatchedEvent({ title: 'Fire in Namibia', magnitude: 5747, magnitude_unit: 'hectares', attributes: {} }),
+          other: makeMatchedEvent({ id: 9, title: 'Namibia fire', magnitude: 5900, magnitude_unit: 'hectares', attributes: {} }),
+          delta_magnitude: 153,
+        }),
+      ]),
+    })
+    render(<ComparePanel datasetId={4} datasets={[fires, gdacs]} filters={EMPTY_FILTERS} />)
+
+    const row = (await screen.findByText('Fire in Namibia')).closest('tr')!
+    expect(screen.getByRole('columnheader', { name: 'Area' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Depth' })).not.toBeInTheDocument()
+    expect(row).toHaveTextContent('5747 hectares')
+    expect(row).toHaveTextContent('+153')
+    expect(screen.getByText(/positions 30 km apart/)).toBeInTheDocument()
   })
 })
 

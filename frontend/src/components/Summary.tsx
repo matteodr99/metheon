@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import { fetchSummary, type EarthquakeFilters, type Summary } from '../api'
+import { fetchSummary, type EventFilters, type Summary } from '../api'
 import { BarChart, type Bar } from './BarChart'
+import { labelsFor } from '../kinds'
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
@@ -12,12 +13,12 @@ function Tile({ label, value }: { label: string; value: string }) {
   )
 }
 
-function magnitudeRange(summary: Summary): string {
+function magnitudeRange(summary: Summary, decimals: number): string {
   const { min, max } = summary.magnitude
   if (min === null || max === null) {
     return '—'
   }
-  return `${min.toFixed(1)} – ${max.toFixed(1)}`
+  return `${min.toFixed(decimals)} – ${max.toFixed(decimals)}`
 }
 
 /** "2026-09-08" reads better as "09-08" once the year is on every bar. */
@@ -27,13 +28,17 @@ function shortDay(day: string): string {
 
 export function SummaryPanel({
   datasetId,
+  kind = 'earthquake',
   filters,
   dataVersion = 0,
 }: {
   datasetId: number
-  filters: EarthquakeFilters
+  /** The dataset's kind: it names the measure the tiles describe. */
+  kind?: string
+  filters: EventFilters
   dataVersion?: number
 }) {
+  const labels = labelsFor(kind)
   const query = JSON.stringify([datasetId, filters, dataVersion])
   const [result, setResult] = useState<{
     query: string
@@ -74,17 +79,20 @@ export function SummaryPanel({
     <section className="summary-panel">
       <div className="tiles">
         <Tile label="Events" value={String(summary.total)} />
-        <Tile label="Magnitude range" value={magnitudeRange(summary)} />
         <Tile
-          label="Average magnitude"
+          label={`${labels.measure} range`}
+          value={magnitudeRange(summary, labels.decimals)}
+        />
+        <Tile
+          label={`Average ${labels.measure.toLowerCase()}`}
           value={
             summary.magnitude.average === null
               ? '—'
-              : summary.magnitude.average.toFixed(2)
+              : summary.magnitude.average.toFixed(Math.max(labels.decimals, 1))
           }
         />
         <Tile
-          label="Without magnitude"
+          label={`Without ${labels.measure.toLowerCase()}`}
           value={String(summary.magnitude.unknown)}
         />
       </div>

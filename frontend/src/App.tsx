@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { fetchDatasets, type Dataset } from './api'
-import { EarthquakeBrowser } from './components/EarthquakeBrowser'
+import { EventBrowser } from './components/EventBrowser'
 import { IngestionPanel } from './components/IngestionPanel'
 import { NewDatasetForm } from './components/NewDatasetForm'
 import { ThemeToggle } from './theme/ThemeToggle'
@@ -84,7 +84,7 @@ function App() {
     <main>
       <header className="masthead">
         <h1>Metheon</h1>
-        <p>Public earthquake data, agency by agency</p>
+        <p>Public natural-event data, agency by agency</p>
         <ThemeToggle />
       </header>
 
@@ -120,7 +120,7 @@ function App() {
         <section className="panel">
           <h2>{selected.name}</h2>
           <IngestionPanel datasetId={selected.id} onRunFinished={handleRunFinished} />
-          <EarthquakeBrowser
+          <EventBrowser
             datasetId={selected.id}
             datasets={datasets ?? []}
             dataVersion={dataVersion}

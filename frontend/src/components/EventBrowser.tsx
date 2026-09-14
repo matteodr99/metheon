@@ -6,27 +6,19 @@ import {
   type BoundingBox,
   type Dataset,
   depthOf,
-  type EarthquakeFilters,
+  type EventFilters,
   type Event,
   type Page,
 } from '../api'
 import { ComparePanel } from './ComparePanel'
-import { EarthquakeMap } from './EarthquakeMap'
+import { EventMap } from './EventMap'
 import { InsightsPanel } from './InsightsPanel'
 import { SummaryPanel } from './Summary'
+import { formatMeasure, labelsFor } from '../kinds'
 
 const PAGE_SIZE = 25
 
-function formatMagnitude(earthquake: Event): string {
-  // The feed legitimately omits the magnitude; showing 0 would be a lie.
-  if (earthquake.magnitude === null) {
-    return '—'
-  }
-  const type = earthquake.magnitude_unit ?? ''
-  return `${earthquake.magnitude.toFixed(1)}${type ? ` ${type}` : ''}`
-}
-
-export function EarthquakeBrowser({
+export function EventBrowser({
   datasetId,
   datasets = [],
   dataVersion = 0,
@@ -39,8 +31,13 @@ export function EarthquakeBrowser({
 }) {
   // `form` is what the user is typing; `applied` is what the last request
   // used. Keeping them apart avoids a request per keystroke.
-  const [form, setForm] = useState<EarthquakeFilters>(EMPTY_FILTERS)
-  const [applied, setApplied] = useState<EarthquakeFilters>(EMPTY_FILTERS)
+  // The dataset's kind names the measure and decides the columns; a
+  // browser handed no datasets (the tests, mostly) assumes earthquakes.
+  const kind = datasets.find((dataset) => dataset.id === datasetId)?.kind ?? 'earthquake'
+  const labels = labelsFor(kind)
+
+  const [form, setForm] = useState<EventFilters>(EMPTY_FILTERS)
+  const [applied, setApplied] = useState<EventFilters>(EMPTY_FILTERS)
   const [offset, setOffset] = useState(0)
 
   // The result carries the query it answers. Loading is then derived rather
@@ -80,7 +77,7 @@ export function EarthquakeBrowser({
     return () => controller.abort()
   }, [datasetId, applied, offset, dataVersion, query])
 
-  function update(name: keyof EarthquakeFilters, value: string) {
+  function update(name: keyof EventFilters, value: string) {
     setForm((current) => ({ ...current, [name]: value }))
   }
 
@@ -120,7 +117,7 @@ export function EarthquakeBrowser({
     <section>
       <form className="filters" onSubmit={apply}>
         <label>
-          <span>Min magnitude</span>
+          <span>Min {labels.measure.toLowerCase()}</span>
           <input
             type="number"
             step="0.1"
@@ -129,7 +126,7 @@ export function EarthquakeBrowser({
           />
         </label>
         <label>
-          <span>Max magnitude</span>
+          <span>Max {labels.measure.toLowerCase()}</span>
           <input
             type="number"
             step="0.1"
@@ -157,7 +154,7 @@ export function EarthquakeBrowser({
           <span>Event type</span>
           <input
             type="text"
-            placeholder="earthquake"
+            placeholder={kind}
             value={form.event_type}
             onChange={(event) => update('event_type', event.target.value)}
           />
@@ -216,9 +213,10 @@ export function EarthquakeBrowser({
 
       {/* Given the applied filters, not the ones being typed, so the
           numbers always describe the table below. */}
-      <SummaryPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
-      <EarthquakeMap
+      <SummaryPanel datasetId={datasetId} kind={kind} filters={applied} dataVersion={dataVersion} />
+      <EventMap
         datasetId={datasetId}
+        kind={kind}
         filters={applied}
         dataVersion={dataVersion}
         onFilterToView={filterToView}
@@ -252,34 +250,38 @@ export function EarthquakeBrowser({
           <thead>
             <tr>
               <th>Time (UTC)</th>
-              <th className="numeric">Magnitude</th>
+              <th className="numeric">{labels.measure}</th>
               <th>Place</th>
               <th>Type</th>
-              <th className="numeric">Depth</th>
+              {labels.depth && <th className="numeric">Depth</th>}
             </tr>
           </thead>
           <tbody>
-            {page.items.map((earthquake) => (
-              <tr key={earthquake.id}>
+            {page.items.map((event) => (
+              <tr key={event.id}>
                 <td className="numeric">
-                  {earthquake.occurred_at.replace('T', ' ').slice(0, 19)}
+                  {event.occurred_at.replace('T', ' ').slice(0, 19)}
                 </td>
-                <td className="numeric">{formatMagnitude(earthquake)}</td>
+                <td className="numeric">
+                  {formatMeasure(event.magnitude, event.magnitude_unit, kind)}
+                </td>
                 <td>
-                  {earthquake.url === null ? (
-                    earthquake.title
+                  {event.url === null ? (
+                    event.title
                   ) : (
-                    <a href={earthquake.url} target="_blank" rel="noreferrer">
-                      {earthquake.title}
+                    <a href={event.url} target="_blank" rel="noreferrer">
+                      {event.title}
                     </a>
                   )}
                 </td>
-                <td>{earthquake.event_type}</td>
-                <td className="numeric">
-                  {depthOf(earthquake.attributes) === null
-                    ? '—'
-                    : `${depthOf(earthquake.attributes)!.toFixed(1)} km`}
-                </td>
+                <td>{event.event_type}</td>
+                {labels.depth && (
+                  <td className="numeric">
+                    {depthOf(event.attributes) === null
+                      ? '—'
+                      : `${depthOf(event.attributes)!.toFixed(1)} km`}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

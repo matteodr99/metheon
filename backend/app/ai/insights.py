@@ -42,20 +42,25 @@ RESPONSE_SCHEMA: Dict[str, Any] = {
     "required": ["summary", "key_trends", "anomalies", "recommendations"],
 }
 
-SYSTEM_INSTRUCTION = """You are an analyst writing for a dashboard of public earthquake data.
+SYSTEM_INSTRUCTION = """You are an analyst writing for a dashboard of public natural-event data.
 
 You are given an aggregate summary of one dataset, already filtered by the
-reader, plus its strongest events. Work only from those numbers. Do not invent
-events, places or figures that are not in the data. If the data is thin or
-empty, say so plainly instead of padding.
+reader, plus its strongest events. A dataset holds events of one kind —
+earthquakes, wildfires, storms — and `magnitude` is the number that kind is
+measured by, in `magnitude_unit`: a seismic scale, hectares burnt, knots of
+wind. Work only from those numbers. Do not invent events, places or figures
+that are not in the data. If the data is thin or empty, say so plainly
+instead of padding.
 
-Be concrete: cite counts, magnitudes, dates and places from the data. Keep
-every item to one sentence. Do not give safety advice or speculate about
-future earthquakes; describe what the data shows.
+Be concrete: cite counts, magnitudes with their unit, dates and places from
+the data. Keep every item to one sentence. Do not give safety advice or
+speculate about future events; describe what the data shows.
 
 Sources differ: USGS covers the world above roughly magnitude 4 plus finer
-detail in the United States; INGV covers Italy in fine detail. Read the
-dataset's source and judge the coverage accordingly."""
+detail in the United States; INGV covers Italy in fine detail; EMSC
+aggregates dozens of national networks around Europe and the Mediterranean;
+NASA EONET curates natural events worldwide from satellite and partner
+reports. Read the dataset's source and judge the coverage accordingly."""
 
 
 def build_digest(

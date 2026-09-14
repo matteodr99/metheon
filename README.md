@@ -4,23 +4,24 @@
 [![Ingest](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml)
 
 A cloud-native platform for ingesting, processing, and analyzing public seismic
-data — today the earthquake catalogues of USGS, INGV and EMSC, which observe
-the same earthquakes with different networks and report them differently.
+data — the earthquake catalogues of USGS, INGV and EMSC, which observe the
+same earthquakes with different networks and report them differently, and
+NASA EONET's curated wildfires, storms, floods and other natural events.
 
 ```text
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
 ```
 
 Metheon is a personal portfolio / open-source project. It works exclusively with
-public datasets and does not handle personal or sensitive user data. The
-pipeline is generic; the schema is not: it stores earthquakes, and a source
-qualifies by publishing them. Widening it to other kinds of public event is
-designed in [docs/design/generic-events.md](docs/design/generic-events.md)
-and not yet built.
+public datasets and does not handle personal or sensitive user data. A
+dataset holds events of one kind — earthquakes, wildfires, storms — and the
+same pipeline, filters, map and comparison serve every kind; the design
+behind that is in [docs/design/generic-events.md](docs/design/generic-events.md).
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
-> worker ingest earthquake data from USGS, INGV and EMSC asynchronously, with every
+> worker ingest earthquakes from USGS, INGV and EMSC and natural events from
+> NASA EONET asynchronously, with every
 > run recorded. The API supports filtering and aggregation; a React dashboard
 > browses the events with filters, paging and charts, creates datasets, starts
 > ingestions and follows them, and — with a Gemini key — asks the model what
@@ -110,6 +111,20 @@ copy: reconciling agencies is an analysis question, not something ingestion
 should guess at, and the [matches endpoint](#get-apidatasetsideventsmatchesotherid2)
 does it on request.
 
+**NASA EONET** — the [Earth Observatory Natural Event Tracker][eonet], which
+curates natural events of thirteen kinds from satellite imagery and partner
+reports: wildfires, severe storms, volcanoes, floods, sea and lake ice,
+landslides and more. One feed serves them all, so EONET is the first source
+that offers several kinds: a dataset created for it names one, and each run
+asks for that category over the last `EONET_DAYS`. An EONET event is a list
+of dated geometries — one point for a fire, a track for a storm, polygons
+for a flood — with an optional measurement on each; the record takes the
+earliest date, the latest position, the peak measurement (a fire's final
+area, a storm's strongest wind) and keeps the whole list as its geometry
+when it is more than a point. Fires reported in acres are converted to
+hectares so a dataset has one unit. EONET's polygons come with latitude
+first, unlike its points; the marker is placed accordingly.
+
 `backend/app/ingestion/sources.py` maps a source name to the module that
 fetches and normalizes it. Adding a source means writing such a module and
 registering it there; the GeoJSON envelope checks are shared in
@@ -117,6 +132,7 @@ registering it there; the GeoJSON envelope checks are shared in
 
 [ingv]: https://webservices.ingv.it/
 [emsc]: https://www.seismicportal.eu/fdsn-wsevent.html
+[eonet]: https://eonet.gsfc.nasa.gov/docs/v3
 
 [usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
@@ -203,10 +219,14 @@ npm run dev
 ```
 
 The dashboard is then at `http://localhost:5173`. It shows each dataset's
-events in a table, a summary with charts, a map and, with a second dataset,
-a comparison of how the two agencies reported the same earthquakes; the
-filters — magnitude, time, type and a bounding box — apply to all of them,
-and **Filter to this view** on the map turns the visible area into the box.
+events in a table, a summary with charts, a map and, with a second dataset
+of the same kind, a comparison of how the two agencies reported the same
+events; the filters — magnitude, time, type and a bounding box — apply to
+all of them, and **Filter to this view** on the map turns the visible area
+into the box. The words follow the dataset's kind: a wildfire dataset has an
+*Area* column in hectares and no depth, a storm dataset *Wind* in knots, and
+the map colours its markers by kind and sizes them within the dataset's own
+range.
 Its dev server proxies
 `/api` to the backend on port 8000, so the browser sees a single origin and
 the API needs no CORS configuration. That proxy is a development arrangement
@@ -256,6 +276,9 @@ project runs out of the box without any configuration.
 | `EMSC_FEED_URL` | `…/fdsnws/event/1/query?…` | EMSC query; a `starttime` is added per run |
 | `EMSC_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EMSC request |
 | `EMSC_DAYS` | `7` | Length of the EMSC window, in days |
+| `EONET_FEED_URL` | `…/api/v3/events?status=all` | EONET query; `category` and `days` are added per run |
+| `EONET_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EONET request |
+| `EONET_DAYS` | `7` | Length of the EONET window, in days |
 | `REDIS_HOST` | `localhost` | Redis host (`redis` inside Compose) |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
@@ -380,9 +403,8 @@ curl http://127.0.0.1:8000/api/sources
 ]
 ```
 
-Every source today serves one kind, `earthquake`. A source serving several
-— a multi-category feed — would list them all, and a dataset created for it
-must say which one it holds.
+The seismic sources serve one kind, `earthquake`; EONET lists thirteen, and
+a dataset created for it must say which one it holds.
 
 ### `GET /api/datasets`
 

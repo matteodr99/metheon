@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { EarthquakeBrowser } from './EarthquakeBrowser'
+import { EventBrowser } from './EventBrowser'
 import {
   deferred,
+  makeDataset,
   makeEvent,
   makePage,
   mockFetch,
@@ -25,7 +26,7 @@ describe('rendering the events', () => {
   it('shows a row per event', async () => {
     mockFetch(() => makePage([makeEvent({ title: 'Anza, CA' })]))
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     expect(await screen.findByText('Anza, CA')).toBeInTheDocument()
   })
@@ -36,7 +37,7 @@ describe('rendering the events', () => {
       makePage([makeEvent({ magnitude: null, magnitude_unit: null })]),
     )
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     expect(await screen.findByText('—')).toBeInTheDocument()
   })
@@ -48,7 +49,7 @@ describe('rendering the events', () => {
       ]),
     )
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     const link = await screen.findByRole('link', { name: 'Anza, CA' })
     expect(link).toHaveAttribute('href', 'https://example.invalid/e')
@@ -57,7 +58,7 @@ describe('rendering the events', () => {
   it('says so when nothing matches', async () => {
     mockFetch(() => makePage([]))
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     expect(
       await screen.findByText('No events match these filters.'),
@@ -67,7 +68,7 @@ describe('rendering the events', () => {
   it('reports a failing request', async () => {
     mockFetch(() => null, { ok: false, status: 500 })
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The API answered 500',
@@ -81,7 +82,7 @@ describe('applying filters', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
     const before = calls.length
 
@@ -94,7 +95,7 @@ describe('applying filters', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
 
     await user.type(screen.getByLabelText('Min magnitude'), '4.5')
@@ -114,7 +115,7 @@ describe('applying filters', () => {
     )
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('place 1')
 
     await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -136,7 +137,7 @@ describe('applying filters', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
 
     await user.type(screen.getByLabelText('Min magnitude'), '4')
@@ -159,7 +160,7 @@ describe('the bounding box', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
 
     await user.type(screen.getByLabelText('Min latitude'), '36')
@@ -177,7 +178,7 @@ describe('the bounding box', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
 
     await user.type(screen.getByLabelText('Min magnitude'), '2')
@@ -199,7 +200,7 @@ describe('the bounding box', () => {
     const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('somewhere')
 
     await user.click(screen.getByRole('button', { name: 'Filter to this view' }))
@@ -219,7 +220,7 @@ describe('paging', () => {
   it('disables Previous on the first page', async () => {
     mockFetch(() => makePage(manyEvents(25), { total: 200 }))
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('place 1')
 
     expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
@@ -228,7 +229,7 @@ describe('paging', () => {
   it('disables Next when the result fits on one page', async () => {
     mockFetch(() => makePage(manyEvents(3), { total: 3 }))
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('place 1')
 
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
@@ -238,7 +239,7 @@ describe('paging', () => {
     const { calls } = mockFetch(() => makePage(manyEvents(25), { total: 200 }))
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('place 1')
 
     await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -253,7 +254,7 @@ describe('the caption', () => {
   it('counts the page on screen', async () => {
     mockFetch(() => makePage(manyEvents(25), { total: 200, offset: 25 }))
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
 
     expect(await screen.findByText(/Showing 26–50 of 200/)).toBeInTheDocument()
   })
@@ -275,7 +276,7 @@ describe('the caption', () => {
     })
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText(/Showing 1–25 of 200/)
 
     await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -308,7 +309,7 @@ describe('overlapping requests', () => {
     })
     const user = userEvent.setup()
 
-    render(<EarthquakeBrowser datasetId={1} />)
+    render(<EventBrowser datasetId={1} />)
     await screen.findByText('first response')
 
     await user.type(screen.getByLabelText('Min magnitude'), '4')
@@ -326,5 +327,34 @@ describe('overlapping requests', () => {
       expect(screen.getByText('newest response')).toBeInTheDocument()
     })
     expect(screen.queryByText('stale response')).not.toBeInTheDocument()
+  })
+})
+
+describe('the kind of the dataset', () => {
+  it('names the measure and drops the depth column for wildfires', async () => {
+    mockFetch(() =>
+      makePage([makeEvent({ title: 'Wildfire in Namibia', magnitude: 5747, magnitude_unit: 'hectares', attributes: {} })]),
+    )
+    const fires = makeDataset({ id: 1, name: 'Fires', source: 'eonet', kind: 'wildfire' })
+
+    render(<EventBrowser datasetId={1} datasets={[fires]} />)
+
+    const row = (await screen.findByText('Wildfire in Namibia')).closest('tr')!
+    expect(screen.getByRole('columnheader', { name: 'Area' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Depth' })).not.toBeInTheDocument()
+    expect(row).toHaveTextContent('5747 hectares')
+    expect(screen.getByLabelText('Min area')).toBeInTheDocument()
+    expect(screen.getByText('Area range')).toBeInTheDocument()
+  })
+
+  it('keeps the seismic words and the depth for earthquakes', async () => {
+    mockFetch(() => makePage([makeEvent()]))
+
+    render(<EventBrowser datasetId={1} datasets={[makeDataset({ id: 1 })]} />)
+
+    await screen.findByText('somewhere')
+    expect(screen.getByRole('columnheader', { name: 'Magnitude' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Depth' })).toBeInTheDocument()
+    expect(screen.getByText('15.4 km')).toBeInTheDocument()
   })
 })

@@ -151,9 +151,9 @@ before treating anything in it as implemented.
 
 - `generic-events.md` — from an `earthquakes` table to an `events` table
   with a kind per dataset, so that non-seismic public data (NASA EONET,
-  GDACS) can be ingested by the same pipeline. Status: steps 1 and 2 of 4
-  done (the schema, the migration, the rename, the kinds); EONET and GDACS
-  to go.
+  GDACS) can be ingested by the same pipeline. Status: steps 1–3 of 4
+  done (the schema, the migration, the rename, the kinds, EONET with the
+  dashboard's per-kind words and colours); GDACS to go.
 
 ## Repository structure
 
@@ -190,6 +190,7 @@ metheon/
 │   │       ├── usgs.py
 │   │       ├── ingv.py
 │   │       ├── emsc.py
+│   │       ├── eonet.py
 │   │       └── runner.py
 │   ├── tests/
 │   │   ├── conftest.py
@@ -207,8 +208,8 @@ metheon/
 │   │   ├── components/
 │   │   │   ├── BarChart.tsx
 │   │   │   ├── ComparePanel.tsx
-│   │   │   ├── EarthquakeBrowser.tsx
-│   │   │   ├── EarthquakeMap.tsx
+│   │   │   ├── EventBrowser.tsx
+│   │   │   ├── EventMap.tsx
 │   │   │   ├── IngestionPanel.tsx
 │   │   │   ├── InsightsPanel.tsx
 │   │   │   ├── NewDatasetForm.tsx
@@ -218,6 +219,7 @@ metheon/
 │   │   │   └── ThemeToggle.tsx
 │   │   ├── test/
 │   │   ├── App.tsx
+│   │   ├── kinds.ts
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
@@ -761,10 +763,13 @@ endpoint refuses to queue one with `422`.
 
 Nothing else in the pipeline knows which sources exist.
 
-Registered: `usgs`, `ingv` and `emsc`. All publish GeoJSON point features,
-so the envelope checks — id, geometry, coordinate ranges, duplicate ids in
-one feed — live once in `geojson.py`; each module maps only its own
-properties. INGV ids are integers, times ISO 8601 and magnitude types mixed
+Registered: `usgs`, `ingv`, `emsc` and `eonet`. The three seismic ones
+publish GeoJSON point features, so the envelope checks — id, geometry,
+coordinate ranges, duplicate ids in one feed — live once in `geojson.py`;
+each module maps only its own properties. `collect_records` takes the name
+of the list to walk, so EONET's `events` go through the same duplicate
+check as GeoJSON `features`; the runner counts `fetched` as records plus
+errors rather than reading a GeoJSON key. INGV ids are integers, times ISO 8601 and magnitude types mixed
 case, all normalized to match USGS so the sources share one table and one
 set of filters.
 
@@ -786,7 +791,25 @@ not built, in `docs/design/generic-events.md`.
 
 The same earthquake appears in several sources with different ids,
 magnitudes and epicentres. Datasets keep their own copies; reconciling
-agencies is an analysis problem, done on request by the matches endpoint.
+agencies is an analysis problem, done on request by the matches endpoint,
+which refuses two datasets of different kinds with 422.
+
+EONET is the first multi-kind source: `eonet.CATEGORY_BY_KIND` maps the
+registry's vocabulary to its category ids, `KINDS` is that map's keys, and
+`fetch_feed`/`normalize_feed` require the kind — the runner passes the
+dataset's. Its payload is not GeoJSON: an event holds a list of dated
+geometries with an optional `magnitudeValue`/`magnitudeUnit` each. The
+record takes the earliest date as `occurred_at`, the latest geometry's
+position as the point (a polygon's centroid), the **peak** measurement as
+`magnitude` — a fire's area only grows, a storm's wind peaks and fades, and
+the peak is what both are known by — and `closed` as `ended_at`; the whole
+list becomes a `GeometryCollection` in `geometry` when it is more than one
+point. Acres become hectares so one kind has one unit. Two quirks, both
+covered by tests on the captured fixture: polygons arrive as
+`[latitude, longitude]` while points are `[longitude, latitude]` (every
+flood polygon captured on 2026-09-14 put Croatia at 43.5, 16.3), so a
+polygon's centroid is swapped; and EONET's `link` is an API document, so
+the first partner source's url is preferred as the event's page.
 
 ## Asynchronous processing
 
@@ -911,6 +934,16 @@ stretched to the container; text inside it gets distorted by that stretch, so
 the labels are HTML underneath. Reconsider the choice if several chart types
 with axes and tooltips are ever needed.
 
+`src/kinds.ts` is where the dashboard's words for each kind live: the
+plural, what the measure is called (*Magnitude*, *Area*, *Wind*), its
+decimals, and whether a depth column makes sense. The browser, the summary,
+the map and the comparison all read it, keyed on the dataset's kind, which
+the browser takes from the dataset list it is handed; with no list it
+assumes earthquakes, which is what every test that predates kinds relies
+on. Markers get a `kind-<kind>` class for their colour and are sized by
+where their magnitude sits in the range of the points drawn, so the scale
+works for any unit.
+
 The map is the one place that rule gave way. `EarthquakeMap.tsx` uses
 Leaflet — zoom, pan and tiles are a project of their own — pinned to `~1.9`
 so the 2.0 rewrite (ES modules, no `L` global) arrives only when chosen.
@@ -923,7 +956,9 @@ variables; in the dark theme the tiles are inverted with a CSS filter rather
 than fetched from a second, dark tile set.
 
 The map reads `/events/points` with the applied filters, so it shows
-exactly what the table and the summary show; when the endpoint's limit cuts
+exactly what the table and the summary show — `EventMap.tsx`, `EventBrowser.tsx`
+and `EventFilters` were `Earthquake*` until step 3 of the generic-events
+design; when the endpoint's limit cuts
 it says "N strongest of M". A dashed rectangle outlines an applied box.
 **Filter to this view** applies the visible bounds at once, clamped to
 ±90/±180 because a zoomed-out view runs past the globe and the API would

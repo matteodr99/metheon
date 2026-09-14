@@ -4,7 +4,7 @@ import {
   fetchAIStatus,
   fetchInsights,
   type AIStatus,
-  type EarthquakeFilters,
+  type EventFilters,
   type Insights,
 } from '../api'
 
@@ -30,7 +30,7 @@ export function InsightsPanel({
   dataVersion = 0,
 }: {
   datasetId: number
-  filters: EarthquakeFilters
+  filters: EventFilters
   dataVersion?: number
 }) {
   const [status, setStatus] = useState<AIStatus | null>(null)

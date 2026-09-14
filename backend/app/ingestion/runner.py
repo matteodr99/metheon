@@ -96,7 +96,9 @@ def run_import(import_id: int) -> Dict[str, Any]:
     try:
         payload = source.fetch_feed(url=feed_url, kind=kind)
         records, errors = source.normalize_feed(payload, kind=kind)
-        fetched = len(payload.get("features", []))
+        # Everything the source handed over ended up as a record or an
+        # error, so this is the count whatever the payload's shape.
+        fetched = len(records) + len(errors)
 
         with get_connection() as connection:
             inserted, updated = repository.upsert_events(

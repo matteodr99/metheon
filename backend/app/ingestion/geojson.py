@@ -72,18 +72,20 @@ def parse_point_feature(
 def collect_records(
     payload: Dict[str, Any],
     normalize_feature: Callable[[Any], Tuple[Optional[Dict[str, Any]], Optional[str]]],
+    items: str = "features",
 ):
-    """Normalize every feature, separating the valid records from the errors.
+    """Normalize every item, separating the valid records from the errors.
 
-    Features carrying a duplicate id are kept only once: the feed is the
+    Items carrying a duplicate id are kept only once: the feed is the
     single source of truth for an event, and a duplicate would otherwise
-    make the upsert operate twice on the same row.
+    make the upsert operate twice on the same row. `items` names the list
+    in the payload: `features` for GeoJSON, whatever else a source calls it.
     """
     records = []
     errors = []
     seen = set()
 
-    for feature in payload.get("features", []):
+    for feature in payload.get(items, []):
         record, error = normalize_feature(feature)
         if error is not None:
             errors.append(error)

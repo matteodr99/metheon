@@ -1,20 +1,14 @@
 import { useEffect, useState } from 'react'
 
+import { formatMeasure, labelsFor } from '../kinds'
 import {
   depthOf,
   fetchMatches,
   type Dataset,
-  type EarthquakeFilters,
+  type EventFilters,
   type Match,
   type Matches,
 } from '../api'
-
-function magnitude(value: number | null, type: string | null): string {
-  if (value === null) {
-    return '—'
-  }
-  return `${value.toFixed(1)}${type ? ` ${type}` : ''}`
-}
 
 function signed(value: number, digits: number, unit = ''): string {
   const sign = value > 0 ? '+' : ''
@@ -32,13 +26,18 @@ function defaultOther(datasetId: number, others: Dataset[], datasets: Dataset[])
   return (different ?? others[0])?.id ?? null
 }
 
-function caption(matches: Matches, other: Dataset): string {
+function caption(matches: Matches, other: Dataset, kind: string): string {
+  const labels = labelsFor(kind)
   const parts = [`${matches.matched} of ${matches.events} events also reported by ${other.name}`]
   if (matches.mean_distance_km !== null) {
-    parts.push(`epicentres ${matches.mean_distance_km.toFixed(0)} km apart on average`)
+    parts.push(
+      `${labels.depth ? 'epicentres' : 'positions'} ${matches.mean_distance_km.toFixed(0)} km apart on average`,
+    )
   }
   if (matches.mean_abs_delta_magnitude !== null) {
-    parts.push(`magnitudes differ by ${matches.mean_abs_delta_magnitude.toFixed(2)} on average`)
+    parts.push(
+      `${labels.measure.toLowerCase()}s differ by ${matches.mean_abs_delta_magnitude.toFixed(2)} on average`,
+    )
   }
   return parts.join(' · ')
 }
@@ -53,10 +52,17 @@ export function ComparePanel({
   /** Every dataset, this one included; the panel picks the candidates. */
   datasets: Dataset[]
   /** The applied filters: they narrow this dataset's side of the pairs. */
-  filters: EarthquakeFilters
+  filters: EventFilters
   dataVersion?: number
 }) {
-  const others = datasets.filter((dataset) => dataset.id !== datasetId)
+  // Only datasets of the same kind: the API refuses the rest, and a menu
+  // offering fires to compare with quakes would be offering an error.
+  const mine = datasets.find((dataset) => dataset.id === datasetId)
+  const kind = mine?.kind ?? 'earthquake'
+  const labels = labelsFor(kind)
+  const others = datasets.filter(
+    (dataset) => dataset.id !== datasetId && (dataset.kind ?? 'earthquake') === kind,
+  )
   const [chosen, setChosen] = useState<number | null>(null)
   // The choice is kept only while it exists; a dataset gone from the list
   // (or a switch to the dataset it named) falls back to the default.
@@ -102,7 +108,9 @@ export function ComparePanel({
       <section className="compare">
         <div className="compare-bar">
           <span className="section-label">Compare</span>
-          <span className="muted">Add a dataset from another agency to compare their reports.</span>
+          <span className="muted">
+            Add a dataset of {labels.plural.toLowerCase()} from another agency to compare their reports.
+          </span>
         </div>
       </section>
     )
@@ -129,7 +137,7 @@ export function ComparePanel({
           {error !== null
             ? `Could not compare: ${error}`
             : matches !== null && other !== null
-              ? caption(matches, other)
+              ? caption(matches, other, kind)
               : loading
                 ? 'comparing…'
                 : ''}
@@ -143,11 +151,11 @@ export function ComparePanel({
               <tr>
                 <th>Time (UTC)</th>
                 <th>Place</th>
-                <th className="numeric">Magnitude</th>
-                <th className="numeric">Δ mag</th>
+                <th className="numeric">{labels.measure}</th>
+                <th className="numeric">Δ {labels.measure.toLowerCase()}</th>
                 <th className="numeric">Δ time</th>
                 <th className="numeric">Distance</th>
-                <th className="numeric">Depth</th>
+                {labels.depth && <th className="numeric">Depth</th>}
               </tr>
             </thead>
             <tbody>
@@ -159,18 +167,24 @@ export function ComparePanel({
                     <span className="compare-side muted">{pair.other.title ?? '—'}</span>
                   </td>
                   <td className="numeric">
-                    <span className="compare-side">{magnitude(pair.event.magnitude, pair.event.magnitude_unit)}</span>
-                    <span className="compare-side muted">{magnitude(pair.other.magnitude, pair.other.magnitude_unit)}</span>
+                    <span className="compare-side">
+                      {formatMeasure(pair.event.magnitude, pair.event.magnitude_unit, kind)}
+                    </span>
+                    <span className="compare-side muted">
+                      {formatMeasure(pair.other.magnitude, pair.other.magnitude_unit, kind)}
+                    </span>
                   </td>
                   <td className="numeric">
-                    {pair.delta_magnitude === null ? '—' : signed(pair.delta_magnitude, 1)}
+                    {pair.delta_magnitude === null ? '—' : signed(pair.delta_magnitude, labels.decimals)}
                   </td>
                   <td className="numeric">{signed(pair.delta_seconds, 1, ' s')}</td>
                   <td className="numeric">{pair.distance_km.toFixed(1)} km</td>
-                  <td className="numeric">
-                    <span className="compare-side">{depth(depthOf(pair.event.attributes))}</span>
-                    <span className="compare-side muted">{depth(depthOf(pair.other.attributes))}</span>
-                  </td>
+                  {labels.depth && (
+                    <td className="numeric">
+                      <span className="compare-side">{depth(depthOf(pair.event.attributes))}</span>
+                      <span className="compare-side muted">{depth(depthOf(pair.other.attributes))}</span>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

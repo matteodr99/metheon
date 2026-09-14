@@ -58,7 +58,7 @@ export interface Page<T> {
 }
 
 /** The filters the events endpoint accepts, as typed in the form. */
-export interface EarthquakeFilters {
+export interface EventFilters {
   min_magnitude: string
   max_magnitude: string
   start_time: string
@@ -70,7 +70,7 @@ export interface EarthquakeFilters {
   max_longitude: string
 }
 
-export const EMPTY_FILTERS: EarthquakeFilters = {
+export const EMPTY_FILTERS: EventFilters = {
   min_magnitude: '',
   max_magnitude: '',
   start_time: '',
@@ -84,7 +84,7 @@ export const EMPTY_FILTERS: EarthquakeFilters = {
 
 /** The four bounding-box filters, as the map hands them over. */
 export type BoundingBox = Pick<
-  EarthquakeFilters,
+  EventFilters,
   'min_latitude' | 'max_latitude' | 'min_longitude' | 'max_longitude'
 >
 
@@ -265,7 +265,7 @@ export function fetchDatasets(signal?: AbortSignal): Promise<Dataset[]> {
 
 export function fetchSummary(
   datasetId: number,
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   signal?: AbortSignal,
 ): Promise<Summary> {
   return getJson<Summary>(
@@ -276,7 +276,7 @@ export function fetchSummary(
 
 export function fetchEvents(
   datasetId: number,
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   limit: number,
   offset: number,
   signal?: AbortSignal,
@@ -293,7 +293,7 @@ export function fetchEvents(
 
 export function fetchPoints(
   datasetId: number,
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   signal?: AbortSignal,
 ): Promise<Points> {
   return getJson<Points>(
@@ -305,7 +305,7 @@ export function fetchPoints(
 export function fetchMatches(
   datasetId: number,
   otherId: number,
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   signal?: AbortSignal,
 ): Promise<Matches> {
   const query = queryFor(filters, { other: String(otherId) })
@@ -320,7 +320,7 @@ export function fetchMatches(
  * sending it would be rejected as an unparsable value rather than ignored.
  */
 function queryFor(
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   extra: Record<string, string> = {},
 ): string {
   const query = new URLSearchParams(extra)
@@ -372,7 +372,7 @@ export function fetchAIStatus(signal?: AbortSignal): Promise<AIStatus> {
 
 export function fetchInsights(
   datasetId: number,
-  filters: EarthquakeFilters,
+  filters: EventFilters,
   signal?: AbortSignal,
 ): Promise<Insights> {
   return getJson<Insights>(

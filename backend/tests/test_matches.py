@@ -169,6 +169,16 @@ class TestFiltersAndRefusals:
         _, other = two
         assert matches(client, {"id": 999999}, other).status_code == 404
 
+    def test_datasets_of_different_kinds_are_not_compared(self, client, db, two):
+        dataset, _ = two
+        with db() as connection:
+            fires = repository.create_dataset(connection, "Fires", "eonet", None, "wildfire")
+
+        response = matches(client, dataset, fires)
+
+        assert response.status_code == 422
+        assert "different kinds" in response.json()["detail"]
+
     def test_other_is_required(self, client, two):
         dataset, _ = two
         assert client.get("/api/datasets/{0}/events/matches".format(dataset["id"])).status_code == 422

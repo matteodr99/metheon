@@ -10,7 +10,7 @@ import { mockFetch, urlsOf } from '../test/helpers'
 // which markers, where, which bounds — which is what the component owns.
 const leaflet = vi.hoisted(() => {
   const record = {
-    markers: [] as { latlng: [number, number]; radius: number; popup: string }[],
+    markers: [] as { latlng: [number, number]; radius: number; popup: string; className: string }[],
     rectangles: [] as unknown[],
     fits: [] as unknown[],
     cleared: 0,
@@ -46,8 +46,8 @@ const leaflet = vi.hoisted(() => {
         record.cleared += 1
       },
     }),
-    circleMarker: (latlng: [number, number], options: { radius: number }) => {
-      const marker = { latlng, radius: options.radius, popup: '' }
+    circleMarker: (latlng: [number, number], options: { radius: number; className: string }) => {
+      const marker = { latlng, radius: options.radius, popup: '', className: options.className }
       record.markers.push(marker)
       return {
         bindPopup(text: string) {
@@ -69,7 +69,7 @@ const leaflet = vi.hoisted(() => {
 
 vi.mock('leaflet', () => ({ default: leaflet.L }))
 
-import { EarthquakeMap } from './EarthquakeMap'
+import { EventMap } from './EventMap'
 
 const { record } = leaflet
 
@@ -91,7 +91,7 @@ function renderMap(points: Point[], filters = EMPTY_FILTERS, total = points.leng
     points: { dataset_id: 1, total, limit: 5000, filters: {}, points },
   })
   render(
-    <EarthquakeMap datasetId={1} filters={filters} onFilterToView={onFilterToView} />,
+    <EventMap datasetId={1} filters={filters} onFilterToView={onFilterToView} />,
   )
   return { calls, onFilterToView }
 }
@@ -109,7 +109,7 @@ describe('loading the points', () => {
 
   it('reports an error instead of an empty map', async () => {
     mockFetch(() => ({ detail: 'The database is unavailable' }), { ok: false, status: 503 })
-    render(<EarthquakeMap datasetId={1} filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />)
+    render(<EventMap datasetId={1} filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />)
 
     expect(await screen.findByText(/Could not load the map/)).toBeInTheDocument()
   })
@@ -135,7 +135,7 @@ describe('drawing', () => {
     const [rome, tokyo, unknown] = record.markers
     expect(tokyo.radius).toBeGreaterThan(rome.radius)
     expect(unknown.radius).toBeLessThan(rome.radius)
-    expect(rome.popup).toBe('M 3.0')
+    expect(rome.popup).toBe('Magnitude 3.0')
     expect(unknown.popup).toMatch(/magnitude unknown/)
   })
 
@@ -194,12 +194,42 @@ describe('drawing', () => {
   it('removes the map on unmount', async () => {
     mockFetch(() => null)
     const { unmount } = render(
-      <EarthquakeMap datasetId={1} filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />,
+      <EventMap datasetId={1} filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />,
     )
 
     unmount()
 
     expect(record.removed).toBe(1)
+  })
+})
+
+describe('the kind', () => {
+  it('colours the markers by kind and names the measure', async () => {
+    mockFetch(() => null, { points: [[16.5, -19.2, 5747, 1], [17.0, -18.0, null, 2]] })
+    render(
+      <EventMap datasetId={1} kind="wildfire" filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />,
+    )
+
+    await waitFor(() => expect(record.markers).toHaveLength(2))
+
+    expect(record.markers[0].className).toBe('map-marker kind-wildfire')
+    expect(record.markers[0].popup).toBe('Area 5747')
+    expect(record.markers[1].popup).toBe('Event 2, area unknown')
+  })
+
+  it('sizes markers by where they sit in the range drawn, whatever the unit', async () => {
+    mockFetch(() => null, { points: [[0, 0, 100, 1], [1, 1, 5000, 2], [2, 2, 10000, 3]] })
+    render(
+      <EventMap datasetId={1} kind="wildfire" filters={EMPTY_FILTERS} onFilterToView={vi.fn()} />,
+    )
+
+    await waitFor(() => expect(record.markers).toHaveLength(3))
+
+    const [small, middle, large] = record.markers.map((marker) => marker.radius)
+    expect(small).toBe(3)
+    expect(large).toBe(16)
+    expect(middle).toBeGreaterThan(small)
+    expect(middle).toBeLessThan(large)
   })
 })
 

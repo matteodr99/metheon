@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+import { labelsFor } from '../kinds'
 import {
   fetchPoints,
   type BoundingBox,
-  type EarthquakeFilters,
+  type EventFilters,
   type Point,
 } from '../api'
 
@@ -15,16 +16,32 @@ const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
-/** Marker radius in pixels: readable at M1, prominent at M7, never absurd. */
-function markerRadius(magnitude: number | null): number {
+/**
+ * Marker radius in pixels, by where the magnitude sits in the range of
+ * the points drawn: the smallest event 3px, the largest 16px, whatever the
+ * unit — a seismic scale, hectares, knots. Unmeasured events stay small.
+ */
+function markerRadius(magnitude: number | null, low: number, high: number): number {
   if (magnitude === null) {
     return 2
   }
-  return Math.min(2 + Math.max(magnitude, 0) * 1.8, 16)
+  if (high <= low) {
+    return 8
+  }
+  const position = Math.min(Math.max((magnitude - low) / (high - low), 0), 1)
+  return 3 + position * 13
+}
+
+function magnitudeRange(points: Point[]): [number, number] {
+  const measured = points.map((point) => point[2]).filter((m): m is number => m !== null)
+  if (measured.length === 0) {
+    return [0, 0]
+  }
+  return [Math.min(...measured), Math.max(...measured)]
 }
 
 /** The applied box, or null when any side is missing: half a box is no box. */
-function boxOf(filters: EarthquakeFilters): L.LatLngBoundsLiteral | null {
+function boxOf(filters: EventFilters): L.LatLngBoundsLiteral | null {
   const south = Number(filters.min_latitude)
   const north = Number(filters.max_latitude)
   const west = Number(filters.min_longitude)
@@ -48,15 +65,18 @@ function degrees(value: number): string {
   return value.toFixed(4)
 }
 
-export function EarthquakeMap({
+export function EventMap({
   datasetId,
+  kind = 'earthquake',
   filters,
   dataVersion = 0,
   onFilterToView,
 }: {
   datasetId: number
+  /** The dataset's kind: colours the markers and names the measure. */
+  kind?: string
   /** The applied filters: what the table shows, so the map shows the same. */
-  filters: EarthquakeFilters
+  filters: EventFilters
   dataVersion?: number
   /** Called with the visible area when the reader wants to filter to it. */
   onFilterToView: (box: BoundingBox) => void
@@ -127,17 +147,23 @@ export function EarthquakeMap({
       return
     }
     layer.clearLayers()
+    const [low, high] = magnitudeRange(points)
+    const labels = labelsFor(kind)
     for (const [longitude, latitude, magnitude, id] of points) {
       L.circleMarker([latitude, longitude], {
-        radius: markerRadius(magnitude),
-        className: 'map-marker',
+        radius: markerRadius(magnitude, low, high),
+        className: `map-marker kind-${kind}`,
         weight: 1,
         fillOpacity: 0.35,
       })
-        .bindPopup(magnitude === null ? `Event ${id}, magnitude unknown` : `M ${magnitude.toFixed(1)}`)
+        .bindPopup(
+          magnitude === null
+            ? `Event ${id}, ${labels.measure.toLowerCase()} unknown`
+            : `${labels.measure} ${magnitude.toFixed(labels.decimals)}`,
+        )
         .addTo(layer)
     }
-  }, [points])
+  }, [points, kind])
 
   // Outline the applied box and bring it into view. Keyed on the filters
   // alone: a reload of the points must not redraw the frame or move the map.

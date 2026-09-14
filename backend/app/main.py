@@ -480,8 +480,15 @@ def get_dataset_event_matches(
             status_code=422, detail="A dataset cannot be compared with itself"
         )
     with get_connection() as connection:
-        _get_dataset_or_404(connection, dataset_id)
-        _get_dataset_or_404(connection, other)
+        mine = _get_dataset_or_404(connection, dataset_id)
+        theirs = _get_dataset_or_404(connection, other)
+        if mine["kind"] != theirs["kind"]:
+            raise HTTPException(
+                status_code=422,
+                detail="Datasets of different kinds cannot be compared: {0} holds {1} events, {2} holds {3}".format(
+                    dataset_id, mine["kind"], other, theirs["kind"]
+                ),
+            )
         events = repository.count_events(connection, dataset_id, filters.values)
         matches = repository.match_events(
             connection, dataset_id, other, window_seconds, radius_km, limit, filters.values
