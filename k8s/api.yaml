@@ -1,0 +1,62 @@
+# The API, from the backend image's default command. Both health endpoints
+# exist for exactly this: liveness restarts a hung process, readiness keeps
+# traffic away until Postgres and Redis answer. Using one probe for both
+# would restart the API whenever the database was down, which helps nobody.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: metheon
+spec:
+  type: NodePort
+  selector:
+    app: api
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: metheon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: metheon-backend
+          # Kind loads the image into the node; there is no registry to
+          # pull from, and "Always" would fail trying.
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: metheon-config
+            - secretRef:
+                name: metheon-secret
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: 8000
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi

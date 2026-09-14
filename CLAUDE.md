@@ -33,6 +33,7 @@ The project is a personal portfolio/open-source project. It must not use persona
 - PostgreSQL 16
 - Redis 7
 - Docker / Docker Compose
+- Kubernetes, locally, via Kind
 - React 19 + TypeScript, built with Vite
 - Pytest, Vitest and Testing Library
 - GitHub Actions
@@ -40,7 +41,6 @@ The project is a personal portfolio/open-source project. It must not use persona
 
 ### Planned / intended
 
-- Kubernetes locally via Kind or Minikube
 - Gemini API for optional AI insights
 - Public deployment, per the table below
 
@@ -146,6 +146,16 @@ metheon/
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts
+├── k8s/
+│   ├── kind-config.yaml
+│   ├── kustomization.yaml
+│   ├── namespace.yaml
+│   ├── config.yaml
+│   ├── postgres.yaml
+│   ├── redis.yaml
+│   ├── api.yaml
+│   ├── worker.yaml
+│   └── dev.sh
 ├── .env.example
 ├── .gitignore
 ├── .nvmrc
@@ -643,6 +653,34 @@ the dataset's status only when that run is its latest. The threshold is
 there for a future with several workers, where a run at `processing` may
 belong to another one. The sweep failing is logged, not fatal.
 
+## Kubernetes
+
+`k8s/` holds the manifests and `k8s/dev.sh` the four commands: `up`,
+`deploy`, `status`, `down`. Kind runs the cluster in Docker on this machine;
+it has no production role in the chosen stack and exists for study and
+demonstration.
+
+Postgres is a StatefulSet with a `volumeClaimTemplate`; Redis, the API and
+the worker are Deployments. The worker is the backend image with
+`command: [python, -m, app.worker]`, no Service, no liveness probe — it
+serves no HTTP, and a stuck run is the reaper's job. The API Service is a
+NodePort on 30080, mapped to host 8080 by `kind-config.yaml`.
+`imagePullPolicy: Never` on both, because `kind load` puts the image on the
+node and there is no registry.
+
+The API's liveness probe is `/api/health/live`, its readiness probe
+`/api/health`. Stopping Postgres was shown to take the pod out of the
+Service without restarting it; that behaviour is why the two endpoints are
+separate.
+
+Non-secret configuration is a ConfigMap, the password a Secret. The Secret
+is committed with the development password, the same one Compose and
+`.env.example` carry; a real deployment creates it out of band.
+
+`kustomize` will not read files outside its directory, so `dev.sh` builds
+the `init.sql` ConfigMap from `backend/app/db/init.sql` with `kubectl`
+rather than a generator. The schema keeps one source.
+
 ## Frontend
 
 React 19 and TypeScript, built with Vite, in `frontend/`. Node 20.19.5 is
@@ -769,11 +807,11 @@ Prefer structured AI responses where practical, for example:
 - [x] Documentation (a licence remains a deliberate open decision)
 
 ### Phase 6 — Kubernetes
-- [ ] Local Kubernetes setup
-- [ ] Deployments
-- [ ] Services
-- [ ] Config / secrets
-- [ ] Health checks
+- [x] Local Kubernetes setup
+- [x] Deployments
+- [x] Services
+- [x] Config / secrets
+- [x] Health checks
 
 ## Working rule for Claude Code
 

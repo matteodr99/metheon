@@ -1,0 +1,12 @@
+# A one-node cluster for local development. The API's NodePort is mapped to
+# the host, so the dashboard and curl reach it on http://localhost:8080
+# without a port-forward.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: metheon
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP

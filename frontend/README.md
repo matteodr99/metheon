@@ -30,7 +30,8 @@ npm run test:watch
 
 `vite.config.ts` proxies `/api` to `http://127.0.0.1:8000`, so the browser
 sees a single origin and the backend needs no CORS configuration. Start the
-API separately, as described in the project README.
+API separately, as described in the project README. To talk to the Kind
+cluster instead, set `VITE_API_PROXY=http://localhost:8080`.
 
 The proxy is a development-only arrangement. A deployed build will reach the
 API through CORS and a build-time `VITE_API_URL`, neither of which exists

@@ -708,6 +708,7 @@ metheon/
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts           # Dev-only proxy to the API
+├── k8s/                         # Kind cluster: manifests and dev.sh
 ├── .github/
 │   └── workflows/
 │       └── ci.yml               # Tests and worker image build
@@ -829,6 +830,49 @@ run that has been at `processing` for longer than `STALE_RUN_MINUTES`, with
 its latest. The threshold matters once there is more than one worker: a run
 another worker is genuinely processing must not be failed under it.
 
+### Running on Kubernetes, locally
+
+The whole system runs on a [Kind](https://kind.sigs.k8s.io/) cluster —
+Kubernetes in Docker, on this machine, nothing remote. The manifests are in
+`k8s/` and `k8s/dev.sh` drives them:
+
+```bash
+brew install kind          # once; kubectl comes with Docker Desktop
+k8s/dev.sh up              # create the cluster, build and load the image, deploy
+k8s/dev.sh deploy          # after a code change: rebuild, reload, roll out
+k8s/dev.sh status
+k8s/dev.sh down
+```
+
+The API is then at `http://localhost:8080`, mapped from the cluster by the
+Kind config. To point the dashboard at it instead of the virtualenv:
+
+```bash
+VITE_API_PROXY=http://localhost:8080 npm run dev
+```
+
+What runs: Postgres as a StatefulSet with a persistent volume and `init.sql`
+mounted from a ConfigMap, Redis and the API as Deployments with Services,
+and the worker as a Deployment from the same image with a different
+command. The API's probes are the two health endpoints: liveness on
+`/api/health/live`, readiness on `/api/health`.
+
+That split is the point of the exercise, and it was checked by stopping
+Postgres in the cluster: the API pod left the Service's endpoints within
+fifteen seconds and was **not** restarted, `/api/health/live` kept
+answering 200 inside it, and it rejoined the traffic four seconds after
+Postgres came back — same pod, zero restarts, data intact on the volume.
+With one probe for both, Kubernetes would have restarted the API for a
+fault the API did not have.
+
+`kustomize` refuses files outside `k8s/`, so `dev.sh` creates the
+`init.sql` ConfigMap itself from `backend/app/db/init.sql`; copying the
+schema into `k8s/` would have left two of them to keep in step.
+
+Kubernetes has no role in the deployment stack chosen for this project. This
+is local study and demonstration: the manifests, the probes and the
+config/secret split are what they would be anywhere.
+
 ### Inspecting the database directly
 
 ```bash
@@ -853,7 +897,7 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   are reaped, one unprivileged image serves both processes, and Swagger
   describes every response. Done, save for a licence, which is a deliberate
   open decision rather than a gap
-- [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
-  secrets
+- [x] **Phase 6 — Kubernetes:** the whole system on a local Kind cluster,
+  with liveness and readiness probes shown to behave differently
 
 See [CLAUDE.md](CLAUDE.md) for the detailed architecture and design principles.

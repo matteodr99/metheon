@@ -1,0 +1,16 @@
+# `kubectl apply -k k8s/` applies everything here, in dependency order.
+#
+# The ConfigMap Postgres mounts init.sql from is not generated here:
+# kustomize refuses files outside its own directory, and copying the schema
+# would leave two of them to keep in step. dev.sh creates it straight from
+# backend/app/db/init.sql, so the schema keeps its single source.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: metheon
+resources:
+  - namespace.yaml
+  - config.yaml
+  - postgres.yaml
+  - redis.yaml
+  - api.yaml
+  - worker.yaml

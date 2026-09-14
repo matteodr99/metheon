@@ -1,0 +1,29 @@
+# Everything the processes read from the environment, except the password.
+# Hosts are the Service names below: inside the cluster, that is how the
+# API and the worker find Postgres and Redis — the same idea as Compose's
+# service names.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metheon-config
+  namespace: metheon
+data:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: metheon
+  POSTGRES_USER: metheon
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  LOG_LEVEL: INFO
+---
+# Local development only: this is the same password docker-compose.yml and
+# .env.example carry in the open. A real deployment would create this
+# Secret out of band and never commit it.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: metheon-secret
+  namespace: metheon
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: metheon
