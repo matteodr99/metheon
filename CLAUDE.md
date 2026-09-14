@@ -459,6 +459,29 @@ Returns `404` for an unknown dataset and `503` when Redis cannot be reached; in
 the latter case the run is still recorded as `failed`. A feed that cannot be
 retrieved fails inside the worker and leaves the stored data untouched.
 
+**Cooldown.** `_refuse_if_too_soon` answers `429` with `Retry-After` while
+the dataset's latest run is `queued` or `processing`, or for
+`INGEST_COOLDOWN_MINUTES` after a completed one (`settings.ingest_cooldown_minutes`,
+read per request, `0` disables; a bad value stops the request, like the
+other settings). A failed run does not count. The endpoint stays public
+rather than taking a token because the dashboard's button is a public
+caller; the cooldown is what bounds the cost of that. `repository.latest_import`
+is one `list_imports` of length one.
+
+### DELETE /api/datasets/{id}
+
+`204`, cascading through `events` and `imports` by the schema's foreign
+keys; `repository.delete_dataset` is one statement. `test_openapi` allows a
+`204` with no body only on a `DELETE`.
+
+### GET /api/datasets
+
+Every dataset row now carries `last_ingested_at`, the `MAX(finished_at)`
+of its completed runs as a correlated subquery in `_DATASET_COLUMNS`,
+shared by the list and the single lookup; `create_dataset` appends a null
+to its `RETURNING` row instead of re-reading. It is what the dashboard's
+cards say — "ingested 2 h ago", or "never ingested".
+
 ## Current database schema
 
 Table: `datasets`
@@ -946,7 +969,12 @@ Fixtures and the fetch stand-in live in `src/test/helpers.ts`.
 `src/` is split by responsibility: `api/` for the client and its types,
 `components/` for the dashboard's pieces, `theme/` for the colour scheme.
 Tests sit beside the code they cover. `App.tsx` stays at the root: it is
-the composition, not a component among others.
+the composition, not a component among others. It owns the one
+irreversible action, deleting a dataset: `window.confirm` first, then
+`DELETE`, then the list is re-read and the panel closes because the
+selection is derived from the list. `src/time.ts` turns the API's naive
+UTC timestamps into "2 h ago" for the cards, telling the parser the zone
+the API leaves out.
 
 Charts are hand-written SVG in `BarChart.tsx`, not a charting library: the
 API returns the numbers already aggregated, and one bar chart does not pay

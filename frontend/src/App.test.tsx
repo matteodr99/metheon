@@ -209,3 +209,121 @@ describe('creating a dataset from the dashboard', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('what a card says about ingestion', () => {
+  it('says when the data last arrived, or that it never did', async () => {
+    vi.useFakeTimers({ now: new Date('2026-09-15T12:00:00Z'), toFake: ['Date'] })
+    try {
+      mockFetch(
+        respondWith([
+          makeDataset({ id: 1, name: 'Fresh', last_ingested_at: '2026-09-15T10:00:00' }),
+          makeDataset({ id: 2, name: 'Empty', last_ingested_at: null }),
+        ]),
+      )
+
+      render(<App />)
+
+      const fresh = await screen.findByRole('button', { name: /Fresh/ })
+      expect(within(fresh).getByText(/ingested 2 h ago/)).toBeInTheDocument()
+      const empty = screen.getByRole('button', { name: /Empty/ })
+      expect(within(empty).getByText(/never ingested/)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('deleting a dataset', () => {
+  function mockWithDelete(datasets: ReturnType<typeof makeDataset>[], { refuse = false } = {}) {
+    const listed = [...datasets]
+    const { calls, implementation } = mockFetch(() => [])
+    implementation.mockImplementation(async (input, init) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      calls.push({ url, method })
+      if (method === 'DELETE') {
+        if (refuse) {
+          return { ok: false, status: 503, json: async () => ({ detail: 'The database is unavailable' }) } as Response
+        }
+        const id = Number(url.split('/').at(-1))
+        listed.splice(listed.findIndex((dataset) => dataset.id === id), 1)
+        return { ok: true, status: 204, json: async () => { throw new Error('no body') } } as unknown as Response
+      }
+      let body: unknown = []
+      if (url === '/api/datasets') {
+        body = [...listed]
+      } else if (url.includes('/summary')) {
+        const { makeSummary } = await import('./test/helpers')
+        body = makeSummary()
+      } else if (url.includes('/imports')) {
+        body = { dataset_id: 1, total: 0, limit: 5, offset: 0, filters: {}, items: [] }
+      } else if (url.includes('/points')) {
+        body = { dataset_id: 1, total: 0, limit: 5000, filters: {}, points: [] }
+      } else if (url.includes('/matches')) {
+        const { makeMatches } = await import('./test/helpers')
+        body = makeMatches()
+      } else if (url === '/api/sources' || url === '/api/ai') {
+        body = url === '/api/ai' ? { configured: false, model: '' } : []
+      } else {
+        body = makePage([makeEvent({ title: 'an event' })])
+      }
+      return { ok: true, status: 200, json: async () => body } as Response
+    })
+    return calls
+  }
+
+  it('asks first, then removes the dataset and closes its panel', async () => {
+    const calls = mockWithDelete([makeDataset({ id: 1, name: 'Quakes' }), makeDataset({ id: 2, name: 'Fires', kind: 'wildfire' })])
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    try {
+      render(<App />)
+      await user.click(await screen.findByRole('button', { name: /Quakes/ }))
+      await screen.findByRole('heading', { level: 2 })
+
+      await user.click(screen.getByRole('button', { name: 'Delete dataset' }))
+
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining('"Quakes"'))
+      expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/datasets/1')).toBe(true)
+      expect(await screen.findByRole('button', { name: /Fires/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Quakes/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+    } finally {
+      confirm.mockRestore()
+    }
+  })
+
+  it('does nothing when the person changes their mind', async () => {
+    const calls = mockWithDelete([makeDataset({ id: 1, name: 'Quakes' })])
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    try {
+      render(<App />)
+      await screen.findByRole('heading', { level: 2 })
+
+      await user.click(screen.getByRole('button', { name: 'Delete dataset' }))
+
+      expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Quakes')
+    } finally {
+      confirm.mockRestore()
+    }
+  })
+
+  it("shows the API's reason when it refuses", async () => {
+    mockWithDelete([makeDataset({ id: 1, name: 'Quakes' })], { refuse: true })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    try {
+      render(<App />)
+      await screen.findByRole('heading', { level: 2 })
+
+      await user.click(screen.getByRole('button', { name: 'Delete dataset' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete the dataset: The API answered 503: The database is unavailable')
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Quakes')
+    } finally {
+      confirm.mockRestore()
+    }
+  })
+})

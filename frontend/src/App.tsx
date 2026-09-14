@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { fetchDatasets, type Dataset } from './api'
+import { deleteDataset, fetchDatasets, type Dataset } from './api'
 import { EventBrowser } from './components/EventBrowser'
 import { IngestionPanel } from './components/IngestionPanel'
 import { NewDatasetForm } from './components/NewDatasetForm'
 import { ThemeToggle } from './theme/ThemeToggle'
+import { timeAgo } from './time'
 
 function DatasetCard({
   dataset,
@@ -29,8 +30,10 @@ function DatasetCard({
         </span>
       </span>
       <span className="dataset-meta">
-        {dataset.source} · {dataset.kind.replace('_', ' ')} · added{' '}
-        {new Date(dataset.created_at).toLocaleDateString()}
+        {dataset.source} · {dataset.kind.replace('_', ' ')} ·{' '}
+        {dataset.last_ingested_at === null
+          ? 'never ingested'
+          : `ingested ${timeAgo(dataset.last_ingested_at)}`}
       </span>
     </button>
   )
@@ -80,6 +83,24 @@ function App() {
 
   const selected = datasets?.find((dataset) => dataset.id === selectedId) ?? null
 
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  async function handleDelete(dataset: Dataset) {
+    // The one irreversible action in the dashboard: it asks, and says
+    // what goes with the dataset.
+    if (!window.confirm(`Delete "${dataset.name}" with all its events and its import history?`)) {
+      return
+    }
+    setDeleteError(null)
+    try {
+      await deleteDataset(dataset.id)
+      // The panel closes on its own: the selection is derived from the
+      // list, and the list no longer has this dataset.
+      loadDatasets(false)
+    } catch (cause: unknown) {
+      setDeleteError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
   return (
     <main>
       <header className="masthead">
@@ -118,7 +139,17 @@ function App() {
 
       {selected !== null && (
         <section className="panel">
-          <h2>{selected.name}</h2>
+          <div className="panel-head">
+            <h2>{selected.name}</h2>
+            <button type="button" className="danger" onClick={() => handleDelete(selected)}>
+              Delete dataset
+            </button>
+          </div>
+          {deleteError !== null && (
+            <p role="alert" className="error">
+              Could not delete the dataset: {deleteError}
+            </p>
+          )}
           <IngestionPanel datasetId={selected.id} onRunFinished={handleRunFinished} />
           <EventBrowser
             datasetId={selected.id}

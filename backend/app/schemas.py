@@ -79,6 +79,9 @@ class Dataset(BaseModel):
         description="What kind of thing its events are; one kind per dataset.",
         examples=["earthquake"],
     )
+    last_ingested_at: Optional[datetime] = Field(
+        description="When its latest completed run finished; null before the first."
+    )
 
 
 # ---------------------------------------------------------------------------

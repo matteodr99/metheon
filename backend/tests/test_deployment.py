@@ -242,9 +242,11 @@ class TestInlineIngestion:
     def test_both_modes_return_the_same_shape(self, client, dataset, feed, monkeypatch):
         """A client must not have to know which mode the server runs."""
         feed([make_feature(id="a")])
+        # Two datasets: a dataset with a run in flight refuses another.
+        other = client.post("/api/datasets", json={"name": "Other", "source": "usgs"}).json()
         monkeypatch.setenv("INGESTION_MODE", "queue")
         queued = client.post("/api/datasets/{0}/ingest".format(dataset["id"])).json()
         monkeypatch.setenv("INGESTION_MODE", "inline")
-        finished = client.post("/api/datasets/{0}/ingest".format(dataset["id"])).json()
+        finished = client.post("/api/datasets/{0}/ingest".format(other["id"])).json()
 
         assert set(queued) == set(finished)

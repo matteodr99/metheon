@@ -23,6 +23,7 @@ export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
     created_at: '2026-09-09T08:08:12',
     status: 'completed',
     kind: 'earthquake',
+    last_ingested_at: null,
     ...overrides,
   }
 }

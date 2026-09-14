@@ -37,3 +37,21 @@ def cors_origins() -> List[str]:
     """
     raw = os.getenv("CORS_ORIGINS", "")
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def ingest_cooldown_minutes() -> int:
+    """How long after a completed run a dataset refuses another.
+
+    `POST /ingest` is public — the dashboard's button needs it to be — and
+    each run fetches a feed from a public agency on this service's behalf.
+    The cooldown is what stops a loop of requests from doing that a
+    thousand times. Zero disables it, for development.
+    """
+    raw = os.getenv("INGEST_COOLDOWN_MINUTES", "10").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        raise RuntimeError("INGEST_COOLDOWN_MINUTES must be a whole number of minutes, not {0!r}".format(raw))
+    if value < 0:
+        raise RuntimeError("INGEST_COOLDOWN_MINUTES cannot be negative")
+    return value

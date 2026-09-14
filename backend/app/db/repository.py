@@ -69,15 +69,26 @@ def ping(connection) -> bool:
     return row is not None and row[0] == 1
 
 
+# A dataset with when its data last arrived: the finish of its latest
+# completed run, or null if none has. Read alongside the row everywhere a
+# dataset is returned, so a card can say "ingested 2 h ago" without a
+# second request per dataset.
+_DATASET_COLUMNS = """
+    d.id, d.name, d.source, d.description, d.created_at, d.status, d.kind,
+    (SELECT MAX(finished_at) FROM imports i
+      WHERE i.dataset_id = d.id AND i.status = 'completed') AS last_ingested_at
+"""
+
+
 def list_datasets(connection) -> List[Dict[str, Any]]:
     """Return every dataset, ordered by id."""
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, name, source, description, created_at, status, kind
-            FROM datasets
-            ORDER BY id
-            """
+            SELECT {0}
+            FROM datasets d
+            ORDER BY d.id
+            """.format(_DATASET_COLUMNS)
         )
         rows = cursor.fetchall()
 
@@ -108,7 +119,8 @@ def create_dataset(
         )
         row = cursor.fetchone()
 
-    return _dataset_from_row(row)
+    # Just created: nothing has been ingested yet.
+    return _dataset_from_row(tuple(row) + (None,))
 
 
 def _dataset_from_row(row) -> Dict[str, Any]:
@@ -120,6 +132,7 @@ def _dataset_from_row(row) -> Dict[str, Any]:
         "created_at": row[4],
         "status": row[5],
         "kind": row[6],
+        "last_ingested_at": row[7],
     }
 
 
@@ -128,10 +141,10 @@ def get_dataset(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, name, source, description, created_at, status, kind
-            FROM datasets
-            WHERE id = %s
-            """,
+            SELECT {0}
+            FROM datasets d
+            WHERE d.id = %s
+            """.format(_DATASET_COLUMNS),
             (dataset_id,),
         )
         row = cursor.fetchone()
@@ -140,6 +153,23 @@ def get_dataset(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
         return None
 
     return _dataset_from_row(row)
+
+
+def delete_dataset(connection, dataset_id: int) -> bool:
+    """Delete a dataset, its events and its import history; False if absent.
+
+    The schema cascades, so this is one statement; the counts of what went
+    with it are not reported because nothing needs them.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM datasets WHERE id = %s", (dataset_id,))
+        return cursor.rowcount == 1
+
+
+def latest_import(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
+    """The most recent run of a dataset, or None."""
+    runs = list_imports(connection, dataset_id, 1, 0)
+    return runs[0] if runs else None
 
 
 def set_dataset_status(connection, dataset_id: int, status: str) -> None:

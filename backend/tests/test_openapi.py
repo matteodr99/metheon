@@ -41,7 +41,11 @@ class TestEveryRouteIsDescribed:
         ids=[f"{m} {p}" for m, p, _ in every_operation()],
     )
     def test_the_success_response_has_a_named_schema(self, method, path, operation):
-        """An untyped `object` is not documentation."""
+        """An untyped `object` is not documentation. A 204 has no body and
+        nothing to name; it must still be the declared success."""
+        if "204" in operation.get("responses", {}):
+            assert method.lower() == "delete"
+            return
         schema = success_schema(operation)
 
         assert schema is not None, "no success response"
@@ -90,7 +94,8 @@ class TestTheDescriptionMatchesReality:
             "/api/datasets", json={"name": "Quakes", "source": "usgs"}
         ).json()
 
-        assert set(created) == {"id", "name", "source", "description", "created_at", "status", "kind"}
+        assert set(created) == {"id", "name", "source", "description", "created_at", "status", "kind", "last_ingested_at"}
+        assert created["last_ingested_at"] is None
         assert created["kind"] == "earthquake"
 
     def test_a_page_of_events_matches_its_model(self, client, dataset):

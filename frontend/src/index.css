@@ -798,3 +798,28 @@ td a:hover {
 .map-marker.kind-dust { fill: #b48a5a; stroke: #b48a5a; }
 .map-marker.kind-temperature { fill: #d94a7a; stroke: #d94a7a; }
 .map-marker.kind-snow { fill: #9fb3d9; stroke: #9fb3d9; }
+
+/* ---------- panel head ---------- */
+
+.panel-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--step) calc(var(--step) * 2);
+  justify-content: space-between;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+button.danger {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+button.danger:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}

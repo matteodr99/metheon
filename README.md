@@ -310,6 +310,7 @@ project runs out of the box without any configuration.
 | `INGESTION_MODE` | `queue` | `queue`: Redis + worker; `inline`: the run happens in the request |
 | `CORS_ORIGINS` | — | Browser origins allowed to call the API; empty locally |
 | `POSTGRES_SSLMODE` | — | `require` for a hosted database such as Neon |
+| `INGEST_COOLDOWN_MINUTES` | `10` | Minutes a dataset refuses another ingestion after a completed run; `0` disables |
 | `VITE_API_URL` | — | Frontend build-time API origin; empty locally |
 | `GEMINI_API_KEY` | — | Enables insights; absent means off |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Model asked for insights |
@@ -441,10 +442,15 @@ curl http://127.0.0.1:8000/api/datasets
     "source": "USGS",
     "description": "Public earthquake data provided by the US Geological Survey.",
     "created_at": "2026-09-09T08:08:12.648723",
-    "status": "pending"
+    "status": "pending",
+    "kind": "earthquake",
+    "last_ingested_at": null
   }
 ]
 ```
+
+`last_ingested_at` is when the latest completed run finished — what the
+dashboard's cards show as "ingested 2 h ago" — and null before the first.
 
 ### `POST /api/datasets`
 
@@ -810,6 +816,20 @@ so the outage is visible in the history rather than silently swallowed. In
 `inline` mode a feed that cannot be fetched returns `502`, with the run
 recorded as `failed` the same way.
 
+The endpoint is public — the dashboard's button needs it to be — and each
+run fetches a feed from a public agency on this service's behalf, so a
+dataset refuses another ingestion for `INGEST_COOLDOWN_MINUTES` (ten by
+default) after a completed one, and while a run is in flight, with `429`
+and a `Retry-After` header. A failed run does not count: retrying one is
+what a person does next. Set the cooldown to `0` to switch it off locally.
+
+### `DELETE /api/datasets/{id}`
+
+Deletes a dataset with its events and its import history, and answers
+`204`. The schema cascades, so nothing is left behind; a run in flight for
+the dataset fails when it next writes and is recorded as such. `404` for an
+unknown dataset. The dashboard's **Delete dataset** button asks first.
+
 ## Database schema
 
 Table `datasets`, created by `backend/app/db/init.sql`:
@@ -1077,9 +1097,10 @@ Actions rather than as data that quietly stops moving. It retries the first
 request, since the API may be asleep and take a minute to wake.
 
 `POST /ingest` needs no authentication, on the deployed API as much as
-locally: anyone can trigger a run. The operation is idempotent and every
-run is recorded, which is why that is acceptable for public data today; a
-token would be the change if it ever stops being so.
+locally: anyone can trigger a run, including the dashboard's button, which
+is the reason there is no token. What keeps that from being abused is the
+per-dataset cooldown (`429` for ten minutes after a completed run); the
+schedule's six hours clear it by a wide margin.
 
 ### The backend image
 

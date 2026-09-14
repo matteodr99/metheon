@@ -24,6 +24,8 @@ export interface Dataset {
   status: DatasetStatus
   /** What kind of thing its events are; one kind per dataset. */
   kind: string
+  /** When its latest completed run finished; null before the first. */
+  last_ingested_at: string | null
 }
 
 /** What only one kind or source has: depth and network for a quake, and so on. */
@@ -365,6 +367,14 @@ export function startIngestion(
   signal?: AbortSignal,
 ): Promise<ImportRun> {
   return postJson<ImportRun>(`/api/datasets/${datasetId}/ingest`, signal)
+}
+
+/** Delete a dataset with its events and history. Resolves on 204. */
+export async function deleteDataset(datasetId: number, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(api(`/api/datasets/${datasetId}`), { method: 'DELETE', signal })
+  if (!response.ok) {
+    throw new Error(await describeFailure(response))
+  }
 }
 
 export function fetchSources(signal?: AbortSignal): Promise<Source[]> {

@@ -17,8 +17,8 @@ from app.ai import AIError, gemini, insights
 from app.schemas import DatasetCreate
 from app.logging_config import configure_logging
 
-from datetime import datetime
-from typing import Any, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
@@ -81,6 +81,7 @@ NOT_FOUND = {404: {"model": schemas.Problem, "description": "No such dataset."}}
 UPSTREAM = {502: {"model": schemas.Problem, "description": "Gemini failed or answered in the wrong shape."}}
 INVALID = {422: {"model": schemas.Problem, "description": "The request was refused; `detail` says why."}}
 UNAVAILABLE = {503: {"model": schemas.Problem, "description": "A dependency is down."}}
+TOO_SOON = {429: {"model": schemas.Problem, "description": "The dataset was ingested moments ago, or a run is in flight; `Retry-After` says when."}}
 
 
 @app.middleware("http")
@@ -228,6 +229,46 @@ class EventFilters:
         return {name: value for name, value in self.values.items() if value is not None}
 
 
+def _refuse_if_too_soon(dataset_id: int, latest: Optional[Dict[str, Any]]) -> None:
+    """The cooldown: 429 while a run is in flight or one just finished."""
+    if latest is None:
+        return
+    if latest["status"] in (repository.STATUS_QUEUED, repository.STATUS_PROCESSING):
+        logger.warning("refused ingest of dataset %s: run %s is still %s", dataset_id, latest["id"], latest["status"])
+        raise HTTPException(
+            status_code=429,
+            detail="Dataset {0} has a run in flight (run {1}, {2})".format(
+                dataset_id, latest["id"], latest["status"]
+            ),
+            headers={"Retry-After": "60"},
+        )
+    cooldown = settings.ingest_cooldown_minutes()
+    finished = latest.get("finished_at")
+    if latest["status"] != repository.STATUS_COMPLETED or finished is None:
+        return
+    elapsed = datetime.now(timezone.utc).replace(tzinfo=None) - finished
+    remaining = timedelta(minutes=cooldown) - elapsed
+    if remaining.total_seconds() <= 0:
+        return
+    wait = int(remaining.total_seconds()) + 1
+    logger.warning("refused ingest of dataset %s: last run finished %ss ago", dataset_id, int(elapsed.total_seconds()))
+    raise HTTPException(
+        status_code=429,
+        detail="Dataset {0} was ingested {1} ago; try again in {2}".format(
+            dataset_id, _humanize(elapsed), _humanize(remaining)
+        ),
+        headers={"Retry-After": str(wait)},
+    )
+
+
+def _humanize(delta: timedelta) -> str:
+    seconds = max(int(delta.total_seconds()), 0)
+    if seconds < 90:
+        return "{0} seconds".format(seconds)
+    minutes = (seconds + 30) // 60
+    return "{0} minute{1}".format(minutes, "" if minutes == 1 else "s")
+
+
 def _set_status(dataset_id: int, status: str) -> None:
     """Persist a status change in its own transaction.
 
@@ -347,6 +388,27 @@ def create_dataset(dataset: DatasetCreate):
         "created dataset %s %r (%s, %s)", created["id"], created["name"], source.key, kind
     )
     return created
+
+
+@app.delete(
+    "/api/datasets/{dataset_id}",
+    tags=["datasets"],
+    status_code=204,
+    response_class=Response,
+    responses={**NOT_FOUND, **UNAVAILABLE},
+)
+def delete_dataset(dataset_id: int):
+    """Delete a dataset with its events and its import history.
+
+    The schema cascades; nothing else references a dataset. A run in flight
+    for it fails when it next writes, which the worker records — that is
+    the one case a delete does not tidy up on its own.
+    """
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        repository.delete_dataset(connection, dataset_id)
+    logger.info("deleted dataset %s", dataset_id)
+    return Response(status_code=204)
 
 
 @app.get(
@@ -594,6 +656,7 @@ def get_dataset_insights(
         202: {"model": schemas.ImportRun, "description": "Queued; a worker will run it."},
         **NOT_FOUND,
         **INVALID,
+        **TOO_SOON,
         **UNAVAILABLE,
         **UPSTREAM,
     },
@@ -606,9 +669,16 @@ def ingest_dataset(dataset_id: int, response: Response):
     `GET /api/datasets/{id}/imports`. In `inline` mode there is no worker,
     the run happens inside this request, and the answer is 200 with the run
     finished. Same body either way: the row from the import history.
+
+    A dataset ingested less than `INGEST_COOLDOWN_MINUTES` ago, or with a
+    run still in flight, answers 429 with `Retry-After`: this endpoint is
+    public, and each run fetches a feed from a public agency. A failed run
+    does not count; retrying one is what a person would do next.
     """
     with get_connection() as connection:
         dataset = _get_dataset_or_404(connection, dataset_id)
+        latest = repository.latest_import(connection, dataset_id)
+    _refuse_if_too_soon(dataset_id, latest)
 
     feed_url = _get_source_or_422(dataset["source"]).default_feed_url
 
