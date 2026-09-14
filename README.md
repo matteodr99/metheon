@@ -4,8 +4,8 @@
 [![Ingest](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml)
 
 A cloud-native platform for ingesting, processing, and analyzing public seismic
-data — today the earthquake catalogues of USGS and INGV, which observe the
-same earthquakes with different networks and report them differently.
+data — today the earthquake catalogues of USGS, INGV and EMSC, which observe
+the same earthquakes with different networks and report them differently.
 
 ```text
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
@@ -19,7 +19,7 @@ model, which is a decision for when there is one worth having.
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
-> worker ingest earthquake data from USGS and INGV asynchronously, with every
+> worker ingest earthquake data from USGS, INGV and EMSC asynchronously, with every
 > run recorded. The API supports filtering and aggregation; a React dashboard
 > browses the events with filters, paging and charts, creates datasets, starts
 > ingestions and follows them, and — with a Gemini key — asks the model what
@@ -92,11 +92,22 @@ default). INGV writes ids as integers, times as ISO 8601 and magnitude types
 in mixed case; all three are normalized to match USGS, so both sources share
 one table and one set of filters.
 
-The same physical earthquake appears in both with different ids, slightly
-different magnitudes and epicentres kilometres apart — in one week's data,
-four events matched within a minute and 30 km, differing by up to 0.4 in
-magnitude. Each dataset keeps its own copy: reconciling agencies is an
-analysis question, not something ingestion should guess at.
+**EMSC** — the [FDSN event service][emsc] of the Euro-Mediterranean
+Seismological Centre, which aggregates the bulletins of dozens of national
+networks (AFAD, BMKG, NEIC, OGS, …) into one catalogue. Same kind of query
+as INGV, `EMSC_DAYS` long. Its event types are QuakeML codes (`ke`, `se`,
+`qb`…), spelled out into the words USGS uses; its third coordinate is an
+elevation, negative underground, so the depth is taken from the `depth`
+property instead. Which network reported an event is not kept: the shared
+schema has no column for it.
+
+The same physical earthquake appears in several catalogues with different
+ids, slightly different magnitudes and epicentres kilometres apart — in one
+week's data, 219 USGS events had an EMSC counterpart within a minute and
+100 km, on average 4 km and 0.12 magnitude apart. Each dataset keeps its own
+copy: reconciling agencies is an analysis question, not something ingestion
+should guess at, and the [matches endpoint](#get-apidatasetsidearthquakesmatchesotherid2)
+does it on request.
 
 `backend/app/ingestion/sources.py` maps a source name to the module that
 fetches and normalizes it. Adding a source means writing such a module and
@@ -104,6 +115,7 @@ registering it there; the GeoJSON envelope checks are shared in
 `geojson.py`.
 
 [ingv]: https://webservices.ingv.it/
+[emsc]: https://www.seismicportal.eu/fdsn-wsevent.html
 
 [usgs]: https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
 
@@ -240,6 +252,9 @@ project runs out of the box without any configuration.
 | `INGV_FEED_URL` | `…/fdsnws/event/1/query?…` | INGV query; a `starttime` is added per run |
 | `INGV_TIMEOUT_SECONDS` | `30` | HTTP timeout for the INGV request |
 | `INGV_DAYS` | `7` | Length of the INGV window, in days |
+| `EMSC_FEED_URL` | `…/fdsnws/event/1/query?…` | EMSC query; a `starttime` is added per run |
+| `EMSC_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EMSC request |
+| `EMSC_DAYS` | `7` | Length of the EMSC window, in days |
 | `REDIS_HOST` | `localhost` | Redis host (`redis` inside Compose) |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |

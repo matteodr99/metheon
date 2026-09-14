@@ -172,8 +172,10 @@ metheon/
 │   │       ├── __init__.py
 │   │       ├── sources.py
 │   │       ├── geojson.py
+│   │       ├── fdsn.py
 │   │       ├── usgs.py
 │   │       ├── ingv.py
+│   │       ├── emsc.py
 │   │       └── runner.py
 │   ├── tests/
 │   │   ├── conftest.py
@@ -707,19 +709,31 @@ endpoint refuses to queue one with `422`.
 
 Nothing else in the pipeline knows which sources exist.
 
-Registered: `usgs` and `ingv`. Both publish GeoJSON point features, so the
-envelope checks — id, geometry, coordinate ranges, duplicate ids in one feed
-— live once in `geojson.py`; each module maps only its own properties. INGV
-ids are integers, times ISO 8601 and magnitude types mixed case, all
-normalized to match USGS so the two share one table and one set of filters.
+Registered: `usgs`, `ingv` and `emsc`. All publish GeoJSON point features,
+so the envelope checks — id, geometry, coordinate ranges, duplicate ids in
+one feed — live once in `geojson.py`; each module maps only its own
+properties. INGV ids are integers, times ISO 8601 and magnitude types mixed
+case, all normalized to match USGS so the sources share one table and one
+set of filters.
 
-INGV answers a query, not a feed: `ingv.with_time_window` adds a `starttime`
-for the last `INGV_DAYS` unless the url already has one. The base url is what
-`imports.feed_url` records.
+INGV and EMSC are both FDSN event services: a query, not a feed. What they
+share — adding a `starttime` for the last N days unless the url has one,
+parsing ISO 8601 into naive UTC — lives in `fdsn.py`; each module keeps its
+own window length (`INGV_DAYS`, `EMSC_DAYS`) and its own properties. The
+base url is what `imports.feed_url` records.
 
-The same earthquake appears in both sources with different ids, magnitudes
-and epicentres. Datasets keep their own copies; reconciling agencies is an
-analysis problem and is not attempted at ingestion.
+EMSC has two traps. Its event types are QuakeML codes (`ke` known
+earthquake, `se` suspected, `qb` quarry blast…), mapped in `emsc.EVENT_TYPES`
+to the words USGS uses and passed through unchanged when unknown. And the
+third coordinate of its geometry is an elevation — `-13.0` for 13 km down —
+so `depth_km` comes from the `depth` property, not from `parse_point_feature`;
+a test asserts every captured depth is non-negative. The reporting network
+(`auth`) is dropped: the schema has no column for it, and that is the kind
+of source-specific attribute the generic event model (see below) is for.
+
+The same earthquake appears in several sources with different ids,
+magnitudes and epicentres. Datasets keep their own copies; reconciling
+agencies is an analysis problem, done on request by the matches endpoint.
 
 ## Asynchronous processing
 

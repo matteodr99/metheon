@@ -15,7 +15,7 @@ A source module must provide:
 from types import ModuleType
 from typing import Dict, List, Optional
 
-from app.ingestion import ingv, usgs
+from app.ingestion import emsc, ingv, usgs
 
 
 class Source:
@@ -46,6 +46,7 @@ class Source:
 SOURCES: Dict[str, Source] = {
     "usgs": Source("usgs", "USGS Earthquake Hazards Program", usgs),
     "ingv": Source("ingv", "INGV Istituto Nazionale di Geofisica e Vulcanologia", ingv),
+    "emsc": Source("emsc", "EMSC European-Mediterranean Seismological Centre", emsc),
 }
 
 

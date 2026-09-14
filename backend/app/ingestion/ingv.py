@@ -9,13 +9,12 @@ INGV_DAYS, seven by default.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-from app.ingestion import IngestionError
+from app.ingestion import IngestionError, fdsn
 from app.ingestion.geojson import collect_records, optional_number, parse_point_feature
 
 DEFAULT_FEED_URL = os.getenv(
@@ -31,20 +30,8 @@ EVENT_PAGE = "https://terremoti.ingv.it/event/{0}"
 
 
 def with_time_window(url: str, days: int = DEFAULT_DAYS, now: Optional[datetime] = None) -> str:
-    """Add a `starttime` covering the last `days` unless the url has one.
-
-    A url that already names its window is left alone, so a caller can ask
-    for a specific period and get exactly that.
-    """
-    parts = urlsplit(url)
-    query = parse_qs(parts.query, keep_blank_values=True)
-    if "starttime" in query:
-        return url
-
-    moment = now or datetime.now(timezone.utc)
-    start = (moment - timedelta(days=days)).replace(microsecond=0)
-    query["starttime"] = [start.strftime("%Y-%m-%dT%H:%M:%S")]
-    return urlunsplit(parts._replace(query=urlencode(query, doseq=True)))
+    """The shared FDSN window, with this source's default length."""
+    return fdsn.with_time_window(url, days, now)
 
 
 def fetch_feed(
@@ -73,19 +60,6 @@ def fetch_feed(
     return payload
 
 
-def _parse_iso_utc(value: Any) -> Optional[datetime]:
-    """INGV writes times as ISO 8601 without a zone; they are UTC."""
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        moment = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
-    return moment
-
-
 def _event_id(feature: Dict[str, Any]) -> Optional[str]:
     """INGV ids are integers under `properties.eventId`.
 
@@ -109,7 +83,7 @@ def normalize_feature(feature: Any) -> Tuple[Optional[Dict[str, Any]], Optional[
     external_id = point["external_id"]
     properties = point["properties"]
 
-    occurred_at = _parse_iso_utc(properties.get("time"))
+    occurred_at = fdsn.parse_iso_utc(properties.get("time"))
     if occurred_at is None:
         return None, "{0}: missing or invalid time".format(external_id)
 
