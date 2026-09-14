@@ -14,7 +14,7 @@ pytestmark = requires_postgres
 
 def summary(client, dataset, query=""):
     return client.get(
-        "/api/datasets/{0}/earthquakes/summary{1}".format(
+        "/api/datasets/{0}/events/summary{1}".format(
             dataset["id"], "?" + query if query else ""
         )
     ).json()
@@ -90,21 +90,19 @@ class TestGroupings:
                     {
                         "external_id": "d{0}e{1}".format(day, index),
                         "magnitude": 1.0,
-                        "magnitude_type": "ml",
-                        "place": "p",
+                        "magnitude_unit": "ml",
+                        "title": "p",
                         "event_type": "earthquake",
                         "occurred_at": datetime(2026, 9, day, index, 0),
                         "source_updated_at": None,
                         "longitude": 0.0,
                         "latitude": 0.0,
-                        "depth_km": 1.0,
-                        "tsunami": False,
-                        "significance": 1,
+                        "attributes": {"depth_km": 1.0, "tsunami": False, "significance": 1},
                         "url": None,
                     }
                 )
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], records)
+            repository.upsert_events(connection, dataset["id"], records)
 
         assert summary(client, dataset)["by_day"] == [
             {"day": "2026-09-01", "count": 1},
@@ -121,22 +119,20 @@ class TestGroupings:
             {
                 "external_id": "same{0}".format(index),
                 "magnitude": 1.0,
-                "magnitude_type": "ml",
-                "place": "p",
+                "magnitude_unit": "ml",
+                "title": "p",
                 "event_type": "earthquake",
                 "occurred_at": datetime(2026, 9, 1, index, 0),
                 "source_updated_at": None,
                 "longitude": 0.0,
                 "latitude": 0.0,
-                "depth_km": 1.0,
-                "tsunami": False,
-                "significance": 1,
+                "attributes": {"depth_km": 1.0, "tsunami": False, "significance": 1},
                 "url": None,
             }
             for index in range(3)
         ]
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], records)
+            repository.upsert_events(connection, dataset["id"], records)
 
         assert summary(client, dataset)["by_day"] == [
             {"day": "2026-09-01", "count": 3}
@@ -172,7 +168,7 @@ class TestFiltersApply:
         """The two endpoints must never disagree about the same filter."""
         query = "min_magnitude=2"
         listed = client.get(
-            "/api/datasets/{0}/earthquakes?{1}".format(seeded["id"], query)
+            "/api/datasets/{0}/events?{1}".format(seeded["id"], query)
         ).json()
 
         assert summary(client, seeded, query)["total"] == listed["total"]
@@ -201,12 +197,12 @@ class TestEmptyAndInvalid:
 
     def test_an_unknown_dataset_returns_404(self, client):
         assert (
-            client.get("/api/datasets/999/earthquakes/summary").status_code == 404
+            client.get("/api/datasets/999/events/summary").status_code == 404
         )
 
     def test_an_inverted_range_is_rejected(self, client, seeded):
         response = client.get(
-            "/api/datasets/{0}/earthquakes/summary"
+            "/api/datasets/{0}/events/summary"
             "?min_magnitude=5&max_magnitude=1".format(seeded["id"])
         )
 

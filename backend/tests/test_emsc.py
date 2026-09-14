@@ -67,8 +67,8 @@ class TestNormalization:
         assert error is None
         assert record["external_id"] == "20260914_0000206"
         assert record["magnitude"] == 2.8
-        assert record["magnitude_type"] == "m"
-        assert record["place"] == "FLORES SEA"
+        assert record["magnitude_unit"] == "m"
+        assert record["title"] == "FLORES SEA"
         assert record["event_type"] == "earthquake"
         assert record["occurred_at"] == datetime(2026, 9, 14, 15, 20, 22)
         assert record["source_updated_at"] == datetime(2026, 9, 14, 15, 28, 33, 201952)
@@ -76,12 +76,20 @@ class TestNormalization:
         assert record["latitude"] == -7.91
         assert record["url"] == "https://www.seismicportal.eu/eventdetails.html?unid=20260914_0000206"
 
+    def test_the_reporting_network_is_kept_as_an_attribute(self):
+        """EMSC aggregates other agencies' bulletins; which one reported an
+        event is the most interesting thing about a row, and there is no
+        column for it — that is what attributes are for."""
+        record, _ = emsc.normalize_feature(emsc_feature())
+
+        assert record["attributes"]["network"] == "BMKG"
+
     def test_the_depth_is_positive_and_comes_from_the_property(self):
         """The coordinate is an elevation, -13 for 13 km down; that sign
         would put the event in the sky in every other source's terms."""
         record, _ = emsc.normalize_feature(emsc_feature())
 
-        assert record["depth_km"] == 13.0
+        assert record["attributes"]["depth_km"] == 13.0
 
     def test_the_id_falls_back_to_unid(self):
         feature = emsc_feature()
@@ -158,7 +166,7 @@ class TestAgainstRealFeed:
     def test_every_captured_depth_is_below_the_surface(self):
         records, _ = emsc.normalize_feed(load_fixture("emsc_week.json"))
 
-        assert all(r["depth_km"] is None or r["depth_km"] >= 0 for r in records)
+        assert all(r["attributes"].get("depth_km", 0) >= 0 for r in records)
 
     def test_the_captured_feed_has_a_suspected_earthquake(self):
         records, _ = emsc.normalize_feed(load_fixture("emsc_week.json"))

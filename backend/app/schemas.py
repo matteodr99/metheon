@@ -65,6 +65,10 @@ class Dataset(BaseModel):
         "`completed` or `failed`.",
         examples=["completed"],
     )
+    kind: str = Field(
+        description="What kind of thing its events are; one kind per dataset.",
+        examples=["earthquake"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -72,35 +76,38 @@ class Dataset(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class Earthquake(BaseModel):
+class Event(BaseModel):
     id: int
     external_id: str = Field(description="The id the source gave the event.")
-    magnitude: Optional[float] = Field(description="Null when the source omitted it.")
-    magnitude_type: Optional[str] = Field(examples=["ml"])
-    place: Optional[str]
+    title: Optional[str] = Field(description="What the source calls it: a place for a quake, a name for a storm.")
     event_type: Optional[str] = Field(
-        description="`earthquake` for most rows; quarry blasts and explosions are kept too.",
+        description="The source's finer class: `earthquake` for most seismic rows, but quarry blasts and explosions are kept too.",
         examples=["earthquake"],
     )
-    occurred_at: datetime = Field(description="Naive UTC.")
-    longitude: float
+    occurred_at: datetime = Field(description="Origin or start, naive UTC.")
+    ended_at: Optional[datetime] = Field(description="Set for events with a duration.")
+    source_updated_at: Optional[datetime]
+    longitude: float = Field(description="A representative point; always present.")
     latitude: float
-    depth_km: Optional[float]
-    tsunami: bool
-    significance: Optional[int]
+    geometry: Optional[Dict[str, Any]] = Field(description="The full GeoJSON geometry when it is more than a point.")
+    magnitude: Optional[float] = Field(description="The number this kind of event is measured by; null when the source omitted it.")
+    magnitude_unit: Optional[str] = Field(description="What `magnitude` is: a seismic scale, hectares, knots.", examples=["ml"])
+    attributes: Dict[str, Any] = Field(
+        description="What only this kind or source has. Earthquakes: `depth_km`, `tsunami`, `significance`, `network`."
+    )
     url: Optional[str]
 
 
-class EarthquakePage(BaseModel):
+class EventPage(BaseModel):
     dataset_id: int
     total: int = Field(description="Events matching the filters, not the whole dataset.")
     limit: int
     offset: int
     filters: Dict[str, Any] = Field(description="Only the filters that were set.")
-    items: List[Earthquake]
+    items: List[Event]
 
 
-class EarthquakePoints(BaseModel):
+class EventPoints(BaseModel):
     dataset_id: int
     total: int = Field(description="Events matching the filters; may exceed the points returned.")
     limit: int
@@ -113,13 +120,13 @@ class EarthquakePoints(BaseModel):
 class MatchedEvent(BaseModel):
     id: int
     external_id: str
-    magnitude: Optional[float]
-    magnitude_type: Optional[str]
-    place: Optional[str]
+    title: Optional[str]
     occurred_at: datetime
     longitude: float
     latitude: float
-    depth_km: Optional[float]
+    magnitude: Optional[float]
+    magnitude_unit: Optional[str]
+    attributes: Dict[str, Any]
 
 
 class Match(BaseModel):

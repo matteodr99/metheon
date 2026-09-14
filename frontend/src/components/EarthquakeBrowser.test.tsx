@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { EarthquakeBrowser } from './EarthquakeBrowser'
 import {
   deferred,
-  makeEarthquake,
+  makeEvent,
   makePage,
   mockFetch,
   urlsOf,
@@ -13,17 +13,17 @@ import {
 
 function manyEvents(count: number, offset = 0) {
   return Array.from({ length: count }, (_unused, index) =>
-    makeEarthquake({
+    makeEvent({
       id: offset + index + 1,
       external_id: `eq${offset + index + 1}`,
-      place: `place ${offset + index + 1}`,
+      title: `place ${offset + index + 1}`,
     }),
   )
 }
 
 describe('rendering the events', () => {
   it('shows a row per event', async () => {
-    mockFetch(() => makePage([makeEarthquake({ place: 'Anza, CA' })]))
+    mockFetch(() => makePage([makeEvent({ title: 'Anza, CA' })]))
 
     render(<EarthquakeBrowser datasetId={1} />)
 
@@ -33,7 +33,7 @@ describe('rendering the events', () => {
   it('shows a dash when the magnitude is missing', async () => {
     /** The feed omits it legitimately; printing 0 would be a lie. */
     mockFetch(() =>
-      makePage([makeEarthquake({ magnitude: null, magnitude_type: null })]),
+      makePage([makeEvent({ magnitude: null, magnitude_unit: null })]),
     )
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -44,7 +44,7 @@ describe('rendering the events', () => {
   it('links to the event page when the feed gives a url', async () => {
     mockFetch(() =>
       makePage([
-        makeEarthquake({ place: 'Anza, CA', url: 'https://example.invalid/e' }),
+        makeEvent({ title: 'Anza, CA', url: 'https://example.invalid/e' }),
       ]),
     )
 
@@ -78,7 +78,7 @@ describe('rendering the events', () => {
 describe('applying filters', () => {
   it('does not request while the user types', async () => {
     /** Otherwise typing 4.5 would be three requests instead of one. */
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -91,7 +91,7 @@ describe('applying filters', () => {
   })
 
   it('requests once the form is submitted', async () => {
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -133,7 +133,7 @@ describe('applying filters', () => {
   })
 
   it('clears the filters on reset', async () => {
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -156,7 +156,7 @@ describe('applying filters', () => {
 
 describe('the bounding box', () => {
   it('is typed like any other filter', async () => {
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -174,7 +174,7 @@ describe('the bounding box', () => {
   })
 
   it('applies the map view at once, together with what is being typed', async () => {
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -196,7 +196,7 @@ describe('the bounding box', () => {
   })
 
   it('clears the box on reset', async () => {
-    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const { calls } = mockFetch(() => makePage([makeEvent()]))
     const user = userEvent.setup()
 
     render(<EarthquakeBrowser datasetId={1} />)
@@ -299,12 +299,12 @@ describe('overlapping requests', () => {
     mockFetch(() => {
       call += 1
       if (call === 1) {
-        return makePage([makeEarthquake({ place: 'first response' })])
+        return makePage([makeEvent({ title: 'first response' })])
       }
       if (call === 2) {
         return slow.promise
       }
-      return makePage([makeEarthquake({ place: 'newest response' })])
+      return makePage([makeEvent({ title: 'newest response' })])
     })
     const user = userEvent.setup()
 
@@ -320,7 +320,7 @@ describe('overlapping requests', () => {
 
     await screen.findByText('newest response')
 
-    slow.resolve(makePage([makeEarthquake({ place: 'stale response' })]))
+    slow.resolve(makePage([makeEvent({ title: 'stale response' })]))
 
     await waitFor(() => {
       expect(screen.getByText('newest response')).toBeInTheDocument()

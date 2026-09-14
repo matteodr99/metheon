@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { EMPTY_FILTERS, fetchDatasets, fetchEarthquakes } from './index'
-import { makeEarthquake, makePage, mockFetch } from '../test/helpers'
+import { EMPTY_FILTERS, fetchDatasets, fetchEvents } from './index'
+import { makeEvent, makePage, mockFetch } from '../test/helpers'
 
 describe('fetchDatasets', () => {
   it('requests the datasets endpoint', async () => {
@@ -19,22 +19,22 @@ describe('fetchDatasets', () => {
   })
 })
 
-describe('fetchEarthquakes', () => {
-  const page = makePage([makeEarthquake()])
+describe('fetchEvents', () => {
+  const page = makePage([makeEvent()])
 
   it('sends the dataset, the limit and the offset', async () => {
     const { calls } = mockFetch(() => page)
 
-    await fetchEarthquakes(7, EMPTY_FILTERS, 25, 50)
+    await fetchEvents(7, EMPTY_FILTERS, 25, 50)
 
-    expect(calls[0].url).toBe('/api/datasets/7/earthquakes?limit=25&offset=50')
+    expect(calls[0].url).toBe('/api/datasets/7/events?limit=25&offset=50')
   })
 
   it('omits filters left empty', async () => {
     /** An empty field means "no filter"; sending it would be a 422. */
     const { calls } = mockFetch(() => page)
 
-    await fetchEarthquakes(1, EMPTY_FILTERS, 25, 0)
+    await fetchEvents(1, EMPTY_FILTERS, 25, 0)
 
     expect(calls[0].url).not.toContain('min_magnitude')
     expect(calls[0].url).not.toContain('event_type')
@@ -43,7 +43,7 @@ describe('fetchEarthquakes', () => {
   it('sends the filters that were set', async () => {
     const { calls } = mockFetch(() => page)
 
-    await fetchEarthquakes(
+    await fetchEvents(
       1,
       { ...EMPTY_FILTERS, min_magnitude: '4', event_type: 'quarry blast' },
       25,
@@ -58,7 +58,7 @@ describe('fetchEarthquakes', () => {
   it('encodes a value containing spaces', async () => {
     const { calls } = mockFetch(() => page)
 
-    await fetchEarthquakes(
+    await fetchEvents(
       1,
       { ...EMPTY_FILTERS, event_type: 'quarry blast' },
       25,
@@ -72,7 +72,7 @@ describe('fetchEarthquakes', () => {
     mockFetch(() => null, { ok: false, status: 422 })
 
     await expect(
-      fetchEarthquakes(1, EMPTY_FILTERS, 25, 0),
+      fetchEvents(1, EMPTY_FILTERS, 25, 0),
     ).rejects.toThrow('The API answered 422')
   })
 })

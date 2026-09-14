@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 
 import {
   EMPTY_FILTERS,
-  fetchEarthquakes,
+  fetchEvents,
   type BoundingBox,
   type Dataset,
-  type Earthquake,
+  depthOf,
   type EarthquakeFilters,
+  type Event,
   type Page,
 } from '../api'
 import { ComparePanel } from './ComparePanel'
@@ -16,12 +17,12 @@ import { SummaryPanel } from './Summary'
 
 const PAGE_SIZE = 25
 
-function formatMagnitude(earthquake: Earthquake): string {
+function formatMagnitude(earthquake: Event): string {
   // The feed legitimately omits the magnitude; showing 0 would be a lie.
   if (earthquake.magnitude === null) {
     return '—'
   }
-  const type = earthquake.magnitude_type ?? ''
+  const type = earthquake.magnitude_unit ?? ''
   return `${earthquake.magnitude.toFixed(1)}${type ? ` ${type}` : ''}`
 }
 
@@ -48,7 +49,7 @@ export function EarthquakeBrowser({
   const query = JSON.stringify([datasetId, applied, offset, dataVersion])
   const [result, setResult] = useState<{
     query: string
-    page: Page<Earthquake> | null
+    page: Page<Event> | null
     error: string | null
   } | null>(null)
 
@@ -61,7 +62,7 @@ export function EarthquakeBrowser({
     // newer one and showing results that do not match the filters.
     const controller = new AbortController()
 
-    fetchEarthquakes(datasetId, applied, PAGE_SIZE, offset, controller.signal)
+    fetchEvents(datasetId, applied, PAGE_SIZE, offset, controller.signal)
       .then((loaded) => {
         setResult({ query, page: loaded, error: null })
       })
@@ -266,18 +267,18 @@ export function EarthquakeBrowser({
                 <td className="numeric">{formatMagnitude(earthquake)}</td>
                 <td>
                   {earthquake.url === null ? (
-                    earthquake.place
+                    earthquake.title
                   ) : (
                     <a href={earthquake.url} target="_blank" rel="noreferrer">
-                      {earthquake.place}
+                      {earthquake.title}
                     </a>
                   )}
                 </td>
                 <td>{earthquake.event_type}</td>
                 <td className="numeric">
-                  {earthquake.depth_km === null
+                  {depthOf(earthquake.attributes) === null
                     ? '—'
-                    : `${earthquake.depth_km.toFixed(1)} km`}
+                    : `${depthOf(earthquake.attributes)!.toFixed(1)} km`}
                 </td>
               </tr>
             ))}

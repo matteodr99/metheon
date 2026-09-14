@@ -19,12 +19,12 @@ class TestValidFeatures:
         assert error is None
         assert record["external_id"] == "test1"
         assert record["magnitude"] == 1.4
-        assert record["magnitude_type"] == "ml"
+        assert record["magnitude_unit"] == "ml"
         assert record["event_type"] == "earthquake"
         assert record["longitude"] == -101.696
         assert record["latitude"] == 31.715
-        assert record["depth_km"] == 2.4688
-        assert record["significance"] == 30
+        assert record["attributes"]["depth_km"] == 2.4688
+        assert record["attributes"]["significance"] == 30
 
     def test_epoch_milliseconds_become_naive_utc(self):
         record, _ = normalize_feature(make_feature())
@@ -48,7 +48,7 @@ class TestValidFeatures:
         record, error = normalize_feature(feature)
 
         assert error is None
-        assert record["depth_km"] is None
+        assert "depth_km" not in record["attributes"]
 
     def test_missing_updated_timestamp_is_allowed(self):
         feature = make_feature()
@@ -69,7 +69,7 @@ class TestValidFeatures:
 
         record, _ = normalize_feature(feature)
 
-        assert record["tsunami"] is expected
+        assert record["attributes"]["tsunami"] is expected
 
     def test_non_earthquake_events_are_kept(self):
         feature = make_feature()

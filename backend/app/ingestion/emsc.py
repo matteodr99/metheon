@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from app.ingestion import IngestionError, fdsn
-from app.ingestion.geojson import collect_records, optional_number, parse_point_feature
+from app.ingestion.geojson import (
+    collect_records,
+    optional_number,
+    parse_point_feature,
+    seismic_attributes,
+)
 
 DEFAULT_FEED_URL = os.getenv(
     "EMSC_FEED_URL",
@@ -112,19 +117,23 @@ def normalize_feature(feature: Any) -> Tuple[Optional[Dict[str, Any]], Optional[
 
     record = {
         "external_id": external_id,
-        "magnitude": optional_number(properties.get("mag")),
-        "magnitude_type": magnitude_type,
-        "place": properties.get("flynn_region"),
+        "title": properties.get("flynn_region"),
         "event_type": event_type,
         "occurred_at": occurred_at,
+        "ended_at": None,
         "source_updated_at": fdsn.parse_iso_utc(properties.get("lastupdate")),
         "longitude": point["longitude"],
         "latitude": point["latitude"],
-        # The third coordinate is an elevation, negative below the surface;
-        # `depth` is the same number the way round every other source has it.
-        "depth_km": optional_number(properties.get("depth")),
-        "tsunami": False,
-        "significance": None,
+        "geometry": None,
+        "magnitude": optional_number(properties.get("mag")),
+        "magnitude_unit": magnitude_type,
+        "attributes": seismic_attributes(
+            # The third coordinate is an elevation, negative below the
+            # surface; `depth` is the same number the way round every other
+            # source has it.
+            depth_km=optional_number(properties.get("depth")),
+            network=properties.get("auth"),
+        ),
         "url": EVENT_PAGE.format(external_id),
     }
     return record, None

@@ -3,14 +3,14 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from './App'
-import { makeDataset, makeEarthquake, makePage, mockFetch } from './test/helpers'
+import { makeDataset, makeEvent, makePage, mockFetch } from './test/helpers'
 
 function respondWith(datasets: ReturnType<typeof makeDataset>[]) {
   return (url: string) => {
     if (url === '/api/datasets') {
       return datasets
     }
-    return makePage([makeEarthquake({ place: 'an event' })])
+    return makePage([makeEvent({ title: 'an event' })])
   }
 }
 
@@ -92,7 +92,7 @@ describe('selecting a dataset', () => {
 
     expect(await screen.findByText('an event')).toBeInTheDocument()
     expect(
-      calls.some((call) => call.url.startsWith('/api/datasets/2/earthquakes')),
+      calls.some((call) => call.url.startsWith('/api/datasets/2/events')),
     ).toBe(true)
   })
 })
@@ -128,7 +128,7 @@ describe('after an ingestion finishes', () => {
             const { makeSummary } = await import('./test/helpers')
             body = makeSummary()
           } else {
-            body = makePage([makeEarthquake({ place: 'an event' })])
+            body = makePage([makeEvent({ title: 'an event' })])
           }
           return { ok: true, status: 200, json: async () => body } as Response
         }),
@@ -140,7 +140,7 @@ describe('after an ingestion finishes', () => {
       })
       const count = (needle: string) => calls.filter((url) => url.includes(needle)).length
       const exact = (target: string) => calls.filter((url) => url === target).length
-      const eventsBefore = count('/earthquakes?')
+      const eventsBefore = count('/events?')
       const summaryBefore = count('/summary')
       const datasetsBefore = exact('/api/datasets')
       expect(eventsBefore).toBeGreaterThan(0)
@@ -150,7 +150,7 @@ describe('after an ingestion finishes', () => {
         await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS)
       })
 
-      expect(count('/earthquakes?')).toBeGreaterThan(eventsBefore)
+      expect(count('/events?')).toBeGreaterThan(eventsBefore)
       expect(count('/summary')).toBeGreaterThan(summaryBefore)
       expect(exact('/api/datasets')).toBeGreaterThan(datasetsBefore)
     } finally {
@@ -186,7 +186,7 @@ describe('creating a dataset from the dashboard', () => {
       } else if (url.includes('/points')) {
         body = { dataset_id: 2, total: 0, limit: 5000, filters: {}, points: [] }
       } else {
-        body = makePage([makeEarthquake({ place: 'an event' })])
+        body = makePage([makeEvent({ title: 'an event' })])
       }
       return { ok: true, status: 200, json: async () => body } as Response
     })

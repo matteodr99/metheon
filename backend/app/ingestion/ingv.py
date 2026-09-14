@@ -15,7 +15,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from app.ingestion import IngestionError, fdsn
-from app.ingestion.geojson import collect_records, optional_number, parse_point_feature
+from app.ingestion.geojson import (
+    collect_records,
+    optional_number,
+    parse_point_feature,
+    seismic_attributes,
+)
 
 DEFAULT_FEED_URL = os.getenv(
     "INGV_FEED_URL",
@@ -95,17 +100,20 @@ def normalize_feature(feature: Any) -> Tuple[Optional[Dict[str, Any]], Optional[
 
     record = {
         "external_id": external_id,
-        "magnitude": optional_number(properties.get("mag")),
-        "magnitude_type": magnitude_type,
-        "place": properties.get("place"),
+        "title": properties.get("place"),
         "event_type": properties.get("type"),
         "occurred_at": occurred_at,
+        "ended_at": None,
         "source_updated_at": None,
         "longitude": point["longitude"],
         "latitude": point["latitude"],
-        "depth_km": point["depth_km"],
-        "tsunami": False,
-        "significance": None,
+        "geometry": None,
+        "magnitude": optional_number(properties.get("mag")),
+        "magnitude_unit": magnitude_type,
+        "attributes": seismic_attributes(
+            depth_km=point["depth_km"],
+            network=properties.get("author"),
+        ),
         "url": EVENT_PAGE.format(external_id),
     }
     return record, None

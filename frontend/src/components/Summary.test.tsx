@@ -150,7 +150,7 @@ describe('following the filters', () => {
     await waitFor(() => {
       expect(calls.length).toBeGreaterThan(0)
     })
-    expect(calls[0].url).toContain('/api/datasets/7/earthquakes/summary')
+    expect(calls[0].url).toContain('/api/datasets/7/events/summary')
     expect(calls[0].url).toContain('min_magnitude=4')
   })
 

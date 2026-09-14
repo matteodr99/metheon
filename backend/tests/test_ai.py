@@ -225,10 +225,10 @@ class TestTheDigest:
         {
             "external_id": "x",
             "magnitude": 6.3,
-            "place": "Vanuatu Islands",
+            "title": "Vanuatu Islands",
             "event_type": "earthquake",
             "occurred_at": datetime(2026, 9, 9, 3, 0),
-            "depth_km": 33.0,
+            "attributes": {"depth_km": 33.0, "tsunami": False},
         }
     ]
 
@@ -238,7 +238,9 @@ class TestTheDigest:
         assert digest["total_events"] == 344
         assert digest["magnitude"]["max"] == 6.3
         assert digest["events_by_day"] == [{"day": "2026-09-10", "count": 61}]
-        assert digest["strongest_events"][0]["place"] == "Vanuatu Islands"
+        assert digest["strongest_events"][0]["title"] == "Vanuatu Islands"
+        assert digest["strongest_events"][0]["depth_km"] == 33.0
+        assert digest["dataset"]["kind"] == "earthquake"
         assert digest["dataset"]["source"] == "ingv"
         assert digest["filters"] == {"min_magnitude": 2.0}
 
@@ -291,22 +293,20 @@ class TestTheEndpoint:
             {
                 "external_id": "eq{0}".format(i),
                 "magnitude": float(i),
-                "magnitude_type": "ml",
-                "place": "place {0}".format(i),
+                "magnitude_unit": "ml",
+                "title": "place {0}".format(i),
                 "event_type": "earthquake",
                 "occurred_at": datetime(2026, 9, 9, i, 0),
                 "source_updated_at": None,
                 "longitude": 0.0,
                 "latitude": 0.0,
-                "depth_km": 1.0,
-                "tsunami": False,
-                "significance": None,
+                "attributes": {"depth_km": 1.0, "tsunami": False, "significance": None},
                 "url": None,
             }
             for i in range(1, 8)
         ]
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], records)
+            repository.upsert_events(connection, dataset["id"], records)
         return dataset
 
     def test_ai_status_reports_the_key(self, client, without_key):
@@ -320,7 +320,7 @@ class TestTheEndpoint:
 
         assert response.status_code == 503
         assert "GEMINI_API_KEY" in response.json()["detail"]
-        assert client.get("/api/datasets/{0}/earthquakes".format(seeded["id"])).status_code == 200
+        assert client.get("/api/datasets/{0}/events".format(seeded["id"])).status_code == 200
 
     def test_a_successful_answer_is_returned_in_shape(
         self, client, seeded, with_key, fake_post

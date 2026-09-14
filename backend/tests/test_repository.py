@@ -14,16 +14,14 @@ def make_record(external_id="eq1", **overrides):
     record = {
         "external_id": external_id,
         "magnitude": 1.4,
-        "magnitude_type": "ml",
-        "place": "somewhere",
+        "magnitude_unit": "ml",
+        "title": "somewhere",
         "event_type": "earthquake",
         "occurred_at": datetime(2026, 9, 9, 8, 0, 0),
         "source_updated_at": None,
         "longitude": -101.696,
         "latitude": 31.715,
-        "depth_km": 2.5,
-        "tsunami": False,
-        "significance": 30,
+        "attributes": {"depth_km": 2.5, "tsunami": False, "significance": 30},
         "url": "https://example.invalid/eq1",
     }
     record.update(overrides)
@@ -33,7 +31,7 @@ def make_record(external_id="eq1", **overrides):
 class TestUpsertEarthquakes:
     def test_new_events_are_counted_as_inserted(self, db, dataset):
         with db() as connection:
-            inserted, updated = repository.upsert_earthquakes(
+            inserted, updated = repository.upsert_events(
                 connection, dataset["id"], [make_record("a"), make_record("b")]
             )
 
@@ -43,25 +41,25 @@ class TestUpsertEarthquakes:
         """This is what makes an ingestion safe to repeat."""
         records = [make_record("a"), make_record("b")]
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], records)
+            repository.upsert_events(connection, dataset["id"], records)
         with db() as connection:
-            inserted, updated = repository.upsert_earthquakes(
+            inserted, updated = repository.upsert_events(
                 connection, dataset["id"], records
             )
 
         assert (inserted, updated) == (0, 2)
         with db() as connection:
-            assert repository.count_earthquakes(connection, dataset["id"]) == 2
+            assert repository.count_events(connection, dataset["id"]) == 2
 
     def test_a_mixed_batch_counts_each_kind(self, db, dataset):
         """The counts come back per statement from one pipelined batch;
         they must be attributed correctly, not just summed."""
         with db() as connection:
-            repository.upsert_earthquakes(
+            repository.upsert_events(
                 connection, dataset["id"], [make_record("a"), make_record("b")]
             )
         with db() as connection:
-            inserted, updated = repository.upsert_earthquakes(
+            inserted, updated = repository.upsert_events(
                 connection,
                 dataset["id"],
                 [make_record("b"), make_record("c"), make_record("a"), make_record("d")],
@@ -69,37 +67,67 @@ class TestUpsertEarthquakes:
 
         assert (inserted, updated) == (2, 2)
         with db() as connection:
-            assert repository.count_earthquakes(connection, dataset["id"]) == 4
+            assert repository.count_events(connection, dataset["id"]) == 4
+
+    def test_what_a_record_leaves_out_gets_a_default(self, db, dataset):
+        """A source with no duration, no shape and nothing kind-specific
+        need not say so; the row still has an empty attributes object."""
+        record = make_record("a")
+        for key in ("ended_at", "geometry", "attributes"):
+            record.pop(key, None)
+        with db() as connection:
+            assert repository.upsert_events(connection, dataset["id"], [record]) == (1, 0)
+            stored = repository.list_events(connection, dataset["id"], 10, 0)[0]
+
+        assert stored["attributes"] == {}
+        assert stored["ended_at"] is None
+        assert stored["geometry"] is None
+
+    def test_geometry_and_attributes_round_trip_as_json(self, db, dataset):
+        track = {"type": "LineString", "coordinates": [[-60.0, 15.0], [-61.0, 16.0]]}
+        record = make_record(
+            "storm",
+            geometry=track,
+            attributes={"category": 3, "network": "NHC"},
+            ended_at=datetime(2026, 9, 12, 6, 0),
+        )
+        with db() as connection:
+            repository.upsert_events(connection, dataset["id"], [record])
+            stored = repository.list_events(connection, dataset["id"], 10, 0)[0]
+
+        assert stored["geometry"] == track
+        assert stored["attributes"] == {"category": 3, "network": "NHC"}
+        assert stored["ended_at"] == datetime(2026, 9, 12, 6, 0)
 
     def test_changed_values_are_refreshed(self, db, dataset):
         with db() as connection:
-            repository.upsert_earthquakes(
+            repository.upsert_events(
                 connection, dataset["id"], [make_record("a", magnitude=1.4)]
             )
         with db() as connection:
-            repository.upsert_earthquakes(
+            repository.upsert_events(
                 connection, dataset["id"], [make_record("a", magnitude=5.9)]
             )
         with db() as connection:
-            stored = repository.list_earthquakes(connection, dataset["id"], 10, 0)
+            stored = repository.list_events(connection, dataset["id"], 10, 0)
 
         assert stored[0]["magnitude"] == 5.9
 
     def test_an_empty_batch_writes_nothing(self, db, dataset):
         with db() as connection:
-            assert repository.upsert_earthquakes(connection, dataset["id"], []) == (
+            assert repository.upsert_events(connection, dataset["id"], []) == (
                 0,
                 0,
             )
 
     def test_a_null_magnitude_is_stored(self, db, dataset):
         with db() as connection:
-            repository.upsert_earthquakes(
+            repository.upsert_events(
                 connection, dataset["id"], [make_record("a", magnitude=None)]
             )
         with db() as connection:
             assert (
-                repository.list_earthquakes(connection, dataset["id"], 10, 0)[0][
+                repository.list_events(connection, dataset["id"], 10, 0)[0][
                     "magnitude"
                 ]
                 is None
@@ -108,12 +136,13 @@ class TestUpsertEarthquakes:
     def test_numeric_columns_come_back_as_floats(self, db, dataset):
         """Decimal would leak the database type into the API response."""
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], [make_record()])
+            repository.upsert_events(connection, dataset["id"], [make_record()])
         with db() as connection:
-            stored = repository.list_earthquakes(connection, dataset["id"], 10, 0)[0]
+            stored = repository.list_events(connection, dataset["id"], 10, 0)[0]
 
-        for field in ("magnitude", "longitude", "latitude", "depth_km"):
+        for field in ("magnitude", "longitude", "latitude"):
             assert isinstance(stored[field], float)
+        assert isinstance(stored["attributes"]["depth_km"], float)
 
 
 class TestListEarthquakes:
@@ -126,13 +155,13 @@ class TestListEarthquakes:
             for index in range(count)
         ]
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], records)
+            repository.upsert_events(connection, dataset["id"], records)
 
     def test_most_recent_first(self, db, dataset):
         self._seed(db, dataset, 3)
 
         with db() as connection:
-            stored = repository.list_earthquakes(connection, dataset["id"], 10, 0)
+            stored = repository.list_events(connection, dataset["id"], 10, 0)
 
         times = [row["occurred_at"] for row in stored]
         assert times == sorted(times, reverse=True)
@@ -141,8 +170,8 @@ class TestListEarthquakes:
         self._seed(db, dataset, 5)
 
         with db() as connection:
-            first = repository.list_earthquakes(connection, dataset["id"], 2, 0)
-            second = repository.list_earthquakes(connection, dataset["id"], 2, 2)
+            first = repository.list_events(connection, dataset["id"], 2, 0)
+            second = repository.list_events(connection, dataset["id"], 2, 2)
 
         assert len(first) == len(second) == 2
         assert not {r["external_id"] for r in first} & {
@@ -155,7 +184,7 @@ class TestListEarthquakes:
             other = repository.create_dataset(connection, "Other", "USGS", None)
 
         with db() as connection:
-            assert repository.list_earthquakes(connection, other["id"], 10, 0) == []
+            assert repository.list_events(connection, other["id"], 10, 0) == []
 
 
 class TestImportLifecycle:
@@ -225,7 +254,7 @@ class TestImportLifecycle:
 class TestCascade:
     def test_deleting_a_dataset_removes_its_rows(self, db, dataset):
         with db() as connection:
-            repository.upsert_earthquakes(connection, dataset["id"], [make_record()])
+            repository.upsert_events(connection, dataset["id"], [make_record()])
             repository.create_import(connection, dataset["id"], "url")
 
         with db() as connection:
@@ -233,5 +262,5 @@ class TestCascade:
                 cursor.execute("DELETE FROM datasets WHERE id = %s", (dataset["id"],))
 
         with db() as connection:
-            assert repository.count_earthquakes(connection, dataset["id"]) == 0
+            assert repository.count_events(connection, dataset["id"]) == 0
             assert repository.count_imports(connection, dataset["id"]) == 0

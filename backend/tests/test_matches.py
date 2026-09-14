@@ -40,16 +40,14 @@ def records(events):
         {
             "external_id": external_id,
             "magnitude": magnitude,
-            "magnitude_type": "ml",
-            "place": external_id,
+            "magnitude_unit": "ml",
+            "title": external_id,
             "event_type": "earthquake",
             "occurred_at": T0 + timedelta(seconds=seconds),
             "source_updated_at": None,
             "longitude": longitude,
             "latitude": latitude,
-            "depth_km": 10.0,
-            "tsunami": False,
-            "significance": 10,
+            "attributes": {"depth_km": 10.0, "tsunami": False, "significance": 10},
             "url": None,
         }
         for external_id, seconds, longitude, latitude, magnitude in events
@@ -60,14 +58,14 @@ def records(events):
 def two(db, dataset):
     with db() as connection:
         other = repository.create_dataset(connection, "Terremoti Italia", "ingv", None)
-        repository.upsert_earthquakes(connection, dataset["id"], records(USGS))
-        repository.upsert_earthquakes(connection, other["id"], records(INGV))
+        repository.upsert_events(connection, dataset["id"], records(USGS))
+        repository.upsert_events(connection, other["id"], records(INGV))
     return dataset, other
 
 
 def matches(client, dataset, other, query=""):
     return client.get(
-        "/api/datasets/{0}/earthquakes/matches?other={1}{2}".format(
+        "/api/datasets/{0}/events/matches?other={1}{2}".format(
             dataset["id"], other["id"], "&" + query if query else ""
         )
     )
@@ -173,7 +171,7 @@ class TestFiltersAndRefusals:
 
     def test_other_is_required(self, client, two):
         dataset, _ = two
-        assert client.get("/api/datasets/{0}/earthquakes/matches".format(dataset["id"])).status_code == 422
+        assert client.get("/api/datasets/{0}/events/matches".format(dataset["id"])).status_code == 422
 
     @pytest.mark.parametrize("query", ["window_seconds=0", "window_seconds=3601", "radius_km=0", "radius_km=1001"])
     def test_out_of_range_parameters_are_refused(self, client, two, query):

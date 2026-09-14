@@ -107,7 +107,7 @@ ids, slightly different magnitudes and epicentres kilometres apart — in one
 week's data, 219 USGS events had an EMSC counterpart within a minute and
 100 km, on average 4 km and 0.12 magnitude apart. Each dataset keeps its own
 copy: reconciling agencies is an analysis question, not something ingestion
-should guess at, and the [matches endpoint](#get-apidatasetsidearthquakesmatchesotherid2)
+should guess at, and the [matches endpoint](#get-apidatasetsideventsmatchesotherid2)
 does it on request.
 
 `backend/app/ingestion/sources.py` maps a source name to the module that
@@ -430,12 +430,12 @@ case-insensitively. An unknown source returns `422` listing the known ones:
 refusing it here beats accepting a dataset that can never be imported. The
 dashboard's **New dataset** form offers the same choice from a menu.
 
-### `GET /api/datasets/{id}/earthquakes`
+### `GET /api/datasets/{id}/events`
 
 Returns a page of the earthquakes stored for a dataset, most recent first.
 
 ```bash
-curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?limit=2"
+curl "http://127.0.0.1:8000/api/datasets/1/events?limit=2"
 ```
 
 ```json
@@ -449,16 +449,17 @@ curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?limit=2"
     {
       "id": 254,
       "external_id": "hv75031332",
-      "magnitude": 1.98,
-      "magnitude_type": "md",
-      "place": "30 km SE of Pāhala, Hawaii",
+      "title": "30 km SE of Pāhala, Hawaii",
       "event_type": "earthquake",
       "occurred_at": "2026-09-09T08:43:38",
+      "ended_at": null,
+      "source_updated_at": "2026-09-09T09:01:10",
       "longitude": -155.2855,
       "latitude": 18.9995,
-      "depth_km": 49.0,
-      "tsunami": false,
-      "significance": 60,
+      "geometry": null,
+      "magnitude": 1.98,
+      "magnitude_unit": "md",
+      "attributes": {"depth_km": 49.0, "tsunami": false, "significance": 60},
       "url": "https://earthquake.usgs.gov/earthquakes/eventpage/hv75031332"
     }
   ]
@@ -482,7 +483,7 @@ Query parameters:
 Filters are optional and combine with `AND`:
 
 ```bash
-curl "http://127.0.0.1:8000/api/datasets/1/earthquakes?event_type=earthquake&min_magnitude=4"
+curl "http://127.0.0.1:8000/api/datasets/1/events?event_type=earthquake&min_magnitude=4"
 ```
 
 `total` counts the events matching the filters rather than the whole dataset,
@@ -502,13 +503,13 @@ Two details worth knowing:
 Out-of-range or unparsable values return `422`. Requesting an unknown dataset
 returns `404`. Aggregations and charts remain part of Phase 3.
 
-### `GET /api/datasets/{id}/earthquakes/points`
+### `GET /api/datasets/{id}/events/points`
 
 The matching events as bare coordinates, for a map: no paging, and only
 what a marker needs.
 
 ```bash
-curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/points?min_magnitude=5"
+curl "http://127.0.0.1:8000/api/datasets/1/events/points?min_magnitude=5"
 ```
 
 ```json
@@ -530,7 +531,7 @@ as the listing, plus `limit` (default and maximum 5000). Points come
 strongest first, so when the limit cuts it cuts the smallest events and
 `total` still says how many matched; events without a magnitude come last.
 
-### `GET /api/datasets/{id}/earthquakes/matches?other={id2}`
+### `GET /api/datasets/{id}/events/matches?other={id2}`
 
 Pairs this dataset's events with another dataset's reports of the same
 earthquakes. Two agencies observe one quake with different networks and give
@@ -538,7 +539,7 @@ it a different origin time, epicentre, depth and magnitude; the pairs put
 those differences side by side.
 
 ```bash
-curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/matches?other=2&min_magnitude=5"
+curl "http://127.0.0.1:8000/api/datasets/1/events/matches?other=2&min_magnitude=5"
 ```
 
 ```json
@@ -557,12 +558,12 @@ curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/matches?other=2&min_magni
   "mean_abs_delta_magnitude": 0.32,
   "pairs": [
     {
-      "event": {"id": 3628, "external_id": "us7000rp1k", "magnitude": 5.6, "magnitude_type": "mww",
-                "place": "96 km ESE of Isangel, Vanuatu", "occurred_at": "2026-09-10T03:11:52",
-                "longitude": 169.98, "latitude": -19.85, "depth_km": 10.0},
-      "other": {"id": 4102, "external_id": "44012345", "magnitude": 5.9, "magnitude_type": "mwp",
-                "place": "Vanuatu Islands [Sea: Vanuatu]", "occurred_at": "2026-09-10T03:11:59",
-                "longitude": 170.27, "latitude": -19.7, "depth_km": 68.0},
+      "event": {"id": 3628, "external_id": "us7000rp1k", "title": "96 km ESE of Isangel, Vanuatu",
+                "occurred_at": "2026-09-10T03:11:52", "longitude": 169.98, "latitude": -19.85,
+                "magnitude": 5.6, "magnitude_unit": "mww", "attributes": {"depth_km": 10.0, "tsunami": false}},
+      "other": {"id": 4102, "external_id": "44012345", "title": "Vanuatu Islands [Sea: Vanuatu]",
+                "occurred_at": "2026-09-10T03:11:59", "longitude": 170.27, "latitude": -19.7,
+                "magnitude": 5.9, "magnitude_unit": "mwp", "attributes": {"depth_km": 68.0, "tsunami": false}},
       "delta_seconds": 6.7,
       "distance_km": 33.3,
       "delta_magnitude": 0.3
@@ -625,14 +626,14 @@ curl "http://127.0.0.1:8000/api/datasets/1/imports?limit=1"
 recorded per run, so changing `USGS_FEED_URL` between runs stays visible in the
 history.
 
-### `GET /api/datasets/{id}/earthquakes/summary`
+### `GET /api/datasets/{id}/events/summary`
 
 Aggregates the matching events without returning them. Takes the **same
 filters** as the listing, so a filtered view can describe exactly what it
 shows.
 
 ```bash
-curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/summary?min_magnitude=4"
+curl "http://127.0.0.1:8000/api/datasets/1/events/summary?min_magnitude=4"
 ```
 
 ```json
@@ -783,29 +784,49 @@ The `status` column currently holds one of four conceptual values:
 queue is not being processed yet, and saying otherwise would be untrue.
 Datasets that have never been ingested stay at `pending`.
 
-Table `earthquakes`, one row per event, keyed by the USGS id:
+Each dataset also carries a `kind` — `earthquake` for every dataset today —
+saying what kind of thing its events are. One kind per dataset, so every
+view of a dataset can assume one scale.
+
+Table `events`, one row per event, keyed by the id the source gave it:
 
 ```sql
-CREATE TABLE IF NOT EXISTS earthquakes (
+CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
     external_id VARCHAR(64) NOT NULL,
-    magnitude NUMERIC(5, 2),
-    magnitude_type VARCHAR(20),
-    place TEXT,
+    title TEXT,
     event_type VARCHAR(50),
     occurred_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
     source_updated_at TIMESTAMP,
     longitude NUMERIC(9, 4) NOT NULL,
     latitude NUMERIC(8, 4) NOT NULL,
-    depth_km NUMERIC(8, 3),
-    tsunami BOOLEAN NOT NULL DEFAULT FALSE,
-    significance INTEGER,
+    geometry JSONB,
+    magnitude NUMERIC(10, 2),
+    magnitude_unit VARCHAR(20),
+    attributes JSONB NOT NULL DEFAULT '{}',
     url TEXT,
     ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (dataset_id, external_id)
 );
 ```
+
+The table is generic on purpose: what every kind of event has — a title,
+a time, a point, the number it is measured by — is a typed column, and what
+only one kind or one source has lives in `attributes`. For earthquakes that
+is `depth_km`, `tsunami`, `significance` and, where the source says which
+network reported the event, `network`. `magnitude` is the kind's principal
+measure and `magnitude_unit` says what it is (`mww`, `ml`; for other kinds,
+hectares or knots); it is only ever compared within a dataset. `ended_at`
+and `geometry` are for events with a duration or a shape and are null for
+quakes. Attributes are shown and compared, never filtered on.
+
+The table began life as `earthquakes`, with the seismic fields as columns;
+`backend/app/db/migrations/001_events.sql` moved an existing database over.
+`init.sql` always describes the final schema, and `python -m
+app.db.apply_schema` applies it and then any migration a database has not
+yet had, recording each in `schema_migrations` so it runs once.
 
 Table `imports`, one row per ingestion run:
 

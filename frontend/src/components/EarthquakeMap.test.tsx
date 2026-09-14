@@ -103,7 +103,7 @@ describe('loading the points', () => {
     await screen.findByText('0 events')
 
     expect(urlsOf(calls)).toEqual([
-      '/api/datasets/1/earthquakes/points?min_magnitude=4&max_latitude=50',
+      '/api/datasets/1/events/points?min_magnitude=4&max_latitude=50',
     ])
   })
 

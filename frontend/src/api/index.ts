@@ -22,21 +22,29 @@ export interface Dataset {
   description: string | null
   created_at: string
   status: DatasetStatus
+  /** What kind of thing its events are; one kind per dataset. */
+  kind: string
 }
 
-export interface Earthquake {
+/** What only one kind or source has: depth and network for a quake, and so on. */
+export type Attributes = Record<string, unknown>
+
+export interface Event {
   id: number
   external_id: string
-  magnitude: number | null
-  magnitude_type: string | null
-  place: string | null
+  /** What the source calls it: a place for a quake, a name for a storm. */
+  title: string | null
   event_type: string | null
   occurred_at: string
+  ended_at: string | null
+  source_updated_at: string | null
   longitude: number
   latitude: number
-  depth_km: number | null
-  tsunami: boolean
-  significance: number | null
+  geometry: Record<string, unknown> | null
+  /** The number this kind of event is measured by, in `magnitude_unit`. */
+  magnitude: number | null
+  magnitude_unit: string | null
+  attributes: Attributes
   url: string | null
 }
 
@@ -49,7 +57,7 @@ export interface Page<T> {
   items: T[]
 }
 
-/** The filters the earthquakes endpoint accepts, as typed in the form. */
+/** The filters the events endpoint accepts, as typed in the form. */
 export interface EarthquakeFilters {
   min_magnitude: string
   max_magnitude: string
@@ -81,18 +89,24 @@ export type BoundingBox = Pick<
 >
 
 /** `[longitude, latitude, magnitude, id]`, as the points endpoint sends it. */
+/** The depth of a quake, when the source gave one; attributes are untyped. */
+export function depthOf(attributes: Attributes): number | null {
+  const depth = attributes.depth_km
+  return typeof depth === 'number' ? depth : null
+}
+
 export type Point = [number, number, number | null, number]
 
 export interface MatchedEvent {
   id: number
   external_id: string
-  magnitude: number | null
-  magnitude_type: string | null
-  place: string | null
+  title: string | null
   occurred_at: string
   longitude: number
   latitude: number
-  depth_km: number | null
+  magnitude: number | null
+  magnitude_unit: string | null
+  attributes: Attributes
 }
 
 export interface Match {
@@ -251,24 +265,24 @@ export function fetchSummary(
   signal?: AbortSignal,
 ): Promise<Summary> {
   return getJson<Summary>(
-    `/api/datasets/${datasetId}/earthquakes/summary?${queryFor(filters)}`,
+    `/api/datasets/${datasetId}/events/summary?${queryFor(filters)}`,
     signal,
   )
 }
 
-export function fetchEarthquakes(
+export function fetchEvents(
   datasetId: number,
   filters: EarthquakeFilters,
   limit: number,
   offset: number,
   signal?: AbortSignal,
-): Promise<Page<Earthquake>> {
+): Promise<Page<Event>> {
   const query = queryFor(filters, {
     limit: String(limit),
     offset: String(offset),
   })
-  return getJson<Page<Earthquake>>(
-    `/api/datasets/${datasetId}/earthquakes?${query}`,
+  return getJson<Page<Event>>(
+    `/api/datasets/${datasetId}/events?${query}`,
     signal,
   )
 }
@@ -279,7 +293,7 @@ export function fetchPoints(
   signal?: AbortSignal,
 ): Promise<Points> {
   return getJson<Points>(
-    `/api/datasets/${datasetId}/earthquakes/points?${queryFor(filters)}`,
+    `/api/datasets/${datasetId}/events/points?${queryFor(filters)}`,
     signal,
   )
 }
@@ -292,7 +306,7 @@ export function fetchMatches(
 ): Promise<Matches> {
   const query = queryFor(filters, { other: String(otherId) })
   return getJson<Matches>(
-    `/api/datasets/${datasetId}/earthquakes/matches?${query}`,
+    `/api/datasets/${datasetId}/events/matches?${query}`,
     signal,
   )
 }

@@ -88,7 +88,7 @@ def run_import(import_id: int) -> Dict[str, Any]:
         fetched = len(payload.get("features", []))
 
         with get_connection() as connection:
-            inserted, updated = repository.upsert_earthquakes(
+            inserted, updated = repository.upsert_events(
                 connection, dataset_id, records
             )
     except IngestionError as exc:

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import {
+  depthOf,
   fetchMatches,
   type Dataset,
   type EarthquakeFilters,
@@ -154,12 +155,12 @@ export function ComparePanel({
                 <tr key={pair.event.id}>
                   <td className="numeric">{pair.event.occurred_at.replace('T', ' ').slice(0, 19)}</td>
                   <td>
-                    <span className="compare-side">{pair.event.place ?? '—'}</span>
-                    <span className="compare-side muted">{pair.other.place ?? '—'}</span>
+                    <span className="compare-side">{pair.event.title ?? '—'}</span>
+                    <span className="compare-side muted">{pair.other.title ?? '—'}</span>
                   </td>
                   <td className="numeric">
-                    <span className="compare-side">{magnitude(pair.event.magnitude, pair.event.magnitude_type)}</span>
-                    <span className="compare-side muted">{magnitude(pair.other.magnitude, pair.other.magnitude_type)}</span>
+                    <span className="compare-side">{magnitude(pair.event.magnitude, pair.event.magnitude_unit)}</span>
+                    <span className="compare-side muted">{magnitude(pair.other.magnitude, pair.other.magnitude_unit)}</span>
                   </td>
                   <td className="numeric">
                     {pair.delta_magnitude === null ? '—' : signed(pair.delta_magnitude, 1)}
@@ -167,8 +168,8 @@ export function ComparePanel({
                   <td className="numeric">{signed(pair.delta_seconds, 1, ' s')}</td>
                   <td className="numeric">{pair.distance_km.toFixed(1)} km</td>
                   <td className="numeric">
-                    <span className="compare-side">{depth(pair.event.depth_km)}</span>
-                    <span className="compare-side muted">{depth(pair.other.depth_km)}</span>
+                    <span className="compare-side">{depth(depthOf(pair.event.attributes))}</span>
+                    <span className="compare-side muted">{depth(depthOf(pair.other.attributes))}</span>
                   </td>
                 </tr>
               ))}

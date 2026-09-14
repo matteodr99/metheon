@@ -19,9 +19,9 @@ class TestDatabaseDown:
         "method, path",
         [
             ("get", "/api/datasets"),
-            ("get", "/api/datasets/1/earthquakes"),
+            ("get", "/api/datasets/1/events"),
             ("get", "/api/datasets/1/imports"),
-            ("get", "/api/datasets/1/earthquakes/summary"),
+            ("get", "/api/datasets/1/events/summary"),
             ("post", "/api/datasets/1/ingest"),
         ],
     )
@@ -91,7 +91,7 @@ class TestUnexpectedFailure:
 
     def test_a_known_refusal_is_not_turned_into_a_500(self, lenient_client):
         """HTTPException must keep its own code past the catch-all."""
-        assert lenient_client.get("/api/datasets/999/earthquakes").status_code == 404
+        assert lenient_client.get("/api/datasets/999/events").status_code == 404
 
 
 class TestStaleRunReaper:

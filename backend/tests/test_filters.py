@@ -30,22 +30,20 @@ def seeded(db, dataset):
         {
             "external_id": external_id,
             "magnitude": magnitude,
-            "magnitude_type": "ml",
-            "place": "somewhere",
+            "magnitude_unit": "ml",
+            "title": "somewhere",
             "event_type": event_type,
             "occurred_at": occurred_at,
             "source_updated_at": None,
             "longitude": 0.0,
             "latitude": 0.0,
-            "depth_km": 1.0,
-            "tsunami": False,
-            "significance": 10,
+            "attributes": {"depth_km": 1.0, "tsunami": False, "significance": 10},
             "url": None,
         }
         for external_id, magnitude, event_type, occurred_at in SEED
     ]
     with db() as connection:
-        repository.upsert_earthquakes(connection, dataset["id"], records)
+        repository.upsert_events(connection, dataset["id"], records)
     return dataset
 
 
@@ -55,7 +53,7 @@ def ids(response):
 
 def get(client, dataset, query=""):
     return client.get(
-        "/api/datasets/{0}/earthquakes{1}".format(
+        "/api/datasets/{0}/events{1}".format(
             dataset["id"], "?" + query if query else ""
         )
     )

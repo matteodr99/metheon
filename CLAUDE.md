@@ -151,7 +151,8 @@ before treating anything in it as implemented.
 
 - `generic-events.md` — from an `earthquakes` table to an `events` table
   with a kind per dataset, so that non-seismic public data (NASA EONET,
-  GDACS) can be ingested by the same pipeline. Status: proposal.
+  GDACS) can be ingested by the same pipeline. Status: step 1 of 4 done
+  (the schema, the migration and the rename); kinds, EONET and GDACS to go.
 
 ## Repository structure
 
@@ -177,7 +178,9 @@ metheon/
 │   │   │   ├── database.py
 │   │   │   ├── apply_schema.py
 │   │   │   ├── repository.py
-│   │   │   └── init.sql
+│   │   │   ├── init.sql
+│   │   │   └── migrations/
+│   │   │       └── 001_events.sql
 │   │   └── ingestion/
 │   │       ├── __init__.py
 │   │       ├── sources.py
@@ -359,7 +362,7 @@ Request model:
 `source` must match a key in the registry, case-insensitively; an unknown
 source is refused with `422`.
 
-### GET /api/datasets/{id}/earthquakes
+### GET /api/datasets/{id}/events
 
 Returns a page of the earthquakes stored for a dataset, ordered by event time,
 most recent first.
@@ -374,7 +377,7 @@ antimeridian would be an inverted longitude range and is refused rather
 than supported.
 
 `total` counts the matching events, not the whole dataset: the count and the
-listing share one `WHERE` clause, built in `repository._earthquake_where`. A
+listing share one `WHERE` clause, built in `repository._event_where`. A
 total that ignored the filters would make the reported page count wrong.
 
 That clause is assembled only from constant strings, and every value travels
@@ -385,7 +388,7 @@ return `422`, an unknown dataset `404`.
 
 Aggregations and charts remain part of Phase 3.
 
-### GET /api/datasets/{id}/earthquakes/points
+### GET /api/datasets/{id}/events/points
 
 The matching events as `[longitude, latitude, magnitude, id]`, for the
 map: the listing pages 25 at a time and a map wants every matching event.
@@ -395,18 +398,18 @@ and the table agree. `limit` defaults to and is capped at `MAX_POINTS`
 descending with nulls last so that a cut drops the weakest events, never
 the strongest; `total` is the full count regardless.
 
-### GET /api/datasets/{id}/earthquakes/matches?other={id2}
+### GET /api/datasets/{id}/events/matches?other={id2}
 
 Cross-agency reconciliation, as a query rather than stored data: at these
 sizes it is a computation on request, and a table of pairs would be one
-more thing to keep in step with two ingestions. `repository.match_earthquakes`
+more thing to keep in step with two ingestions. `repository.match_events`
 does it in one CTE chain — the filtered events of `{id}`, the candidates of
 `other` within `window_seconds` (checked first, on the indexed
 `occurred_at`) and within `radius_km / 111` degrees of latitude (cheap,
 before the exact distance), then `DISTINCT ON (a_id)` ordered by `|Δt|` to
 keep the nearest candidate per event. The distance is haversine in plain
 SQL; PostGIS would be an extension the hosted database has to offer. The
-filters go into the `mine` CTE, so `_earthquake_where` stays unqualified
+filters go into the `mine` CTE, so `_event_where` stays unqualified
 and untouched. Two executions share the chain: one for the counts and
 means over every pair, one for the strongest `limit` pairs.
 
@@ -420,7 +423,7 @@ in for it.
 Returns the import history of a dataset, most recent run first, with the same
 `limit` and `offset` parameters as the earthquakes endpoint.
 
-### GET /api/datasets/{id}/earthquakes/summary
+### GET /api/datasets/{id}/events/summary
 
 Aggregates the matching events: totals, magnitude bounds and average, time
 span, counts per event type and per UTC day.
@@ -478,34 +481,61 @@ Current status values are conceptually:
 A run also passes through `queued` between being accepted and being picked up
 by a worker. Datasets that have never been ingested stay at `pending`.
 
-Table: `earthquakes`
+`datasets.kind` (`VARCHAR(50) NOT NULL DEFAULT 'earthquake'`) says what
+kind of thing a dataset's events are — one kind per dataset, decided in
+`docs/design/generic-events.md`. Step 1 of that design (2026-09-14) made
+the events table generic; step 2 wires the kind through the sources and
+the create form. Until then every dataset is `earthquake`.
+
+Table: `events`
 
 ```sql
-CREATE TABLE IF NOT EXISTS earthquakes (
+CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
     external_id VARCHAR(64) NOT NULL,
-    magnitude NUMERIC(5, 2),
-    magnitude_type VARCHAR(20),
-    place TEXT,
+    title TEXT,
     event_type VARCHAR(50),
     occurred_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
     source_updated_at TIMESTAMP,
     longitude NUMERIC(9, 4) NOT NULL,
     latitude NUMERIC(8, 4) NOT NULL,
-    depth_km NUMERIC(8, 3),
-    tsunami BOOLEAN NOT NULL DEFAULT FALSE,
-    significance INTEGER,
+    geometry JSONB,
+    magnitude NUMERIC(10, 2),
+    magnitude_unit VARCHAR(20),
+    attributes JSONB NOT NULL DEFAULT '{}',
     url TEXT,
     ingested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (dataset_id, external_id)
 );
 ```
 
+Typed columns are everything a filter, a sort, a chart or a join reads.
+`attributes` holds what only one kind or source has — for quakes
+`depth_km`, `tsunami`, `significance`, `network` — and is displayed and
+compared, never filtered on; a key that needs an index becomes a column.
+`geojson.seismic_attributes` is the one place those keys are spelled, so
+every seismic source writes the same ones. A record may omit `ended_at`,
+`geometry` and `attributes`; `upsert_events` fills the defaults and wraps
+the JSON columns in `psycopg.types.json.Jsonb`.
+
 Timestamps are stored as naive UTC. `magnitude` is nullable because a feed
 can legitimately omit it. Uniqueness of `external_id` is per dataset, not
 global: an id is only unique within its source, and the upsert conflicts on
 `(dataset_id, external_id)`.
+
+**Migrations.** `init.sql` describes the final schema, `IF NOT EXISTS`
+throughout, and is what a fresh database gets. `migrations/NNN_name.sql`
+brings a database with data up to it; `apply_schema` runs `init.sql`, then
+every numbered file not recorded in `schema_migrations`, each in its own
+transaction, and records it. `001_events.sql` copies `earthquakes` into
+`events` — seismic columns folded into `attributes` with
+`jsonb_strip_nulls`, so absent stays absent — and drops the old table; on a
+fresh database it finds no `earthquakes` and does nothing, but is still
+recorded. `tests/fixtures/schema_before_events.sql` is the schema as it was,
+so `test_migrations.py` can rebuild it with rows and watch the migration
+move them.
 
 Table: `imports`
 
@@ -882,7 +912,7 @@ because Leaflet writes them as SVG attributes and those cannot read CSS
 variables; in the dark theme the tiles are inverted with a CSS filter rather
 than fetched from a second, dark tile set.
 
-The map reads `/earthquakes/points` with the applied filters, so it shows
+The map reads `/events/points` with the applied filters, so it shows
 exactly what the table and the summary show; when the endpoint's limit cuts
 it says "N strongest of M". A dashed rectangle outlines an applied box.
 **Filter to this view** applies the visible bounds at once, clamped to

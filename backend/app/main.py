@@ -47,7 +47,7 @@ app = FastAPI(
     title="Metheon API",
     description=(
         "Public datasets, ingested and queryable. Today: earthquakes from "
-        "USGS and INGV.\n\n"
+        "USGS, INGV and EMSC; a dataset holds events of one kind.\n\n"
         "Every refusal carries a `detail` sentence saying why."
     ),
     lifespan=lifespan,
@@ -55,7 +55,7 @@ app = FastAPI(
         {"name": "health", "description": "Readiness and liveness, for probes."},
         {"name": "sources", "description": "What a dataset can be created for."},
         {"name": "datasets", "description": "Datasets and their ingestion."},
-        {"name": "earthquakes", "description": "The events stored for a dataset."},
+        {"name": "events", "description": "The events stored for a dataset."},
         {"name": "insights", "description": "What Gemini makes of a dataset. Off until a key is set."},
     ],
 )
@@ -167,7 +167,7 @@ def _get_dataset_or_404(connection, dataset_id: int):
     return dataset
 
 
-class EarthquakeFilters:
+class EventFilters:
     """The filters shared by the listing and the summary.
 
     Declared once so the two endpoints cannot drift apart: a summary that
@@ -338,18 +338,18 @@ def create_dataset(dataset: DatasetCreate):
 
 
 @app.get(
-    "/api/datasets/{dataset_id}/earthquakes",
-    tags=["earthquakes"],
-    response_model=schemas.EarthquakePage,
+    "/api/datasets/{dataset_id}/events",
+    tags=["events"],
+    response_model=schemas.EventPage,
     responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
 )
-def get_dataset_earthquakes(
+def get_dataset_events(
     dataset_id: int,
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
-    filters: EarthquakeFilters = Depends(),
+    filters: EventFilters = Depends(),
 ):
-    """Return a page of the earthquakes stored for a dataset.
+    """Return a page of the events stored for a dataset.
 
     Results are ordered by event time, most recent first. `limit` is capped
     so a single request cannot pull the whole table. Every filter is
@@ -360,8 +360,8 @@ def get_dataset_earthquakes(
     """
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
-        total = repository.count_earthquakes(connection, dataset_id, filters.values)
-        items = repository.list_earthquakes(
+        total = repository.count_events(connection, dataset_id, filters.values)
+        items = repository.list_events(
             connection, dataset_id, limit, offset, filters.values
         )
 
@@ -376,16 +376,16 @@ def get_dataset_earthquakes(
 
 
 @app.get(
-    "/api/datasets/{dataset_id}/earthquakes/summary",
-    tags=["earthquakes"],
+    "/api/datasets/{dataset_id}/events/summary",
+    tags=["events"],
     response_model=schemas.Summary,
     responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
 )
-def get_dataset_earthquake_summary(
+def get_dataset_event_summary(
     dataset_id: int,
-    filters: EarthquakeFilters = Depends(),
+    filters: EventFilters = Depends(),
 ):
-    """Aggregate the matching earthquakes, without returning the events.
+    """Aggregate the matching events, without returning them.
 
     Takes the same filters as the listing, so a client showing a filtered
     view can describe exactly what it is showing.
@@ -394,7 +394,7 @@ def get_dataset_earthquake_summary(
     """
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
-        summary = repository.summarize_earthquakes(
+        summary = repository.summarize_events(
             connection, dataset_id, filters.values
         )
 
@@ -406,15 +406,15 @@ def get_dataset_earthquake_summary(
 
 
 @app.get(
-    "/api/datasets/{dataset_id}/earthquakes/points",
-    tags=["earthquakes"],
-    response_model=schemas.EarthquakePoints,
+    "/api/datasets/{dataset_id}/events/points",
+    tags=["events"],
+    response_model=schemas.EventPoints,
     responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
 )
-def get_dataset_earthquake_points(
+def get_dataset_event_points(
     dataset_id: int,
     limit: int = Query(MAX_POINTS, ge=1, le=MAX_POINTS),
-    filters: EarthquakeFilters = Depends(),
+    filters: EventFilters = Depends(),
 ):
     """Return the matching events as bare coordinates, for a map.
 
@@ -426,8 +426,8 @@ def get_dataset_earthquake_points(
     """
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
-        total = repository.count_earthquakes(connection, dataset_id, filters.values)
-        points = repository.earthquake_points(
+        total = repository.count_events(connection, dataset_id, filters.values)
+        points = repository.event_points(
             connection, dataset_id, limit, filters.values
         )
 
@@ -441,18 +441,18 @@ def get_dataset_earthquake_points(
 
 
 @app.get(
-    "/api/datasets/{dataset_id}/earthquakes/matches",
-    tags=["earthquakes"],
+    "/api/datasets/{dataset_id}/events/matches",
+    tags=["events"],
     response_model=schemas.Matches,
     responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
 )
-def get_dataset_earthquake_matches(
+def get_dataset_event_matches(
     dataset_id: int,
     other: int = Query(description="The dataset to compare with."),
     window_seconds: float = Query(60, gt=0, le=3600),
     radius_km: float = Query(100, gt=0, le=1000),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
-    filters: EarthquakeFilters = Depends(),
+    filters: EventFilters = Depends(),
 ):
     """Pair this dataset's events with another dataset's reports of them.
 
@@ -470,8 +470,8 @@ def get_dataset_earthquake_matches(
     with get_connection() as connection:
         _get_dataset_or_404(connection, dataset_id)
         _get_dataset_or_404(connection, other)
-        events = repository.count_earthquakes(connection, dataset_id, filters.values)
-        matches = repository.match_earthquakes(
+        events = repository.count_events(connection, dataset_id, filters.values)
+        matches = repository.match_events(
             connection, dataset_id, other, window_seconds, radius_km, limit, filters.values
         )
 
@@ -528,7 +528,7 @@ def ai_status():
 )
 def get_dataset_insights(
     dataset_id: int,
-    filters: EarthquakeFilters = Depends(),
+    filters: EventFilters = Depends(),
 ):
     """Ask Gemini what the filtered data shows.
 
@@ -541,8 +541,8 @@ def get_dataset_insights(
     """
     with get_connection() as connection:
         dataset = _get_dataset_or_404(connection, dataset_id)
-        summary = repository.summarize_earthquakes(connection, dataset_id, filters.values)
-        strongest = repository.strongest_earthquakes(
+        summary = repository.summarize_events(connection, dataset_id, filters.values)
+        strongest = repository.strongest_events(
             connection, dataset_id, insights.STRONGEST_EVENTS, filters.values
         )
     summary["filters"] = filters.applied()

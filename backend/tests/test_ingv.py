@@ -82,10 +82,10 @@ class TestNormalization:
         assert record["external_id"] == "47142392"
         assert record["magnitude"] == 1.4
         assert record["event_type"] == "earthquake"
-        assert record["place"] == "3 km E Sant'Angelo in Pontano (MC)"
+        assert record["title"] == "3 km E Sant'Angelo in Pontano (MC)"
         assert record["longitude"] == 13.4322
         assert record["latitude"] == 43.1037
-        assert record["depth_km"] == 26.0
+        assert record["attributes"]["depth_km"] == 26.0
 
     def test_the_iso_time_becomes_naive_utc(self):
         record, _ = ingv.normalize_feature(ingv_feature())
@@ -103,7 +103,7 @@ class TestNormalization:
         """USGS says "ml"; INGV says "ML". One spelling per type."""
         record, _ = ingv.normalize_feature(ingv_feature())
 
-        assert record["magnitude_type"] == "ml"
+        assert record["magnitude_unit"] == "ml"
 
     def test_the_event_page_is_linked(self):
         record, _ = ingv.normalize_feature(ingv_feature())
@@ -113,9 +113,10 @@ class TestNormalization:
     def test_fields_ingv_does_not_publish_are_null_or_false(self):
         record, _ = ingv.normalize_feature(ingv_feature())
 
-        assert record["tsunami"] is False
-        assert record["significance"] is None
+        assert record["attributes"] == {"tsunami": False, "depth_km": 26.0, "network": "SURVEY-INGV"}
         assert record["source_updated_at"] is None
+        assert record["ended_at"] is None
+        assert record["geometry"] is None
 
     def test_a_missing_event_id_is_rejected(self):
         feature = ingv_feature()
@@ -184,16 +185,14 @@ class TestSourcesCoexist:
         return {
             "external_id": external_id,
             "magnitude": 1.0,
-            "magnitude_type": "ml",
-            "place": "p",
+            "magnitude_unit": "ml",
+            "title": "p",
             "event_type": "earthquake",
             "occurred_at": datetime(2026, 9, 9, 8, 0),
             "source_updated_at": None,
             "longitude": 0.0,
             "latitude": 0.0,
-            "depth_km": 1.0,
-            "tsunami": False,
-            "significance": None,
+            "attributes": {"depth_km": 1.0, "tsunami": False, "significance": None},
             "url": None,
         }
 
@@ -204,35 +203,35 @@ class TestSourcesCoexist:
             ingv_ds = repository.create_dataset(connection, "INGV", "ingv", None)
 
         with db() as connection:
-            first = repository.upsert_earthquakes(
+            first = repository.upsert_events(
                 connection, usgs_ds["id"], [self._record("12345")]
             )
         with db() as connection:
-            second = repository.upsert_earthquakes(
+            second = repository.upsert_events(
                 connection, ingv_ds["id"], [self._record("12345")]
             )
 
         assert first == (1, 0)
         assert second == (1, 0)
         with db() as connection:
-            assert repository.count_earthquakes(connection, usgs_ds["id"]) == 1
-            assert repository.count_earthquakes(connection, ingv_ds["id"]) == 1
+            assert repository.count_events(connection, usgs_ds["id"]) == 1
+            assert repository.count_events(connection, ingv_ds["id"]) == 1
 
     def test_re_running_one_dataset_leaves_the_other_alone(self, db):
         with db() as connection:
             usgs_ds = repository.create_dataset(connection, "USGS", "usgs", None)
             ingv_ds = repository.create_dataset(connection, "INGV", "ingv", None)
-            repository.upsert_earthquakes(connection, usgs_ds["id"], [self._record("a")])
-            repository.upsert_earthquakes(connection, ingv_ds["id"], [self._record("a")])
+            repository.upsert_events(connection, usgs_ds["id"], [self._record("a")])
+            repository.upsert_events(connection, ingv_ds["id"], [self._record("a")])
 
         with db() as connection:
-            inserted, updated = repository.upsert_earthquakes(
+            inserted, updated = repository.upsert_events(
                 connection, ingv_ds["id"], [self._record("a")]
             )
 
         assert (inserted, updated) == (0, 1)
         with db() as connection:
-            assert repository.count_earthquakes(connection, usgs_ds["id"]) == 1
+            assert repository.count_events(connection, usgs_ds["id"]) == 1
 
     def test_a_dataset_can_be_created_for_ingv(self, client):
         response = client.post(

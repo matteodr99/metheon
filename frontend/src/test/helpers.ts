@@ -2,7 +2,7 @@ import { vi } from 'vitest'
 
 import type {
   Dataset,
-  Earthquake,
+  Event,
   ImportRun,
   Match,
   MatchedEvent,
@@ -22,33 +22,35 @@ export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
     description: null,
     created_at: '2026-09-09T08:08:12',
     status: 'completed',
+    kind: 'earthquake',
     ...overrides,
   }
 }
 
-export function makeEarthquake(overrides: Partial<Earthquake> = {}): Earthquake {
+export function makeEvent(overrides: Partial<Event> = {}): Event {
   return {
     id: 1,
     external_id: 'eq1',
-    magnitude: 2.3,
-    magnitude_type: 'ml',
-    place: 'somewhere',
+    title: 'somewhere',
     event_type: 'earthquake',
     occurred_at: '2026-09-09T10:54:00',
+    ended_at: null,
+    source_updated_at: null,
     longitude: 0,
     latitude: 0,
-    depth_km: 15.4,
-    tsunami: false,
-    significance: 10,
+    geometry: null,
+    magnitude: 2.3,
+    magnitude_unit: 'ml',
+    attributes: { depth_km: 15.4, tsunami: false, significance: 10 },
     url: null,
     ...overrides,
   }
 }
 
 export function makePage(
-  items: Earthquake[],
-  overrides: Partial<Page<Earthquake>> = {},
-): Page<Earthquake> {
+  items: Event[],
+  overrides: Partial<Page<Event>> = {},
+): Page<Event> {
   return {
     dataset_id: 1,
     total: items.length,
@@ -77,13 +79,13 @@ export function makeMatchedEvent(overrides: Partial<MatchedEvent> = {}): Matched
   return {
     id: 1,
     external_id: 'us1',
-    magnitude: 5.6,
-    magnitude_type: 'mww',
-    place: 'Isangel, Vanuatu',
+    title: 'Isangel, Vanuatu',
     occurred_at: '2026-09-10T03:11:52',
     longitude: 169.98,
     latitude: -19.85,
-    depth_km: 10,
+    magnitude: 5.6,
+    magnitude_unit: 'mww',
+    attributes: { depth_km: 10, tsunami: false },
     ...overrides,
   }
 }
@@ -94,11 +96,11 @@ export function makeMatch(overrides: Partial<Match> = {}): Match {
     other: makeMatchedEvent({
       id: 2,
       external_id: 'ingv1',
-      magnitude: 5.9,
-      magnitude_type: 'mwp',
-      place: 'Vanuatu Islands [Sea: Vanuatu]',
+      title: 'Vanuatu Islands [Sea: Vanuatu]',
       occurred_at: '2026-09-10T03:11:59',
-      depth_km: 68,
+      magnitude: 5.9,
+      magnitude_unit: 'mwp',
+      attributes: { depth_km: 68, tsunami: false },
     }),
     delta_seconds: 6.7,
     distance_km: 33.3,
@@ -149,7 +151,7 @@ export function makeImportRun(overrides: Partial<ImportRun> = {}): ImportRun {
 export function makeSource(overrides: Partial<Source> = {}): Source {
   return {
     key: 'usgs',
-    name: 'USGS Earthquake Hazards Program',
+    name: 'USGS Event Hazards Program',
     default_feed_url: 'https://example.invalid/usgs.geojson',
     ...overrides,
   }

@@ -37,7 +37,7 @@ describe('choosing what to compare with', () => {
 
     await waitFor(() => expect(calls).toHaveLength(1))
 
-    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/earthquakes/matches?other=2')
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2')
     expect(screen.getByRole('combobox')).toHaveValue('2')
   })
 
@@ -55,7 +55,7 @@ describe('choosing what to compare with', () => {
     await userEvent.selectOptions(screen.getByRole('combobox'), '3')
 
     await waitFor(() => {
-      expect(urlsOf(calls).at(-1)).toBe('/api/datasets/1/earthquakes/matches?other=3')
+      expect(urlsOf(calls).at(-1)).toBe('/api/datasets/1/events/matches?other=3')
     })
   })
 
@@ -64,7 +64,7 @@ describe('choosing what to compare with', () => {
 
     await waitFor(() => expect(calls).toHaveLength(1))
 
-    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/earthquakes/matches?other=2&min_magnitude=5')
+    expect(urlsOf(calls)[0]).toBe('/api/datasets/1/events/matches?other=2&min_magnitude=5')
   })
 })
 
@@ -116,7 +116,7 @@ describe('showing the pairs', () => {
     renderPanel([USGS, INGV], EMPTY_FILTERS, {
       matches: makeMatches([
         makeMatch({
-          event: makeMatchedEvent({ magnitude: null, magnitude_type: null }),
+          event: makeMatchedEvent({ magnitude: null, magnitude_unit: null }),
           delta_magnitude: null,
         }),
       ]),

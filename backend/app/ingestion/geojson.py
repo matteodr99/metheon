@@ -95,3 +95,27 @@ def collect_records(
         records.append(record)
 
     return records, errors
+
+
+def seismic_attributes(
+    depth_km: Optional[float] = None,
+    tsunami: bool = False,
+    significance: Optional[int] = None,
+    network: Optional[str] = None,
+) -> Dict[str, Any]:
+    """The `attributes` of an earthquake, with one spelling of each key.
+
+    Every seismic source builds its record through here, so a key is never
+    "depth" in one dataset and "depth_km" in another. Nulls are left out:
+    absent is the honest shape for "the source did not say", and it keeps
+    a null from showing up as a value wherever attributes are displayed.
+    `tsunami` is always written — false is a statement, not an absence.
+    """
+    attributes: Dict[str, Any] = {"tsunami": tsunami}
+    if depth_km is not None:
+        attributes["depth_km"] = depth_km
+    if significance is not None:
+        attributes["significance"] = significance
+    if network:
+        attributes["network"] = network
+    return attributes

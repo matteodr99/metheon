@@ -221,31 +221,31 @@ class TestIngestEndpoint:
         assert client.get("/api/datasets").json()[0]["status"] == "failed"
 
 
-class TestEarthquakesEndpoint:
+class TestEventsEndpoint:
     def test_a_dataset_without_events_returns_an_empty_page(self, client, dataset):
         body = client.get(
-            "/api/datasets/{0}/earthquakes".format(dataset["id"])
+            "/api/datasets/{0}/events".format(dataset["id"])
         ).json()
 
         assert body["total"] == 0
         assert body["items"] == []
 
     def test_an_unknown_dataset_returns_404(self, client):
-        assert client.get("/api/datasets/999/earthquakes").status_code == 404
+        assert client.get("/api/datasets/999/events").status_code == 404
 
     @pytest.mark.parametrize(
         "query", ["limit=0", "limit=501", "offset=-1", "limit=abc"]
     )
     def test_out_of_range_parameters_are_rejected(self, client, dataset, query):
         response = client.get(
-            "/api/datasets/{0}/earthquakes?{1}".format(dataset["id"], query)
+            "/api/datasets/{0}/events?{1}".format(dataset["id"], query)
         )
 
         assert response.status_code == 422
 
     def test_the_default_page_size_is_reported(self, client, dataset):
         body = client.get(
-            "/api/datasets/{0}/earthquakes".format(dataset["id"])
+            "/api/datasets/{0}/events".format(dataset["id"])
         ).json()
 
         assert body["limit"] == 50

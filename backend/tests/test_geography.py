@@ -29,22 +29,20 @@ def seeded(db, dataset):
         {
             "external_id": external_id,
             "magnitude": magnitude,
-            "magnitude_type": "ml",
-            "place": external_id,
+            "magnitude_unit": "ml",
+            "title": external_id,
             "event_type": "earthquake",
             "occurred_at": datetime(2026, 9, 1, hour),
             "source_updated_at": None,
             "longitude": longitude,
             "latitude": latitude,
-            "depth_km": 1.0,
-            "tsunami": False,
-            "significance": 10,
+            "attributes": {"depth_km": 1.0, "tsunami": False, "significance": 10},
             "url": None,
         }
         for hour, (external_id, longitude, latitude, magnitude) in enumerate(SEED)
     ]
     with db() as connection:
-        repository.upsert_earthquakes(connection, dataset["id"], records)
+        repository.upsert_events(connection, dataset["id"], records)
     return dataset
 
 
@@ -53,13 +51,13 @@ ITALY = "min_latitude=36&max_latitude=47&min_longitude=6&max_longitude=19"
 
 def listing(client, dataset, query=""):
     return client.get(
-        "/api/datasets/{0}/earthquakes{1}".format(dataset["id"], "?" + query if query else "")
+        "/api/datasets/{0}/events{1}".format(dataset["id"], "?" + query if query else "")
     )
 
 
 def points(client, dataset, query=""):
     return client.get(
-        "/api/datasets/{0}/earthquakes/points{1}".format(
+        "/api/datasets/{0}/events/points{1}".format(
             dataset["id"], "?" + query if query else ""
         )
     )
@@ -86,7 +84,7 @@ class TestBoundingBox:
 
     def test_the_summary_and_the_points_agree_with_the_listing(self, client, seeded):
         summary = client.get(
-            "/api/datasets/{0}/earthquakes/summary?{1}".format(seeded["id"], ITALY)
+            "/api/datasets/{0}/events/summary?{1}".format(seeded["id"], ITALY)
         ).json()
         assert summary["total"] == 3
         assert summary["magnitude"]["max"] == 3.0
@@ -157,4 +155,4 @@ class TestPoints:
         assert points(client, seeded, "limit=0").status_code == 422
 
     def test_an_unknown_dataset_is_404(self, client, seeded):
-        assert client.get("/api/datasets/999999/earthquakes/points").status_code == 404
+        assert client.get("/api/datasets/999999/events/points").status_code == 404

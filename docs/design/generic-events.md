@@ -1,6 +1,7 @@
 # Design: from earthquakes to events
 
-Status: **proposal**, 2026-09-14. Nothing here is implemented.
+Status: **in progress**, 2026-09-14. Step 1 (migration mechanism, `events`
+table, API and dashboard renamed) is built; steps 2–4 are not.
 
 ## Why
 

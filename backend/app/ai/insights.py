@@ -69,6 +69,7 @@ def build_digest(
         "dataset": {
             "name": dataset["name"],
             "source": dataset["source"],
+            "kind": dataset.get("kind", "earthquake"),
             "description": dataset.get("description"),
         },
         "filters": summary.get("filters", {}),
@@ -85,10 +86,13 @@ def build_digest(
         "strongest_events": [
             {
                 "magnitude": event["magnitude"],
-                "place": event["place"],
+                "magnitude_unit": event.get("magnitude_unit"),
+                "title": event["title"],
                 "occurred_at": _iso(event["occurred_at"]),
-                "depth_km": event["depth_km"],
                 "event_type": event["event_type"],
+                # Whatever the source knew beyond the shared columns — for a
+                # quake its depth, its network — goes to the model as-is.
+                **event.get("attributes", {}),
             }
             for event in strongest
         ],
@@ -97,7 +101,9 @@ def build_digest(
 
 def build_prompt(digest: Dict[str, Any]) -> str:
     return (
-        "Analyse this earthquake dataset and answer in the required JSON shape.\n\n"
+        "Analyse this dataset of {0} events and answer in the required JSON shape.\n\n".format(
+            digest["dataset"]["kind"]
+        )
         + json.dumps(digest, indent=2, default=str)
     )
 

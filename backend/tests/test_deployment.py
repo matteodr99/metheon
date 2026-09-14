@@ -138,7 +138,7 @@ class TestApplySchema:
                     "SELECT string_agg(tablename, ',' ORDER BY tablename) "
                     "FROM pg_tables WHERE schemaname = 'public'"
                 )
-                assert cursor.fetchone()[0] == "datasets,earthquakes,imports"
+                assert cursor.fetchone()[0] == "datasets,events,imports,schema_migrations"
 
     def test_the_entrypoint_does_not_print_the_password(self, capsys):
         from app.db.apply_schema import main
@@ -208,7 +208,7 @@ class TestInlineIngestion:
         feed([make_feature(id="a")])
 
         client.post("/api/datasets/{0}/ingest".format(dataset["id"]))
-        page = client.get("/api/datasets/{0}/earthquakes".format(dataset["id"])).json()
+        page = client.get("/api/datasets/{0}/events".format(dataset["id"])).json()
 
         assert page["total"] == 1
 

@@ -47,10 +47,10 @@ class TestRequestLine:
 
     def test_a_refused_request_logs_its_true_status(self, client, caplog):
         with caplog.at_level(logging.INFO, logger="app.api"):
-            client.get("/api/datasets/999/earthquakes")
+            client.get("/api/datasets/999/events")
 
         assert any(
-            "GET /api/datasets/999/earthquakes 404 " in r.getMessage()
+            "GET /api/datasets/999/events 404 " in r.getMessage()
             for r in caplog.records
         )
 

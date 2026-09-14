@@ -90,16 +90,17 @@ class TestTheDescriptionMatchesReality:
             "/api/datasets", json={"name": "Quakes", "source": "usgs"}
         ).json()
 
-        assert set(created) == {"id", "name", "source", "description", "created_at", "status"}
+        assert set(created) == {"id", "name", "source", "description", "created_at", "status", "kind"}
+        assert created["kind"] == "earthquake"
 
     def test_a_page_of_events_matches_its_model(self, client, dataset):
-        body = client.get("/api/datasets/{0}/earthquakes".format(dataset["id"])).json()
+        body = client.get("/api/datasets/{0}/events".format(dataset["id"])).json()
 
         assert set(body) == {"dataset_id", "total", "limit", "offset", "filters", "items"}
 
     def test_a_summary_matches_its_model(self, client, dataset):
         body = client.get(
-            "/api/datasets/{0}/earthquakes/summary".format(dataset["id"])
+            "/api/datasets/{0}/events/summary".format(dataset["id"])
         ).json()
 
         assert set(body["magnitude"]) == {"min", "max", "average", "unknown"}

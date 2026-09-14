@@ -1,4 +1,4 @@
-"""Database access for datasets and earthquakes.
+"""Database access for datasets and events.
 
 Route handlers should call these helpers instead of writing SQL inline, so
 queries stay in one place as the project grows.
@@ -7,40 +7,46 @@ queries stay in one place as the project grows.
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
+from psycopg.types.json import Jsonb
+
 STATUS_PENDING = "pending"
 STATUS_QUEUED = "queued"
 STATUS_PROCESSING = "processing"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
 
-_UPSERT_EARTHQUAKE = """
-    INSERT INTO earthquakes (
-        dataset_id, external_id, magnitude, magnitude_type, place, event_type,
-        occurred_at, source_updated_at, longitude, latitude, depth_km,
-        tsunami, significance, url
+_UPSERT_EVENT = """
+    INSERT INTO events (
+        dataset_id, external_id, title, event_type, occurred_at, ended_at,
+        source_updated_at, longitude, latitude, geometry, magnitude,
+        magnitude_unit, attributes, url
     )
     VALUES (
-        %(dataset_id)s, %(external_id)s, %(magnitude)s, %(magnitude_type)s,
-        %(place)s, %(event_type)s, %(occurred_at)s, %(source_updated_at)s,
-        %(longitude)s, %(latitude)s, %(depth_km)s, %(tsunami)s,
-        %(significance)s, %(url)s
+        %(dataset_id)s, %(external_id)s, %(title)s, %(event_type)s,
+        %(occurred_at)s, %(ended_at)s, %(source_updated_at)s,
+        %(longitude)s, %(latitude)s, %(geometry)s, %(magnitude)s,
+        %(magnitude_unit)s, %(attributes)s, %(url)s
     )
     ON CONFLICT (dataset_id, external_id) DO UPDATE SET
-        magnitude = EXCLUDED.magnitude,
-        magnitude_type = EXCLUDED.magnitude_type,
-        place = EXCLUDED.place,
+        title = EXCLUDED.title,
         event_type = EXCLUDED.event_type,
         occurred_at = EXCLUDED.occurred_at,
+        ended_at = EXCLUDED.ended_at,
         source_updated_at = EXCLUDED.source_updated_at,
         longitude = EXCLUDED.longitude,
         latitude = EXCLUDED.latitude,
-        depth_km = EXCLUDED.depth_km,
-        tsunami = EXCLUDED.tsunami,
-        significance = EXCLUDED.significance,
+        geometry = EXCLUDED.geometry,
+        magnitude = EXCLUDED.magnitude,
+        magnitude_unit = EXCLUDED.magnitude_unit,
+        attributes = EXCLUDED.attributes,
         url = EXCLUDED.url,
         ingested_at = CURRENT_TIMESTAMP
     RETURNING (xmax = 0) AS inserted
 """
+
+# What a record may leave out. A source that has no duration, no shape
+# beyond the point and nothing kind-specific need not say so.
+_EVENT_DEFAULTS = {"ended_at": None, "geometry": None, "attributes": {}}
 
 
 def _to_float(value: Any) -> Optional[float]:
@@ -68,7 +74,7 @@ def list_datasets(connection) -> List[Dict[str, Any]]:
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, name, source, description, created_at, status
+            SELECT id, name, source, description, created_at, status, kind
             FROM datasets
             ORDER BY id
             """
@@ -94,7 +100,7 @@ def create_dataset(
             """
             INSERT INTO datasets (name, source, description)
             VALUES (%s, %s, %s)
-            RETURNING id, name, source, description, created_at, status
+            RETURNING id, name, source, description, created_at, status, kind
             """,
             (name, source, description),
         )
@@ -111,6 +117,7 @@ def _dataset_from_row(row) -> Dict[str, Any]:
         "description": row[3],
         "created_at": row[4],
         "status": row[5],
+        "kind": row[6],
     }
 
 
@@ -119,7 +126,7 @@ def get_dataset(connection, dataset_id: int) -> Optional[Dict[str, Any]]:
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, name, source, description, created_at, status
+            SELECT id, name, source, description, created_at, status, kind
             FROM datasets
             WHERE id = %s
             """,
@@ -142,12 +149,12 @@ def set_dataset_status(connection, dataset_id: int, status: str) -> None:
         )
 
 
-def upsert_earthquakes(
+def upsert_events(
     connection,
     dataset_id: int,
     records: List[Dict[str, Any]],
 ) -> Tuple[int, int]:
-    """Insert or update earthquakes, keyed by dataset and source id.
+    """Insert or update events, keyed by dataset and source id.
 
     Returns the `(inserted, updated)` counts. Re-running an ingestion is
     therefore idempotent: an event already stored is refreshed in place
@@ -164,9 +171,14 @@ def upsert_earthquakes(
     if not records:
         return inserted, updated
 
-    parameters = [dict(record, dataset_id=dataset_id) for record in records]
+    parameters = []
+    for record in records:
+        row = dict(_EVENT_DEFAULTS, **record, dataset_id=dataset_id)
+        row["attributes"] = Jsonb(row["attributes"] or {})
+        row["geometry"] = None if row["geometry"] is None else Jsonb(row["geometry"])
+        parameters.append(row)
     with connection.cursor() as cursor:
-        cursor.executemany(_UPSERT_EARTHQUAKE, parameters, returning=True)
+        cursor.executemany(_UPSERT_EVENT, parameters, returning=True)
         while True:
             row = cursor.fetchone()
             if row is not None and row[0]:
@@ -179,10 +191,10 @@ def upsert_earthquakes(
     return inserted, updated
 
 
-# Filters accepted by the earthquake queries, mapped to their SQL condition.
+# Filters accepted by the event queries, mapped to their SQL condition.
 # An event with a NULL magnitude cannot satisfy a magnitude bound, and SQL
 # already drops it: NULL >= 2 is NULL, not true.
-EARTHQUAKE_FILTERS = (
+EVENT_FILTERS = (
     ("min_magnitude", "magnitude >= %(min_magnitude)s"),
     ("max_magnitude", "magnitude <= %(max_magnitude)s"),
     ("start_time", "occurred_at >= %(start_time)s"),
@@ -195,21 +207,21 @@ EARTHQUAKE_FILTERS = (
 )
 
 
-def _earthquake_where(dataset_id: int, filters: Optional[Dict[str, Any]]):
+def _event_where(dataset_id: int, filters: Optional[Dict[str, Any]]):
     """Build the WHERE clause shared by the count and the listing.
 
     Both must use the same conditions: a total that ignored the filters
     would make the reported page count wrong.
 
     The returned clause is assembled from the constant strings in
-    EARTHQUAKE_FILTERS and never from user input; every value travels as a
+    EVENT_FILTERS and never from user input; every value travels as a
     query parameter. The string formatting at the call sites is therefore
     safe, and must stay that way.
     """
     conditions = ["dataset_id = %(dataset_id)s"]
     parameters = {"dataset_id": dataset_id}
 
-    for name, condition in EARTHQUAKE_FILTERS:
+    for name, condition in EVENT_FILTERS:
         value = (filters or {}).get(name)
         if value is not None:
             conditions.append(condition)
@@ -218,17 +230,17 @@ def _earthquake_where(dataset_id: int, filters: Optional[Dict[str, Any]]):
     return " AND ".join(conditions), parameters
 
 
-def count_earthquakes(
+def count_events(
     connection,
     dataset_id: int,
     filters: Optional[Dict[str, Any]] = None,
 ) -> int:
-    """Return how many earthquakes match, for a dataset."""
-    where, parameters = _earthquake_where(dataset_id, filters)
+    """Return how many events match, for a dataset."""
+    where, parameters = _event_where(dataset_id, filters)
 
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT count(*) FROM earthquakes WHERE {0}".format(where),
+            "SELECT count(*) FROM events WHERE {0}".format(where),
             parameters,
         )
         row = cursor.fetchone()
@@ -236,25 +248,25 @@ def count_earthquakes(
     return row[0] if row is not None else 0
 
 
-def list_earthquakes(
+def list_events(
     connection,
     dataset_id: int,
     limit: int,
     offset: int,
     filters: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Return a page of matching earthquakes, most recent first."""
-    where, parameters = _earthquake_where(dataset_id, filters)
+    """Return a page of matching events, most recent first."""
+    where, parameters = _event_where(dataset_id, filters)
     parameters["limit"] = limit
     parameters["offset"] = offset
 
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT id, external_id, magnitude, magnitude_type, place,
-                   event_type, occurred_at, longitude, latitude, depth_km,
-                   tsunami, significance, url
-            FROM earthquakes
+            SELECT id, external_id, title, event_type, occurred_at, ended_at,
+                   source_updated_at, longitude, latitude, geometry,
+                   magnitude, magnitude_unit, attributes, url
+            FROM events
             WHERE {0}
             ORDER BY occurred_at DESC, id DESC
             LIMIT %(limit)s OFFSET %(offset)s
@@ -263,24 +275,26 @@ def list_earthquakes(
         )
         rows = cursor.fetchall()
 
-    return [
-        {
-            "id": row[0],
-            "external_id": row[1],
-            "magnitude": _to_float(row[2]),
-            "magnitude_type": row[3],
-            "place": row[4],
-            "event_type": row[5],
-            "occurred_at": row[6],
-            "longitude": _to_float(row[7]),
-            "latitude": _to_float(row[8]),
-            "depth_km": _to_float(row[9]),
-            "tsunami": row[10],
-            "significance": row[11],
-            "url": row[12],
-        }
-        for row in rows
-    ]
+    return [_event_from_row(row) for row in rows]
+
+
+def _event_from_row(row) -> Dict[str, Any]:
+    return {
+        "id": row[0],
+        "external_id": row[1],
+        "title": row[2],
+        "event_type": row[3],
+        "occurred_at": row[4],
+        "ended_at": row[5],
+        "source_updated_at": row[6],
+        "longitude": _to_float(row[7]),
+        "latitude": _to_float(row[8]),
+        "geometry": row[9],
+        "magnitude": _to_float(row[10]),
+        "magnitude_unit": row[11],
+        "attributes": row[12] or {},
+        "url": row[13],
+    }
 
 
 def create_import(connection, dataset_id: int, feed_url: str) -> int:
@@ -474,7 +488,7 @@ def start_import(connection, import_id: int) -> None:
         )
 
 
-def earthquake_points(
+def event_points(
     connection,
     dataset_id: int,
     limit: int,
@@ -487,14 +501,14 @@ def earthquake_points(
     smallest events: a map that dropped the strongest ones would mislead.
     Events without a magnitude come last for the same reason.
     """
-    where, parameters = _earthquake_where(dataset_id, filters)
+    where, parameters = _event_where(dataset_id, filters)
     parameters["limit"] = limit
 
     with connection.cursor() as cursor:
         cursor.execute(
             """
             SELECT longitude, latitude, magnitude, id
-            FROM earthquakes
+            FROM events
             WHERE {0}
             ORDER BY magnitude DESC NULLS LAST, occurred_at DESC
             LIMIT %(limit)s
@@ -517,9 +531,9 @@ _DISTANCE_KM = """
     ))
 """
 
-_EVENT_COLUMNS = (
-    "id", "external_id", "magnitude", "magnitude_type", "place",
-    "occurred_at", "longitude", "latitude", "depth_km",
+_MATCH_COLUMNS = (
+    "id", "external_id", "title", "occurred_at", "longitude", "latitude",
+    "magnitude", "magnitude_unit", "attributes",
 )
 
 # One row per event of the filtered dataset that has a partner in the other
@@ -528,14 +542,14 @@ _EVENT_COLUMNS = (
 # latitude gap before the distance, so the exact formula runs on few rows.
 _MATCH_PAIRS = """
     WITH mine AS (
-        SELECT {columns} FROM earthquakes WHERE {where}
+        SELECT {columns} FROM events WHERE {where}
     ),
     candidates AS (
         SELECT {a_columns}, {b_columns},
                EXTRACT(EPOCH FROM (b.occurred_at - a.occurred_at)) AS delta_seconds,
                {distance} AS distance_km
         FROM mine a
-        JOIN earthquakes b
+        JOIN events b
           ON b.dataset_id = %(other_id)s
          AND b.occurred_at BETWEEN a.occurred_at - %(window_seconds)s * INTERVAL '1 second'
                                AND a.occurred_at + %(window_seconds)s * INTERVAL '1 second'
@@ -552,23 +566,24 @@ _MATCH_PAIRS = """
 
 def _match_query() -> str:
     return _MATCH_PAIRS.format(
-        columns=", ".join(_EVENT_COLUMNS),
-        a_columns=", ".join("a.{0} AS a_{0}".format(c) for c in _EVENT_COLUMNS),
-        b_columns=", ".join("b.{0} AS b_{0}".format(c) for c in _EVENT_COLUMNS),
+        columns=", ".join(_MATCH_COLUMNS),
+        a_columns=", ".join("a.{0} AS a_{0}".format(c) for c in _MATCH_COLUMNS),
+        b_columns=", ".join("b.{0} AS b_{0}".format(c) for c in _MATCH_COLUMNS),
         distance=_DISTANCE_KM,
         where="{where}",
     )
 
 
 def _matched_event(row, offset: int) -> Dict[str, Any]:
-    values = row[offset : offset + len(_EVENT_COLUMNS)]
-    event = dict(zip(_EVENT_COLUMNS, values))
-    for column in ("magnitude", "longitude", "latitude", "depth_km"):
+    values = row[offset : offset + len(_MATCH_COLUMNS)]
+    event = dict(zip(_MATCH_COLUMNS, values))
+    for column in ("magnitude", "longitude", "latitude"):
         event[column] = _to_float(event[column])
+    event["attributes"] = event["attributes"] or {}
     return event
 
 
-def match_earthquakes(
+def match_events(
     connection,
     dataset_id: int,
     other_id: int,
@@ -584,7 +599,7 @@ def match_earthquakes(
     space, and the deltas are the point. Returns the pair count and the
     mean deltas over every pair, plus the strongest `limit` pairs.
     """
-    where, parameters = _earthquake_where(dataset_id, filters)
+    where, parameters = _event_where(dataset_id, filters)
     parameters.update(
         other_id=other_id,
         window_seconds=window_seconds,
@@ -618,7 +633,7 @@ def match_earthquakes(
         )
         rows = cursor.fetchall()
 
-    width = len(_EVENT_COLUMNS)
+    width = len(_MATCH_COLUMNS)
     pairs = []
     for row in rows:
         event = _matched_event(row, 0)
@@ -647,7 +662,7 @@ def match_earthquakes(
     }
 
 
-def strongest_earthquakes(
+def strongest_events(
     connection,
     dataset_id: int,
     limit: int,
@@ -659,14 +674,15 @@ def strongest_earthquakes(
     about the same events the reader is looking at. Events with no magnitude
     cannot rank and are left out.
     """
-    where, parameters = _earthquake_where(dataset_id, filters)
+    where, parameters = _event_where(dataset_id, filters)
     parameters["limit"] = limit
 
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT external_id, magnitude, place, event_type, occurred_at, depth_km
-            FROM earthquakes
+            SELECT external_id, magnitude, magnitude_unit, title, event_type,
+                   occurred_at, attributes
+            FROM events
             WHERE {0} AND magnitude IS NOT NULL
             ORDER BY magnitude DESC, occurred_at DESC
             LIMIT %(limit)s
@@ -679,21 +695,22 @@ def strongest_earthquakes(
         {
             "external_id": row[0],
             "magnitude": _to_float(row[1]),
-            "place": row[2],
-            "event_type": row[3],
-            "occurred_at": row[4],
-            "depth_km": _to_float(row[5]),
+            "magnitude_unit": row[2],
+            "title": row[3],
+            "event_type": row[4],
+            "occurred_at": row[5],
+            "attributes": row[6] or {},
         }
         for row in rows
     ]
 
 
-def summarize_earthquakes(
+def summarize_events(
     connection,
     dataset_id: int,
     filters: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Aggregate the matching earthquakes.
+    """Aggregate the matching events.
 
     Uses the same WHERE clause as the listing, so a summary always describes
     exactly the events the listing would return.
@@ -701,7 +718,7 @@ def summarize_earthquakes(
     Days are UTC calendar days: event times are stored as naive UTC, so no
     conversion is applied.
     """
-    where, parameters = _earthquake_where(dataset_id, filters)
+    where, parameters = _event_where(dataset_id, filters)
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -710,7 +727,7 @@ def summarize_earthquakes(
                    count(*) FILTER (WHERE magnitude IS NULL),
                    min(magnitude), max(magnitude), avg(magnitude),
                    min(occurred_at), max(occurred_at)
-            FROM earthquakes
+            FROM events
             WHERE {0}
             """.format(where),
             parameters,
@@ -720,7 +737,7 @@ def summarize_earthquakes(
         cursor.execute(
             """
             SELECT event_type, count(*)
-            FROM earthquakes
+            FROM events
             WHERE {0}
             GROUP BY event_type
             ORDER BY count(*) DESC, event_type
@@ -732,7 +749,7 @@ def summarize_earthquakes(
         cursor.execute(
             """
             SELECT occurred_at::date AS day, count(*)
-            FROM earthquakes
+            FROM events
             WHERE {0}
             GROUP BY day
             ORDER BY day

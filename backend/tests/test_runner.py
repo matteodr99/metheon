@@ -47,7 +47,7 @@ class TestSuccessfulRun:
         assert (result["fetched"], result["valid"]) == (2, 2)
         assert (result["inserted"], result["updated"]) == (2, 0)
         with db() as connection:
-            assert repository.count_earthquakes(connection, queued_run["dataset_id"]) == 2
+            assert repository.count_events(connection, queued_run["dataset_id"]) == 2
 
     def test_the_run_is_marked_completed(self, db, queued_run, feed):
         feed([make_feature(id="a")])
@@ -81,7 +81,7 @@ class TestSuccessfulRun:
 
         assert (result["inserted"], result["updated"]) == (0, 1)
         with db() as connection:
-            assert repository.count_earthquakes(connection, queued_run["dataset_id"]) == 1
+            assert repository.count_events(connection, queued_run["dataset_id"]) == 1
 
     def test_invalid_features_are_counted_and_sampled(self, db, queued_run, feed):
         """A completed run with rejections must still say why."""
@@ -135,7 +135,7 @@ class TestFailedRun:
             runner.run_import(queued_run["import_id"])
 
         with db() as connection:
-            assert repository.count_earthquakes(connection, queued_run["dataset_id"]) == 0
+            assert repository.count_events(connection, queued_run["dataset_id"]) == 0
 
     def test_an_unexpected_error_is_also_recorded(self, db, queued_run, feed):
         feed(error=ValueError("something else"))

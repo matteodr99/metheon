@@ -62,7 +62,7 @@ INIT_SQL = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "app", "db", "init.sql"
 )
 
-TABLES = ("earthquakes", "imports", "datasets")
+TABLES = ("events", "imports", "datasets")
 
 
 def _admin_dsn():
