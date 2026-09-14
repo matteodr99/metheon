@@ -1,6 +1,7 @@
 # Metheon
 
 [![CI](https://github.com/matteodr99/metheon/actions/workflows/ci.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ci.yml)
+[![Ingest](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml)
 
 A cloud-native platform for ingesting, processing, and analyzing public datasets.
 
