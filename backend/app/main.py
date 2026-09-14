@@ -3,13 +3,15 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import psycopg
 
 from app.db.database import get_connection
 from app.db import repository
 from app import jobs
-from app.ingestion import sources
+from app import settings
+from app.ingestion import IngestionError, runner, sources
 from app import schemas
 from app.ai import AIError, gemini, insights
 from app.schemas import DatasetCreate
@@ -33,7 +35,8 @@ QUIET_PATHS = frozenset({"/api/health", "/api/health/live"})
 async def lifespan(app: FastAPI):
     """Configure logging when the server starts, not when the module loads."""
     configure_logging()
-    logger.info("api started")
+    # A typo here should stop the process now, not fail the first ingest.
+    logger.info("api started, ingestion mode %s", settings.ingestion_mode())
     yield
     logger.info("api stopping")
 
@@ -54,6 +57,22 @@ app = FastAPI(
         {"name": "insights", "description": "What Gemini makes of a dataset. Off until a key is set."},
     ],
 )
+
+def configure_cors(application: FastAPI, origins: list) -> None:
+    """Allow browsers on `origins` to call the API. Nothing is added for an
+    empty list, so development — one origin through the Vite proxy — is
+    untouched."""
+    if origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+        )
+
+
+configure_cors(app, settings.cors_origins())
+
 
 # The refusals a client can meet, declared once and attached per route.
 NOT_FOUND = {404: {"model": schemas.Problem, "description": "No such dataset."}}
@@ -228,8 +247,10 @@ def readiness(response: Response):
     and never a 500 — an unreachable database is "not ready", not "broken".
     """
     database_ok = _database_answers()
-    queue_ok = jobs.ping()
-    ready = database_ok and queue_ok
+    # With no worker there is no queue to be ready; asking would keep a
+    # deployment marked unhealthy forever. Reported as null, not false.
+    queue_ok = jobs.ping() if settings.ingestion_mode() == "queue" else None
+    ready = database_ok and queue_ok is not False
 
     if not ready:
         response.status_code = 503
@@ -448,45 +469,55 @@ def get_dataset_insights(
 @app.post(
     "/api/datasets/{dataset_id}/ingest",
     tags=["datasets"],
-    status_code=202,
-    response_model=schemas.IngestAccepted,
-    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+    response_model=schemas.ImportRun,
+    responses={
+        202: {"model": schemas.ImportRun, "description": "Queued; a worker will run it."},
+        **NOT_FOUND,
+        **INVALID,
+        **UNAVAILABLE,
+        **UPSTREAM,
+    },
 )
-def ingest_dataset(dataset_id: int):
-    """Queue an ingestion run for this dataset.
+def ingest_dataset(dataset_id: int, response: Response):
+    """Ingest the dataset's source feed, and answer with the run.
 
-    The request returns as soon as the run is queued; a worker picks it up
-    and does the work. Follow its progress through
-    `GET /api/datasets/{id}/imports`, or the dataset status.
+    In `queue` mode the run is handed to Redis and a worker, and this
+    answers 202 with the run still queued; follow it through
+    `GET /api/datasets/{id}/imports`. In `inline` mode there is no worker,
+    the run happens inside this request, and the answer is 200 with the run
+    finished. Same body either way: the row from the import history.
     """
     with get_connection() as connection:
         dataset = _get_dataset_or_404(connection, dataset_id)
 
-    # A dataset created before sources were validated could name one the
-    # registry does not know; that is reported here rather than left to
-    # fail inside the worker.
     feed_url = _get_source_or_422(dataset["source"]).default_feed_url
 
     with get_connection() as connection:
         import_id = repository.create_import(connection, dataset_id, feed_url)
 
-    try:
-        jobs.enqueue_import(import_id)
-    except jobs.QueueError as exc:
-        # The run exists in the history, so a queue outage is visible there
-        # rather than being silently swallowed.
-        logger.warning("import %s: could not queue, %s", import_id, exc)
-        with get_connection() as connection:
-            repository.fail_import(connection, import_id, str(exc))
-        _set_status(dataset_id, repository.STATUS_FAILED)
-        raise HTTPException(status_code=503, detail=str(exc))
+    if settings.ingestion_mode() == "inline":
+        try:
+            runner.run_import(import_id)
+        except IngestionError as exc:
+            # The runner has already recorded the failure on the run.
+            logger.warning("import %s: failed inline, %s", import_id, exc)
+            raise HTTPException(status_code=502, detail=str(exc))
+        logger.info("import %s: completed inline for dataset %s", import_id, dataset_id)
+        response.status_code = 200
+    else:
+        try:
+            jobs.enqueue_import(import_id)
+        except jobs.QueueError as exc:
+            # The run exists in the history, so a queue outage is visible there
+            # rather than being silently swallowed.
+            logger.warning("import %s: could not queue, %s", import_id, exc)
+            with get_connection() as connection:
+                repository.fail_import(connection, import_id, str(exc))
+            _set_status(dataset_id, repository.STATUS_FAILED)
+            raise HTTPException(status_code=503, detail=str(exc))
+        _set_status(dataset_id, repository.STATUS_QUEUED)
+        logger.info("import %s: queued for dataset %s", import_id, dataset_id)
+        response.status_code = 202
 
-    _set_status(dataset_id, repository.STATUS_QUEUED)
-    logger.info("import %s: queued for dataset %s", import_id, dataset_id)
-
-    return {
-        "import_id": import_id,
-        "dataset_id": dataset_id,
-        "status": repository.STATUS_QUEUED,
-        "feed_url": feed_url,
-    }
+    with get_connection() as connection:
+        return repository.get_import_row(connection, import_id)

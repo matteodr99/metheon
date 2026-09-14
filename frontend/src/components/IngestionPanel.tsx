@@ -92,12 +92,18 @@ export function IngestionPanel({
     setStarting(true)
     setError(null)
     try {
-      await startIngestion(datasetId)
-      // Re-read straight away so the queued run shows up without waiting
-      // for the next poll; the effect then takes over.
+      const started = await startIngestion(datasetId)
+      // Re-read straight away so the run shows up without waiting for the
+      // next poll; the effect then takes over.
       const page = await fetchImports(datasetId, HISTORY_SIZE)
       setRuns(page.items)
       wasActive.current = page.items[0] !== undefined && isActive(page.items[0])
+      // Without a worker the API runs the ingestion inside the request and
+      // hands back a finished run. It was never active, so the poll would
+      // never see it finish: report it here instead.
+      if (!isActive(started)) {
+        onRunFinished()
+      }
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {

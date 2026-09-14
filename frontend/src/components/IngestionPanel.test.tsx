@@ -30,8 +30,9 @@ function mockImports(initial: ImportRun[]) {
             json: async () => ({ detail: state.postError }),
           } as Response
         }
-        state.runs = [makeImportRun({ id: 99, status: 'queued', started_at: null, finished_at: null, fetched: 0, updated: 0 }), ...state.runs]
-        return { ok: true, status: 202, json: async () => ({ import_id: 99, dataset_id: 1, status: 'queued' }) } as Response
+        const queued = makeImportRun({ id: 99, status: 'queued', started_at: null, finished_at: null, fetched: 0, updated: 0 })
+        state.runs = [queued, ...state.runs]
+        return { ok: true, status: 202, json: async () => queued } as Response
       }
       return {
         ok: true,
@@ -129,6 +130,55 @@ describe('starting a run', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('redis down')
     expect(screen.getByRole('button', { name: 'Ingest now' })).toBeEnabled()
+  })
+})
+
+describe('when the API runs the ingestion inline', () => {
+  it('reports the run finished straight away, since no poll will see it', async () => {
+    /**
+     * A deployment with no worker answers POST /ingest with the run
+     * already completed. It was never active, so the active→final
+     * transition the poll watches for never happens; the panel must
+     * report it from the response itself.
+     */
+    const finished = makeImportRun({ id: 42, status: 'completed' })
+    const state = { runs: [] as ImportRun[] }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          state.runs = [finished]
+          return { ok: true, status: 200, json: async () => finished } as Response
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ dataset_id: 1, total: state.runs.length, limit: 5, offset: 0, filters: {}, items: state.runs }),
+        } as Response
+      }),
+    )
+    const onRunFinished = vi.fn()
+    const user = userEvent.setup()
+
+    render(<IngestionPanel datasetId={1} onRunFinished={onRunFinished} />)
+    await user.click(await screen.findByRole('button', { name: 'Ingest now' }))
+
+    await screen.findByText(/2155 fetched/)
+    expect(onRunFinished).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not double-report a queued run', async () => {
+    /** In queue mode the poll reports it; the response must not also. */
+    const { state } = mockImports([])
+    const onRunFinished = vi.fn()
+    const user = userEvent.setup()
+
+    render(<IngestionPanel datasetId={1} onRunFinished={onRunFinished} />)
+    await user.click(await screen.findByRole('button', { name: 'Ingest now' }))
+    await screen.findByText('Queued, waiting for a worker')
+
+    expect(state.posts).toBe(1)
+    expect(onRunFinished).not.toHaveBeenCalled()
   })
 })
 

@@ -33,9 +33,14 @@ sees a single origin and the backend needs no CORS configuration. Start the
 API separately, as described in the project README. To talk to the Kind
 cluster instead, set `VITE_API_PROXY=http://localhost:8080`.
 
-The proxy is a development-only arrangement. A deployed build will reach the
-API through CORS and a build-time `VITE_API_URL`, neither of which exists
-yet; the hosting plan is recorded in the repository's `CLAUDE.md`.
+The proxy is a development-only arrangement. A deployed build sets
+`VITE_API_URL` at build time — every request is prefixed with it — and the
+API lists the frontend's origin in `CORS_ORIGINS`. Both are empty locally.
+
+`startIngestion` returns the run itself. With a worker it comes back
+`queued` and the panel follows it; on a host with no worker
+(`INGESTION_MODE=inline`) it comes back finished, and the panel reports it
+straight away, since no poll would ever see it change.
 
 ## Structure
 

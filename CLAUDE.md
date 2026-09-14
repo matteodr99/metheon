@@ -73,25 +73,29 @@ Metheon uses none of Supabase's extras around Postgres.
 
 **No free PaaS runs a background worker.** Render and Koyeb both charge for
 worker services. The queue and the worker therefore stay the local
-development and Kind architecture, and production ingests inline: a planned
-`INGESTION_MODE` setting, `queue` by default and `inline` when deployed, will
-make `POST /ingest` call the runner directly and return the result instead
-of queueing it. The runner already exists as a function; ingestion of a
-week's USGS feed was measured at under a second, so it fits in a request.
-The `imports` history and the status transitions are unchanged in both
+development and Kind architecture, and production ingests inline: `INGESTION_MODE`, `queue` by default and
+`inline` when deployed, makes `POST /ingest` call the runner directly and
+answer with the finished run instead of queueing it. A week's USGS feed
+ingests in under a second, so it fits in a request. The `imports` history,
+the status transitions and the response shape are unchanged in both
 modes.
 
-What deployment will touch in the code, all inert locally:
+The code side of this is done (2026-09-14), all of it inert locally:
 
-- CORS on FastAPI with an origin allowlist from the environment, empty by
-  default. The Vite proxy stays for development; a static site on Cloudflare
-  Pages has no proxy, and a public data API should answer from its own origin
-- `VITE_API_URL` read at build time, empty locally
-- `sslmode` in the database connection string, which Neon requires
-- `init.sql` applied to Neon by hand or by a migration step: there is no
-  `docker-entrypoint-initdb.d` there
-- nothing further for the image: `backend/Dockerfile` already serves the
-  API by default and the worker by command
+- `INGESTION_MODE` in `app/settings.py`: `queue` by default, `inline` runs
+  the ingestion inside the request and answers 200 with the finished run.
+  A value that is neither stops the process at startup
+- CORS from `CORS_ORIGINS`, empty by default, in which case no middleware
+  is installed at all — a test asserts `app.user_middleware == []`
+- `POSTGRES_SSLMODE`, appended to the connection string only when set
+- `VITE_API_URL`, read at build time in `frontend/src/api/index.ts`
+- `python -m app.db.apply_schema` applies `init.sql` to whatever database
+  the environment names, for a host with no `docker-entrypoint-initdb.d`
+- `backend/Dockerfile` already serves the API by default
+
+What remains is the accounts and the wiring: Neon, Koyeb, Cloudflare Pages,
+and a scheduled ingestion, since production has no worker to keep the data
+fresh.
 
 ## Repository structure
 
@@ -104,6 +108,7 @@ metheon/
 │   │   ├── __init__.py
 │   │   ├── main.py
 │   │   ├── schemas.py
+│   │   ├── settings.py
 │   │   ├── logging_config.py
 │   │   ├── ai/
 │   │   │   ├── __init__.py
@@ -114,6 +119,7 @@ metheon/
 │   │   ├── db/
 │   │   │   ├── __init__.py
 │   │   │   ├── database.py
+│   │   │   ├── apply_schema.py
 │   │   │   ├── repository.py
 │   │   │   └── init.sql
 │   │   └── ingestion/
@@ -253,7 +259,9 @@ The readiness check. Reports whether PostgreSQL and Redis answer:
 A missing dependency makes the body `degraded` and the response a **503**,
 never a 500: an unreachable database is caught and reported as
 `database: false`. The status code is what probes and load balancers read;
-`degraded` in a 200 would pass for healthy.
+`degraded` in a 200 would pass for healthy. In `inline` mode `queue` is
+`null` and not consulted: there is no Redis on such a host, and asking
+would keep the deployment unready forever.
 
 ### GET /api/health/live
 
@@ -330,8 +338,12 @@ because a chart consumes it in that order.
 
 ### POST /api/datasets/{id}/ingest
 
-Records a queued run in `imports`, pushes its id onto the Redis queue and
-returns `202`. A worker performs the ingestion.
+Records a run in `imports` and answers with that row. In `queue` mode
+(the default) the run is pushed onto Redis and the answer is `202` with the
+run `queued`; a worker performs the ingestion. In `inline` mode
+(`INGESTION_MODE=inline`, for a host with no worker) the runner is called
+inside the request and the answer is `200` with the run `completed`. One
+response shape for both, so a client need not know the mode.
 
 Writes use `ON CONFLICT (external_id) DO UPDATE`, so re-running an ingestion
 refreshes existing events rather than duplicating them.

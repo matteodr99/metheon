@@ -22,10 +22,17 @@ def get_database_url() -> str:
     what the test suite does.
     """
     settings = {key: os.getenv(key, default) for key, default in DEFAULTS.items()}
-    return (
+    url = (
         "host={POSTGRES_HOST} port={POSTGRES_PORT} dbname={POSTGRES_DB} "
         "user={POSTGRES_USER} password={POSTGRES_PASSWORD}".format(**settings)
     )
+    # Unset locally, where Compose's Postgres speaks plain TCP. A hosted
+    # database such as Neon requires "require"; psycopg's own default,
+    # "prefer", would still connect unencrypted if it could.
+    sslmode = os.getenv("POSTGRES_SSLMODE", "").strip()
+    if sslmode:
+        url += " sslmode={0}".format(sslmode)
+    return url
 
 
 def get_connection():

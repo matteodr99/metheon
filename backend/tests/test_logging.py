@@ -119,7 +119,7 @@ class TestWhatGetsLogged:
             body = client.post("/api/datasets/{0}/ingest".format(dataset["id"])).json()
 
         assert any(
-            "import {0}: queued for dataset {1}".format(body["import_id"], dataset["id"])
+            "import {0}: queued for dataset {1}".format(body["id"], dataset["id"])
             == r.getMessage()
             for r in caplog.records
         )
@@ -148,5 +148,5 @@ class TestWhatGetsLogged:
                 pass
 
         messages = [r.getMessage() for r in caplog.records if r.name == "app.api"]
-        assert "api started" in messages
+        assert any(m.startswith("api started") for m in messages)
         assert "api stopping" in messages

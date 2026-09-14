@@ -183,9 +183,9 @@ npm run dev
 The dashboard is then at `http://localhost:5173`. Its dev server proxies
 `/api` to the backend on port 8000, so the browser sees a single origin and
 the API needs no CORS configuration. That proxy is a development arrangement
-only. A deployed frontend will reach the API through CORS and a build-time
-`VITE_API_URL` instead; neither exists yet, and the hosting plan is recorded
-in `CLAUDE.md`.
+only. A deployed build sets `VITE_API_URL` to the API's origin at build
+time, and the API lists the frontend's origin in `CORS_ORIGINS`; both are
+empty locally and nothing changes.
 
 The frontend is optional — the API works on its own.
 
@@ -202,7 +202,11 @@ Expected response:
 ```
 
 `database` confirms that FastAPI connected to PostgreSQL and ran a query;
-`queue` that Redis answers. If either is down, `status` reads `degraded`.
+`queue` that Redis answers — or `null` when `INGESTION_MODE` is `inline`
+and there is no queue to ask, so a deployment without Redis is not marked
+unready forever. If a required dependency is down the body says `degraded`
+and names it, and the response is a **503** — never a 500. An unreachable
+database is "not ready", not "broken".
 
 ## Configuration
 
@@ -231,6 +235,10 @@ project runs out of the box without any configuration.
 | `STALE_RUN_MINUTES` | `15` | A run at `processing` longer than this is failed at worker startup |
 | `LOG_LEVEL` | `INFO` | Log level for the API and the worker |
 | `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
+| `INGESTION_MODE` | `queue` | `queue`: Redis + worker; `inline`: the run happens in the request |
+| `CORS_ORIGINS` | — | Browser origins allowed to call the API; empty locally |
+| `POSTGRES_SSLMODE` | — | `require` for a hosted database such as Neon |
+| `VITE_API_URL` | — | Frontend build-time API origin; empty locally |
 | `GEMINI_API_KEY` | — | Enables insights; absent means off |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Model asked for insights |
 | `GEMINI_TIMEOUT_SECONDS` | `45` | HTTP timeout for the Gemini call |
@@ -600,31 +608,32 @@ header, never in a URL, and never reaches the log.
 
 ### `POST /api/datasets/{id}/ingest`
 
-Queues an ingestion run and returns `202` immediately. A worker picks the job
-up and does the work.
+Ingests the dataset's source feed and answers with the run — the same row
+`GET /api/datasets/{id}/imports` returns.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/datasets/1/ingest
 ```
 
-```json
-{
-  "import_id": 5,
-  "dataset_id": 1,
-  "status": "queued",
-  "feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson"
-}
-```
+How the work happens depends on `INGESTION_MODE`:
 
-Follow the run through `GET /api/datasets/{id}/imports`, watch the worker
-with `docker compose logs -f worker`, or press **Ingest now** in the
-dashboard, which polls the history until the run finishes and then re-reads
-the data. The dataset `status` mirrors the latest
-run: `queued`, then `processing`, then `completed` or `failed`.
+| Mode | Answer | Who does the work |
+| --- | --- | --- |
+| `queue` (default) | `202`, run `queued` | Redis and the worker; follow it through the history |
+| `inline` | `200`, run `completed` | this request; the data is there when it returns |
 
-Requesting an unknown dataset returns `404`. If Redis cannot be reached the
-call returns `503`, and the run is still recorded as `failed` so the outage is
-visible in the history rather than silently swallowed.
+`inline` exists for a deployment with no worker — no free platform runs
+one — and is measured at under a second for a week of USGS data. Locally,
+follow a queued run through `GET /api/datasets/{id}/imports`, watch the
+worker with `docker compose logs -f worker`, or press **Ingest now** in the
+dashboard. The dataset `status` mirrors the latest run: `queued`, then
+`processing`, then `completed` or `failed`.
+
+Requesting an unknown dataset returns `404`. In `queue` mode, if Redis cannot
+be reached the call returns `503`, and the run is still recorded as `failed`
+so the outage is visible in the history rather than silently swallowed. In
+`inline` mode a feed that cannot be fetched returns `502`, with the run
+recorded as `failed` the same way.
 
 ## Database schema
 
@@ -723,6 +732,7 @@ metheon/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
 │   │   ├── schemas.py           # Request and response models, what /docs shows
+│   │   ├── settings.py          # Deployment switches, inert by default
 │   │   ├── ai/
 │   │   │   ├── gemini.py        # The one HTTP call, with a response schema
 │   │   │   └── insights.py      # The digest the model sees, and the prompt
@@ -732,6 +742,7 @@ metheon/
 │   │   ├── db/
 │   │   │   ├── __init__.py
 │   │   │   ├── database.py      # Connection helper, env-based configuration
+│   │   │   ├── apply_schema.py  # init.sql for a database with no initdb.d
 │   │   │   ├── repository.py    # All SQL, kept out of route handlers
 │   │   │   └── init.sql         # Schema, executed on first container start
 │   │   └── ingestion/
@@ -946,6 +957,29 @@ says so.
 Kubernetes has no role in the deployment stack chosen for this project. This
 is local study and demonstration: the manifests, the probes and the
 config/secret split are what they would be anywhere.
+
+### Preparing for a deployment
+
+The code is ready to be deployed without further changes; four settings turn
+the deployment behaviour on, and all of them are off locally:
+
+| Setting | Where | Effect |
+| --- | --- | --- |
+| `INGESTION_MODE=inline` | API host | ingestion runs in the request; no Redis, no worker |
+| `CORS_ORIGINS=https://…` | API host | the frontend's origin may call the API from a browser |
+| `POSTGRES_SSLMODE=require` | API host | the connection to a hosted PostgreSQL is encrypted |
+| `VITE_API_URL=https://…` | frontend build | the built dashboard calls the API on its own origin |
+
+A hosted database has no `docker-entrypoint-initdb.d`; apply the schema
+once with the environment pointed at it:
+
+```bash
+cd backend && python -m app.db.apply_schema
+```
+
+It reads `backend/app/db/init.sql`, so the schema keeps its single source,
+and it is idempotent. The hosting decisions themselves — which platforms,
+and why — are in `CLAUDE.md`.
 
 ### Inspecting the database directly
 

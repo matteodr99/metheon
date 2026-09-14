@@ -28,7 +28,10 @@ class Readiness(BaseModel):
     )
     service: str = Field(examples=["metheon"])
     database: bool = Field(description="PostgreSQL answered a query.")
-    queue: bool = Field(description="Redis answered a ping.")
+    queue: Optional[bool] = Field(
+        description="Redis answered a ping; null when INGESTION_MODE is inline "
+        "and there is no queue to ask."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -159,13 +162,6 @@ class ImportPage(BaseModel):
     limit: int
     offset: int
     items: List[ImportRun]
-
-
-class IngestAccepted(BaseModel):
-    import_id: int
-    dataset_id: int
-    status: str = Field(examples=["queued"])
-    feed_url: str
 
 
 # ---------------------------------------------------------------------------

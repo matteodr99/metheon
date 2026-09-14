@@ -170,7 +170,7 @@ class TestIngestEndpoint:
         body = response.json()
         assert body["status"] == "queued"
         assert body["dataset_id"] == dataset["id"]
-        assert fake_queue.enqueued == [body["import_id"]]
+        assert fake_queue.enqueued == [body["id"]]
 
     def test_the_dataset_moves_to_queued(self, client, dataset):
         client.post("/api/datasets/{0}/ingest".format(dataset["id"]))
@@ -186,7 +186,7 @@ class TestIngestEndpoint:
 
         assert history["total"] == 1
         run = history["items"][0]
-        assert run["id"] == body["import_id"]
+        assert run["id"] == body["id"]
         assert run["status"] == "queued"
         assert run["started_at"] is None
 

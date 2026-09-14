@@ -1,5 +1,12 @@
-// The dev server proxies /api to the backend, so requests are same-origin
-// and no base URL is needed. See vite.config.ts.
+// In development the dev server proxies /api to the backend, so requests
+// are same-origin and the base is empty (see vite.config.ts). A deployed
+// build lives on another domain than the API and sets VITE_API_URL at
+// build time; the backend then needs that origin in CORS_ORIGINS.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
+function api(path: string): string {
+  return `${API_BASE}${path}`
+}
 
 export type DatasetStatus =
   | 'pending'
@@ -126,7 +133,7 @@ export interface Summary {
 }
 
 async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal })
+  const response = await fetch(api(url), { signal })
   if (!response.ok) {
     throw new Error(await describeFailure(response))
   }
@@ -138,7 +145,7 @@ async function postJson<T>(
   signal?: AbortSignal,
   payload?: unknown,
 ): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(api(url), {
     method: 'POST',
     signal,
     ...(payload === undefined
@@ -231,11 +238,16 @@ export function fetchImports(
   )
 }
 
+/**
+ * Start an ingestion and get the run back. With a worker the run comes
+ * back `queued` and must be followed; without one (INGESTION_MODE=inline)
+ * it comes back already finished.
+ */
 export function startIngestion(
   datasetId: number,
   signal?: AbortSignal,
-): Promise<{ import_id: number; dataset_id: number; status: ImportStatus }> {
-  return postJson(`/api/datasets/${datasetId}/ingest`, signal)
+): Promise<ImportRun> {
+  return postJson<ImportRun>(`/api/datasets/${datasetId}/ingest`, signal)
 }
 
 export function fetchSources(signal?: AbortSignal): Promise<Source[]> {

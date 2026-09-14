@@ -383,25 +383,26 @@ def list_imports(
         )
         rows = cursor.fetchall()
 
-    return [
-        {
-            "id": row[0],
-            "dataset_id": row[1],
-            "status": row[2],
-            "feed_url": row[3],
-            "queued_at": row[4],
-            "started_at": row[5],
-            "finished_at": row[6],
-            "fetched": row[7],
-            "valid": row[8],
-            "invalid": row[9],
-            "inserted": row[10],
-            "updated": row[11],
-            "invalid_sample": row[12],
-            "error": row[13],
-        }
-        for row in rows
-    ]
+    return [_import_from_row(row) for row in rows]
+
+
+def _import_from_row(row) -> Dict[str, Any]:
+    return {
+        "id": row[0],
+        "dataset_id": row[1],
+        "status": row[2],
+        "feed_url": row[3],
+        "queued_at": row[4],
+        "started_at": row[5],
+        "finished_at": row[6],
+        "fetched": row[7],
+        "valid": row[8],
+        "invalid": row[9],
+        "inserted": row[10],
+        "updated": row[11],
+        "invalid_sample": row[12],
+        "error": row[13],
+    }
 
 
 def get_import(connection, import_id: int) -> Optional[Dict[str, Any]]:
@@ -426,6 +427,26 @@ def get_import(connection, import_id: int) -> Optional[Dict[str, Any]]:
         "status": row[2],
         "feed_url": row[3],
     }
+
+
+def get_import_row(connection, import_id: int) -> Optional[Dict[str, Any]]:
+    """One run in the same shape list_imports returns."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, dataset_id, status, feed_url, queued_at, started_at,
+                   finished_at, fetched, valid, invalid, inserted, updated,
+                   invalid_sample, error
+            FROM imports
+            WHERE id = %s
+            """,
+            (import_id,),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        return None
+    return _import_from_row(row)
 
 
 def start_import(connection, import_id: int) -> None:
