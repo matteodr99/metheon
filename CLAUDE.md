@@ -143,6 +143,16 @@ Everything is up (2026-09-14):
 Deployment is complete. Nothing above changes how the project runs
 locally, in CI or on Kind.
 
+## Design documents
+
+`docs/design/` holds proposals that are decided before they are built.
+A document there is a plan, not a description: check its status line
+before treating anything in it as implemented.
+
+- `generic-events.md` — from an `earthquakes` table to an `events` table
+  with a kind per dataset, so that non-seismic public data (NASA EONET,
+  GDACS) can be ingested by the same pipeline. Status: proposal.
+
 ## Repository structure
 
 Current structure:
@@ -219,6 +229,9 @@ metheon/
 │   ├── api.yaml
 │   ├── worker.yaml
 │   └── dev.sh
+├── docs/
+│   └── design/
+│       └── generic-events.md
 ├── LICENSE
 ├── .env.example
 ├── .gitignore
@@ -729,7 +742,8 @@ third coordinate of its geometry is an elevation — `-13.0` for 13 km down —
 so `depth_km` comes from the `depth` property, not from `parse_point_feature`;
 a test asserts every captured depth is non-negative. The reporting network
 (`auth`) is dropped: the schema has no column for it, and that is the kind
-of source-specific attribute the generic event model (see below) is for.
+of source-specific attribute the generic event model is for — proposed,
+not built, in `docs/design/generic-events.md`.
 
 The same earthquake appears in several sources with different ids,
 magnitudes and epicentres. Datasets keep their own copies; reconciling

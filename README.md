@@ -14,8 +14,9 @@ Public Data → Ingestion → Processing → PostgreSQL → API → Analytics �
 Metheon is a personal portfolio / open-source project. It works exclusively with
 public datasets and does not handle personal or sensitive user data. The
 pipeline is generic; the schema is not: it stores earthquakes, and a source
-qualifies by publishing them. Other kinds of public data would need a wider
-model, which is a decision for when there is one worth having.
+qualifies by publishing them. Widening it to other kinds of public event is
+designed in [docs/design/generic-events.md](docs/design/generic-events.md)
+and not yet built.
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
