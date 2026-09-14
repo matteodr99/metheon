@@ -983,6 +983,16 @@ It reads `backend/app/db/init.sql`, so the schema keeps its single source,
 and it is idempotent. The hosting decisions themselves — which platforms,
 and why — are in `CLAUDE.md`.
 
+### Where it runs
+
+The API is deployed at `https://metheon.onrender.com`: a free Render web
+service in Frankfurt, built from `backend/Dockerfile`, with
+`INGESTION_MODE=inline` and a Neon PostgreSQL in the same region. Render
+spins a free service down after fifteen minutes without traffic and takes
+about a minute to wake it, so the first request after a pause is slow; the
+ones after it are not. Render hands a service its port through `PORT`, set
+to `8000` to match the Dockerfile. The dashboard is not deployed yet.
+
 ### Inspecting the database directly
 
 ```bash

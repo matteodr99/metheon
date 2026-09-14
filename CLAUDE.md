@@ -59,7 +59,7 @@ row is a free plan, with the limit that plan imposes.
 | Component | Choice | Free-plan limit |
 | --- | --- | --- |
 | Frontend hosting | Cloudflare Pages | 500 builds/month |
-| Backend hosting | Koyeb (Render as fallback) | one web service; sleeps after 1 h idle (Render: 15 min); no free worker |
+| Backend hosting | Render (Koyeb was the first choice, see below) | 750 instance-hours a month; sleeps after 15 min idle and takes about a minute to wake; no free worker |
 | Production database | Neon PostgreSQL | 0.5 GB; suspends after 5 min idle and **resumes on its own** at the next connection |
 | Worker in production | none | see below |
 | Redis in production | none | see below |
@@ -71,7 +71,14 @@ Neon was chosen over Supabase because Supabase's free project pauses after a
 week without traffic and must be restored by hand; Neon's resumes itself.
 Metheon uses none of Supabase's extras around Postgres.
 
-**No free PaaS runs a background worker.** Render and Koyeb both charge for
+Koyeb was chosen first, with Render as the fallback. On 2026-09-14 the
+fallback became the choice: Koyeb was acquired by Mistral in February 2026
+and no longer opens free accounts — a new sign-up lands on a notice page
+with nothing to deploy. Nothing in the code cared; the switch cost one
+environment variable, `PORT=8000`, because Render tells a service which
+port to bind through `PORT` and the Dockerfile binds 8000.
+
+**No free PaaS runs a background worker.** Render, like Koyeb, charges for
 worker services. The queue and the worker therefore stay the local
 development and Kind architecture, and production ingests inline: `INGESTION_MODE`, `queue` by default and
 `inline` when deployed, makes `POST /ingest` call the runner directly and
@@ -93,9 +100,22 @@ The code side of this is done (2026-09-14), all of it inert locally:
   the environment names, for a host with no `docker-entrypoint-initdb.d`
 - `backend/Dockerfile` already serves the API by default
 
-What remains is the accounts and the wiring: Neon, Koyeb, Cloudflare Pages,
-and a scheduled ingestion, since production has no worker to keep the data
-fresh.
+The database and the API are up (2026-09-14):
+
+- Neon, region `eu-central-1`, database `neondb`, schema applied with
+  `apply_schema` from this machine. The first inline ingestion from here
+  took three minutes and led to the batched upsert; see `POST /ingest`
+- Render, region Frankfurt, one Free web service built from
+  `backend/Dockerfile` with root directory `backend`. Its health check is
+  `/api/health/live`, not `/api/health`: a failing check makes Render
+  restart the instance, and a restart does not revive a suspended Neon —
+  the same reason the two endpoints exist. `INGESTION_MODE=inline`; an
+  ingestion of a week's USGS feed answers in under three seconds there.
+  The API is at `https://metheon.onrender.com`
+
+What remains is Cloudflare Pages for the dashboard, after which
+`CORS_ORIGINS` is set on Render, and a scheduled ingestion, since production
+has no worker to keep the data fresh.
 
 ## Repository structure
 
