@@ -24,7 +24,7 @@ public datasets and does not handle personal or sensitive user data.
 
 Currently implemented:
 
-- Python 3.9
+- Python 3.12
 - FastAPI + Uvicorn
 - psycopg 3
 - httpx
@@ -100,7 +100,8 @@ registering it there; the GeoJSON envelope checks are shared in
 
 ## Prerequisites
 
-- Python 3.9
+- Python 3.12 — pinned in `.python-version`, which `pyenv`, `uv` and the CI
+  all read
 - Docker and Docker Compose
 - Git
 - Node 20.19.5, for the frontend only — pinned in `.nvmrc`, so with nvm
@@ -144,7 +145,7 @@ The API itself is not containerized yet and runs locally, as described below.
 ### 3. Create the virtual environment and install dependencies
 
 ```bash
-python3.9 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
@@ -778,7 +779,8 @@ metheon/
 ├── LICENSE                      # MIT
 ├── .env.example
 ├── .gitignore
-├── .nvmrc
+├── .nvmrc                       # Node for the frontend
+├── .python-version              # Python for the backend
 ├── CLAUDE.md                    # Detailed architecture and working notes
 ├── README.md
 └── docker-compose.yml
@@ -788,9 +790,11 @@ metheon/
 
 ### Python version
 
-The project targets **Python 3.9**. Python 3.10+ syntax must not be used unless
-the version is intentionally upgraded — for example, use `Optional[str]` rather
-than `str | None`.
+The project targets **Python 3.12**, pinned in `.python-version`. It started
+on 3.9 and moved when 3.9 left security support in October 2025; the
+upgrade needed no code change, and every pinned dependency already shipped
+3.12 wheels. Modern syntax such as `str | None` is welcome in new code; the
+`Optional[...]` already there is correct and not worth a churn commit.
 
 ### Resetting the database
 
@@ -871,7 +875,7 @@ The process runs as an unprivileged user, `app`. There is no `HEALTHCHECK`
 in the image: probes belong to whatever runs the container, and the worker
 serves no HTTP. The endpoints are `/api/health/live` and `/api/health`.
 
-The image is 282 MB, of which about 225 MB is `python:3.9-slim` itself,
+The image is 296 MB, of which about 240 MB is `python:3.12-slim` itself,
 57 MB the dependencies and 200 kB the code. No compiler is installed, so a
 multi-stage build would have nothing to strip; it was measured and skipped.
 

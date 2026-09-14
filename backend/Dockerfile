@@ -2,7 +2,7 @@
 # from the same image with a different command, since the two share every
 # line of code and every dependency. Two Dockerfiles would be one more thing
 # to keep in step.
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # Unbuffered output so logs reach `docker compose logs` immediately.
 ENV PYTHONUNBUFFERED=1 \

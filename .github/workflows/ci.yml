@@ -43,10 +43,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          # Read from .python-version, so CI and a developer machine cannot
+          # disagree about the interpreter — the same arrangement as .nvmrc.
+          python-version-file: .python-version
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 

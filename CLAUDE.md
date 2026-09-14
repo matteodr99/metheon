@@ -26,7 +26,7 @@ sensitive user data.
 
 ### Already implemented
 
-- Python 3.9
+- Python 3.12
 - FastAPI
 - Uvicorn
 - psycopg 3
@@ -167,6 +167,7 @@ metheon/
 ├── .env.example
 ├── .gitignore
 ├── .nvmrc
+├── .python-version
 ├── README.md
 └── docker-compose.yml
 ```
@@ -201,7 +202,7 @@ docker compose ps
 
 ### Backend
 
-The backend uses a Python 3.9 virtual environment:
+The backend uses a Python 3.12 virtual environment (`.python-version`):
 
 ```text
 .venv/
@@ -501,25 +502,22 @@ worse than a red one.
 
 Keep the workflow honest: a check that cannot fail is not a check.
 
-## Important Python compatibility rule
+## Python version
 
-The current project uses **Python 3.9**.
+The project runs on **Python 3.12**, pinned in `.python-version` — the one
+place CI, the Dockerfile's base image and a developer's tooling all read.
+It began on 3.9 and was upgraded on 2026-09-14, after 3.9 left security
+support; no code changed, all pinned dependencies already had 3.12 wheels,
+and the suite passed unmodified with deprecation warnings treated as errors.
 
-Do not use Python 3.10+ syntax unless the Python version is intentionally upgraded.
+Modern syntax (`str | None`, `match`, `dataclass(slots=True)`) is fine in new
+code. The existing `Optional[...]` annotations are correct and stay; a
+codebase-wide rewrite would be churn for no behaviour.
 
-For example, avoid:
-
-```python
-str | None
-```
-
-Use:
-
-```python
-Optional[str]
-```
-
-when compatibility with Python 3.9 is required.
+When upgrading again: change `.python-version`, the `FROM` line in
+`backend/Dockerfile`, and rebuild the virtualenv **in place** — a venv is not
+relocatable, its scripts carry the absolute path of the interpreter that
+created it.
 
 ## Architecture direction
 
