@@ -155,8 +155,8 @@ before treating anything in it as implemented.
   steps (2026-09-15); kept for the reasoning behind the shape.
 - `time-series.md` — measurements over time (river gauges, air quality):
   stations, series and readings beside the events, a dataset being one
-  shape or the other. Status: proposal, with three open questions for the
-  reader.
+  shape or the other. Status: proposal, parked — no further data for now
+  (decided 2026-09-15); its three open questions are still open.
 
 ## Repository structure
 

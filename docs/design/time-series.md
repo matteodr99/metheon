@@ -1,6 +1,8 @@
 # Design: measurements over time
 
-Status: **proposal**, 2026-09-15. Nothing here is implemented.
+Status: **proposal, parked**, 2026-09-15. Nothing here is implemented, and
+nothing is scheduled: the decision on 2026-09-15 was to add no further data
+for now. The three open questions at the end are still open.
 
 ## Why
 
