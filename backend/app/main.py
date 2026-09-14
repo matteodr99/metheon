@@ -22,6 +22,8 @@ from typing import Any, List, Optional
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
+# Markers a map is asked to draw at most; a week of USGS data is about 2,200.
+MAX_POINTS = 5000
 
 
 logger = logging.getLogger("app.api")
@@ -180,9 +182,19 @@ class EarthquakeFilters:
         start_time: Optional[datetime] = Query(None),
         end_time: Optional[datetime] = Query(None),
         event_type: Optional[str] = Query(None),
+        # A bounding box, in degrees. A box that crosses the antimeridian
+        # would need min_longitude > max_longitude, which is refused as
+        # inverted: not supported, and the bounds say so instead of
+        # matching nothing.
+        min_latitude: Optional[float] = Query(None, ge=-90, le=90),
+        max_latitude: Optional[float] = Query(None, ge=-90, le=90),
+        min_longitude: Optional[float] = Query(None, ge=-180, le=180),
+        max_longitude: Optional[float] = Query(None, ge=-180, le=180),
     ):
         self._reject_inverted(min_magnitude, max_magnitude, "magnitude")
         self._reject_inverted(start_time, end_time, "time")
+        self._reject_inverted(min_latitude, max_latitude, "latitude")
+        self._reject_inverted(min_longitude, max_longitude, "longitude")
 
         self.values = {
             "min_magnitude": min_magnitude,
@@ -190,6 +202,10 @@ class EarthquakeFilters:
             "start_time": start_time,
             "end_time": end_time,
             "event_type": event_type,
+            "min_latitude": min_latitude,
+            "max_latitude": max_latitude,
+            "min_longitude": min_longitude,
+            "max_longitude": max_longitude,
         }
 
     @staticmethod
@@ -386,6 +402,41 @@ def get_dataset_earthquake_summary(
         "dataset_id": dataset_id,
         "filters": filters.applied(),
         **summary,
+    }
+
+
+@app.get(
+    "/api/datasets/{dataset_id}/earthquakes/points",
+    tags=["earthquakes"],
+    response_model=schemas.EarthquakePoints,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
+def get_dataset_earthquake_points(
+    dataset_id: int,
+    limit: int = Query(MAX_POINTS, ge=1, le=MAX_POINTS),
+    filters: EarthquakeFilters = Depends(),
+):
+    """Return the matching events as bare coordinates, for a map.
+
+    Same filters as the listing, but no paging and only what a marker
+    needs: `[longitude, latitude, magnitude, id]` per event. The limit
+    exists because a map wants every matching event and a dataset can
+    outgrow what a browser should draw; when it applies, the strongest
+    events are the ones kept, and `total` says how many matched in all.
+    """
+    with get_connection() as connection:
+        _get_dataset_or_404(connection, dataset_id)
+        total = repository.count_earthquakes(connection, dataset_id, filters.values)
+        points = repository.earthquake_points(
+            connection, dataset_id, limit, filters.values
+        )
+
+    return {
+        "dataset_id": dataset_id,
+        "total": total,
+        "limit": limit,
+        "filters": filters.applied(),
+        "points": points,
     }
 
 

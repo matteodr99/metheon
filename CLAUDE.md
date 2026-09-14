@@ -343,8 +343,12 @@ most recent first.
 
 Query parameters: `limit` (default 50, between 1 and 500), `offset`
 (default 0), and the optional filters `min_magnitude`, `max_magnitude`,
-`start_time`, `end_time` and `event_type`. Bounds are inclusive and filters
-combine with `AND`.
+`start_time`, `end_time`, `event_type`, and a bounding box in
+`min_latitude`, `max_latitude`, `min_longitude`, `max_longitude`. Bounds
+are inclusive and filters combine with `AND`. Latitude is validated to
+−90…90 and longitude to −180…180 by FastAPI; a box crossing the
+antimeridian would be an inverted longitude range and is refused rather
+than supported.
 
 `total` counts the matching events, not the whole dataset: the count and the
 listing share one `WHERE` clause, built in `repository._earthquake_where`. A
@@ -357,6 +361,16 @@ An inverted range returns `422` instead of an empty page. Out-of-range values
 return `422`, an unknown dataset `404`.
 
 Aggregations and charts remain part of Phase 3.
+
+### GET /api/datasets/{id}/earthquakes/points
+
+The matching events as `[longitude, latitude, magnitude, id]`, for the
+map: the listing pages 25 at a time and a map wants every matching event.
+Same `EarthquakeFilters` dependency and the same `WHERE` clause, so the map
+and the table agree. `limit` defaults to and is capped at `MAX_POINTS`
+(5000; a week of USGS is about 2,200), and the query orders by magnitude
+descending with nulls last so that a cut drops the weakest events, never
+the strongest; `total` is the full count regardless.
 
 ### GET /api/datasets/{id}/imports
 

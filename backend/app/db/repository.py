@@ -188,6 +188,10 @@ EARTHQUAKE_FILTERS = (
     ("start_time", "occurred_at >= %(start_time)s"),
     ("end_time", "occurred_at <= %(end_time)s"),
     ("event_type", "event_type = %(event_type)s"),
+    ("min_latitude", "latitude >= %(min_latitude)s"),
+    ("max_latitude", "latitude <= %(max_latitude)s"),
+    ("min_longitude", "longitude >= %(min_longitude)s"),
+    ("max_longitude", "longitude <= %(max_longitude)s"),
 )
 
 
@@ -468,6 +472,38 @@ def start_import(connection, import_id: int) -> None:
             """,
             (STATUS_PROCESSING, import_id),
         )
+
+
+def earthquake_points(
+    connection,
+    dataset_id: int,
+    limit: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> List[List[Any]]:
+    """The matching events as `[longitude, latitude, magnitude, id]`.
+
+    Same WHERE clause as the listing, so a map and the table beside it
+    agree. Ordered by magnitude so that, when the limit cuts, it cuts the
+    smallest events: a map that dropped the strongest ones would mislead.
+    Events without a magnitude come last for the same reason.
+    """
+    where, parameters = _earthquake_where(dataset_id, filters)
+    parameters["limit"] = limit
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT longitude, latitude, magnitude, id
+            FROM earthquakes
+            WHERE {0}
+            ORDER BY magnitude DESC NULLS LAST, occurred_at DESC
+            LIMIT %(limit)s
+            """.format(where),
+            parameters,
+        )
+        rows = cursor.fetchall()
+
+    return [[_to_float(row[0]), _to_float(row[1]), _to_float(row[2]), row[3]] for row in rows]
 
 
 def strongest_earthquakes(

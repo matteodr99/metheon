@@ -448,6 +448,8 @@ Query parameters:
 | `start_time` | — | Earliest event time, inclusive, ISO 8601 |
 | `end_time` | — | Latest event time, inclusive, ISO 8601 |
 | `event_type` | — | Exact match, e.g. `earthquake`, `quarry blast` |
+| `min_latitude`, `max_latitude` | — | Bounding box, inclusive, degrees in −90…90 |
+| `min_longitude`, `max_longitude` | — | Bounding box, inclusive, degrees in −180…180 |
 
 Filters are optional and combine with `AND`:
 
@@ -465,10 +467,40 @@ Two details worth knowing:
   drops it on its own — `NULL >= 2` is null, not true — and that is the
   intended behaviour: an unknown magnitude cannot be said to clear a threshold.
 - A range whose bounds are the wrong way round returns `422` rather than an
-  empty page, which would read as "no data" instead of as a mistake.
+  empty page, which would read as "no data" instead of as a mistake. That
+  includes a bounding box: one crossing the antimeridian would need
+  `min_longitude > max_longitude`, and is not supported.
 
 Out-of-range or unparsable values return `422`. Requesting an unknown dataset
 returns `404`. Aggregations and charts remain part of Phase 3.
+
+### `GET /api/datasets/{id}/earthquakes/points`
+
+The matching events as bare coordinates, for a map: no paging, and only
+what a marker needs.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/1/earthquakes/points?min_magnitude=5"
+```
+
+```json
+{
+  "dataset_id": 1,
+  "total": 3,
+  "limit": 5000,
+  "filters": {"min_magnitude": 5.0},
+  "points": [
+    [162.519, -11.0595, 5.6, 3628],
+    [-70.4, -21.1, 5.2, 3311],
+    [142.1, 38.6, 5.0, 2980]
+  ]
+}
+```
+
+Each point is `[longitude, latitude, magnitude, id]`. Takes the same filters
+as the listing, plus `limit` (default and maximum 5000). Points come
+strongest first, so when the limit cuts it cuts the smallest events and
+`total` still says how many matched; events without a magnitude come last.
 
 ### `GET /api/datasets/{id}/imports`
 

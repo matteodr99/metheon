@@ -6,7 +6,7 @@ hand a client something subtly off.
 """
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -98,6 +98,16 @@ class EarthquakePage(BaseModel):
     offset: int
     filters: Dict[str, Any] = Field(description="Only the filters that were set.")
     items: List[Earthquake]
+
+
+class EarthquakePoints(BaseModel):
+    dataset_id: int
+    total: int = Field(description="Events matching the filters; may exceed the points returned.")
+    limit: int
+    filters: Dict[str, Any] = Field(description="Only the filters that were set.")
+    points: List[Tuple[float, float, Optional[float], int]] = Field(
+        description="[longitude, latitude, magnitude, id] per event, strongest first."
+    )
 
 
 class MagnitudeSummary(BaseModel):
