@@ -18,6 +18,9 @@ public datasets and does not handle personal or sensitive user data. A
 dataset holds events of one kind — earthquakes, wildfires, storms — and the
 same pipeline, filters, map and comparison serve every kind; the design
 behind that is in [docs/design/generic-events.md](docs/design/generic-events.md).
+Measurements over time — river levels, air quality — are the next shape
+of data, designed and not yet built in
+[docs/design/time-series.md](docs/design/time-series.md).
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background

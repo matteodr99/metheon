@@ -153,6 +153,10 @@ before treating anything in it as implemented.
   with a kind per dataset, so that non-seismic public data (NASA EONET,
   GDACS) can be ingested by the same pipeline. Status: **done**, all four
   steps (2026-09-15); kept for the reasoning behind the shape.
+- `time-series.md` — measurements over time (river gauges, air quality):
+  stations, series and readings beside the events, a dataset being one
+  shape or the other. Status: proposal, with three open questions for the
+  reader.
 
 ## Repository structure
 
@@ -237,7 +241,8 @@ metheon/
 │   └── dev.sh
 ├── docs/
 │   └── design/
-│       └── generic-events.md
+│       ├── generic-events.md
+│       └── time-series.md
 ├── LICENSE
 ├── .env.example
 ├── .gitignore
