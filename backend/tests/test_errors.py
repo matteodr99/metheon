@@ -57,19 +57,6 @@ class TestDatabaseDown:
 
 
 class TestUnexpectedFailure:
-    @pytest.fixture
-    def lenient_client(self, db, fake_queue):
-        """A client that hands back 500s instead of re-raising them.
-
-        The default TestClient re-raises server exceptions, which is the
-        right default everywhere else — but here the 500 is the thing under
-        test.
-        """
-        from app.main import app
-
-        with TestClient(app, raise_server_exceptions=False) as test_client:
-            yield test_client
-
     def test_the_client_gets_a_fixed_body_and_no_traceback(
         self, lenient_client, monkeypatch
     ):

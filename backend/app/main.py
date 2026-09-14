@@ -4,26 +4,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 import psycopg
 
 from app.db.database import get_connection
 from app.db import repository
 from app import jobs
 from app.ingestion import sources
+from app import schemas
+from app.schemas import DatasetCreate
 from app.logging_config import configure_logging
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 500
-
-
-class DatasetCreate(BaseModel):
-    name: str
-    source: str
-    description: Optional[str] = None
 
 
 logger = logging.getLogger("app.api")
@@ -42,7 +37,26 @@ async def lifespan(app: FastAPI):
     logger.info("api stopping")
 
 
-app = FastAPI(title="Metheon API", lifespan=lifespan)
+app = FastAPI(
+    title="Metheon API",
+    description=(
+        "Public datasets, ingested and queryable. Today: earthquakes from "
+        "USGS and INGV.\n\n"
+        "Every refusal carries a `detail` sentence saying why."
+    ),
+    lifespan=lifespan,
+    openapi_tags=[
+        {"name": "health", "description": "Readiness and liveness, for probes."},
+        {"name": "sources", "description": "What a dataset can be created for."},
+        {"name": "datasets", "description": "Datasets and their ingestion."},
+        {"name": "earthquakes", "description": "The events stored for a dataset."},
+    ],
+)
+
+# The refusals a client can meet, declared once and attached per route.
+NOT_FOUND = {404: {"model": schemas.Problem, "description": "No such dataset."}}
+INVALID = {422: {"model": schemas.Problem, "description": "The request was refused; `detail` says why."}}
+UNAVAILABLE = {503: {"model": schemas.Problem, "description": "A dependency is down."}}
 
 
 @app.middleware("http")
@@ -186,7 +200,7 @@ def _set_status(dataset_id: int, status: str) -> None:
         repository.set_dataset_status(connection, dataset_id, status)
 
 
-@app.get("/api/health/live")
+@app.get("/api/health/live", tags=["health"], response_model=schemas.Liveness)
 def liveness():
     """Answer as long as the process is running.
 
@@ -197,7 +211,12 @@ def liveness():
     return {"status": "alive", "service": "metheon"}
 
 
-@app.get("/api/health")
+@app.get(
+    "/api/health",
+    tags=["health"],
+    response_model=schemas.Readiness,
+    responses={503: {"model": schemas.Readiness, "description": "A dependency is down; the body says which."}},
+)
 def readiness(response: Response):
     """Report whether the API can serve, and say so in the status code.
 
@@ -228,7 +247,7 @@ def _database_answers() -> bool:
         return False
 
 
-@app.get("/api/sources")
+@app.get("/api/sources", tags=["sources"], response_model=List[schemas.SourceInfo])
 def get_sources():
     """The sources a dataset can be created for."""
     return [
@@ -241,13 +260,23 @@ def get_sources():
     ]
 
 
-@app.get("/api/datasets")
+@app.get(
+    "/api/datasets",
+    tags=["datasets"],
+    response_model=List[schemas.Dataset],
+    responses=UNAVAILABLE,
+)
 def get_datasets():
     with get_connection() as connection:
         return repository.list_datasets(connection)
 
 
-@app.post("/api/datasets")
+@app.post(
+    "/api/datasets",
+    tags=["datasets"],
+    response_model=schemas.Dataset,
+    responses={**INVALID, **UNAVAILABLE},
+)
 def create_dataset(dataset: DatasetCreate):
     """Create a dataset. Its source must be one the platform can ingest.
 
@@ -268,7 +297,12 @@ def create_dataset(dataset: DatasetCreate):
     return created
 
 
-@app.get("/api/datasets/{dataset_id}/earthquakes")
+@app.get(
+    "/api/datasets/{dataset_id}/earthquakes",
+    tags=["earthquakes"],
+    response_model=schemas.EarthquakePage,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
 def get_dataset_earthquakes(
     dataset_id: int,
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
@@ -301,7 +335,12 @@ def get_dataset_earthquakes(
     }
 
 
-@app.get("/api/datasets/{dataset_id}/earthquakes/summary")
+@app.get(
+    "/api/datasets/{dataset_id}/earthquakes/summary",
+    tags=["earthquakes"],
+    response_model=schemas.Summary,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
 def get_dataset_earthquake_summary(
     dataset_id: int,
     filters: EarthquakeFilters = Depends(),
@@ -326,7 +365,12 @@ def get_dataset_earthquake_summary(
     }
 
 
-@app.get("/api/datasets/{dataset_id}/imports")
+@app.get(
+    "/api/datasets/{dataset_id}/imports",
+    tags=["datasets"],
+    response_model=schemas.ImportPage,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
 def get_dataset_imports(
     dataset_id: int,
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
@@ -347,7 +391,13 @@ def get_dataset_imports(
     }
 
 
-@app.post("/api/datasets/{dataset_id}/ingest", status_code=202)
+@app.post(
+    "/api/datasets/{dataset_id}/ingest",
+    tags=["datasets"],
+    status_code=202,
+    response_model=schemas.IngestAccepted,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE},
+)
 def ingest_dataset(dataset_id: int):
     """Queue an ingestion run for this dataset.
 

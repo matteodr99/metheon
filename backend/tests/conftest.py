@@ -203,3 +203,19 @@ def client(db, fake_queue):
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def lenient_client(db, fake_queue):
+    """A client that hands back 500s instead of re-raising them.
+
+    The default TestClient re-raises server exceptions, which is the right
+    default everywhere else — but where the 500 itself is the thing under
+    test, the response is what must be inspected.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client

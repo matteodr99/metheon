@@ -163,7 +163,9 @@ uvicorn app.main:app --reload
 ```
 
 The API is then available at `http://127.0.0.1:8000`, and the interactive
-Swagger UI at `http://127.0.0.1:8000/docs`.
+Swagger UI at `http://127.0.0.1:8000/docs`. Every route there has a named
+response model, its error responses declared, and a tag grouping it with its
+kin — the reference below is the prose version of the same contract.
 
 ### 5. Run the frontend
 
@@ -659,6 +661,7 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
+│   │   ├── schemas.py           # Request and response models, what /docs shows
 │   │   ├── logging_config.py    # One log format for the API and the worker
 │   │   ├── jobs.py              # Redis queue: enqueue, dequeue, health
 │   │   ├── worker.py            # Background worker loop
@@ -847,8 +850,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   covered by tests, CI runs everything on every push, the worker logs its
   work, the API exposes readiness and liveness checks and answers failures
   with the right status, both processes log in one format, abandoned runs
-  are reaped, and one unprivileged image serves both processes;
-  documentation is still open
+  are reaped, one unprivileged image serves both processes, and Swagger
+  describes every response. Done, save for a licence, which is a deliberate
+  open decision rather than a gap
 - [ ] **Phase 6 — Kubernetes:** local cluster, deployments, services, config and
   secrets
 

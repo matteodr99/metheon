@@ -101,6 +101,7 @@ metheon/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py
+│   │   ├── schemas.py
 │   │   ├── logging_config.py
 │   │   ├── jobs.py
 │   │   ├── worker.py
@@ -205,6 +206,20 @@ Swagger UI:
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+## API contract
+
+`app/schemas.py` holds the Pydantic request and response models. Every route
+declares a `response_model`, the error responses it can return (`404`,
+`422`, `503`, all with the one-field `Problem` body) and a tag. That is what
+`/docs` renders, and it is also enforced: FastAPI validates handler output
+against the model, so a wrong shape becomes a 500 rather than JSON that
+merely looks right. `tests/test_openapi.py` walks the generated spec and
+fails if any route loses its model, its tag or a declared error.
+
+Routes that never open a connection — the two health checks and `/sources`
+— do not declare `503`; every other one does, because the handler for a dead
+database applies to all of them.
 
 ## Current API
 
@@ -751,7 +766,7 @@ Prefer structured AI responses where practical, for example:
 - [x] Health/readiness checks
 - [x] Docker optimization
 - [x] GitHub Actions
-- [ ] Documentation
+- [x] Documentation (a licence remains a deliberate open decision)
 
 ### Phase 6 — Kubernetes
 - [ ] Local Kubernetes setup
