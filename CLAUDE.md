@@ -595,6 +595,18 @@ One row per ingestion run, written before the job is enqueued. `queued_at` is
 when the API accepted the run and `started_at` when a worker picked it up. The
 dataset `status` mirrors the status of its latest run.
 
+**Retention.** `settings.retention_days()` (365; `0` keeps everything; a
+bad value stops the process like the other settings) is applied by the
+runner right after the upsert, in the same transaction and connection:
+`repository.prune_events(dataset_id, cutoff)` deletes that dataset's events
+with `occurred_at` before the cutoff and the count is logged at INFO when
+non-zero. On the ingestion rather than on a schedule because production
+has no worker, and scoped to the dataset because a run should touch
+nothing else. Measured on Neon on 2026-09-15: 660 bytes an event with
+indexes, ~3,000 new events a week, so ~100 MB a year on a 500 MB plan —
+the rule exists to make the growth bounded, not because it is near.
+`imports` is not swept.
+
 ## Current local data
 
 During development, dataset id `1` was created:

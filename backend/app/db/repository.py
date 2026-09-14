@@ -4,6 +4,7 @@ Route handlers should call these helpers instead of writing SQL inline, so
 queries stay in one place as the project grows.
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -308,6 +309,21 @@ def list_events(
         rows = cursor.fetchall()
 
     return [_event_from_row(row) for row in rows]
+
+
+def prune_events(connection, dataset_id: int, older_than: datetime) -> int:
+    """Delete a dataset's events that occurred before `older_than`; the count.
+
+    By `occurred_at`, not `ingested_at`: an old event re-sent by a feed is
+    still old. Scoped to one dataset because the sweep runs with that
+    dataset's ingestion and a run should touch nothing else.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM events WHERE dataset_id = %s AND occurred_at < %s",
+            (dataset_id, older_than),
+        )
+        return cursor.rowcount
 
 
 def _event_from_row(row) -> Dict[str, Any]:

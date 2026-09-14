@@ -6,8 +6,10 @@ code would run unchanged if it were ever triggered from somewhere else.
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
+from app import settings
 from app.db import repository
 from app.db.database import get_connection
 from app.ingestion import IngestionError, sources
@@ -104,6 +106,17 @@ def run_import(import_id: int) -> Dict[str, Any]:
             inserted, updated = repository.upsert_events(
                 connection, dataset_id, records
             )
+            # The retention sweep rides on the ingestion: same dataset, same
+            # transaction, no worker needed. Zero days keeps everything.
+            retention = settings.retention_days()
+            if retention > 0:
+                cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention)
+                pruned = repository.prune_events(connection, dataset_id, cutoff)
+                if pruned:
+                    logger.info(
+                        "import %s: pruned %s events of dataset %s older than %s",
+                        import_id, pruned, dataset_id, cutoff.date().isoformat(),
+                    )
     except IngestionError as exc:
         logger.warning("import %s: failed, %s", import_id, exc)
         _fail(import_id, dataset_id, str(exc))

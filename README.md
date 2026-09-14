@@ -311,6 +311,7 @@ project runs out of the box without any configuration.
 | `CORS_ORIGINS` | — | Browser origins allowed to call the API; empty locally |
 | `POSTGRES_SSLMODE` | — | `require` for a hosted database such as Neon |
 | `INGEST_COOLDOWN_MINUTES` | `10` | Minutes a dataset refuses another ingestion after a completed run; `0` disables |
+| `RETENTION_DAYS` | `365` | Days an event is kept after it happened, swept with each ingestion; `0` keeps everything |
 | `VITE_API_URL` | — | Frontend build-time API origin; empty locally |
 | `GEMINI_API_KEY` | — | Enables insights; absent means off |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Model asked for insights |
@@ -850,6 +851,24 @@ Deletes a dataset with its events and its import history, and answers
 `204`. The schema cascades, so nothing is left behind; a run in flight for
 the dataset fails when it next writes and is recorded as such. `404` for an
 unknown dataset. The dashboard's **Delete dataset** button asks first.
+
+### Retention
+
+Every feed is a rolling window of the recent past, so re-ingesting
+refreshes recent events and older ones only ever accumulate: measured on
+the hosted database on 2026-09-15, about 660 bytes per event with its
+indexes and some 3,000 new events a week across six datasets — roughly
+100 MB a year against a free plan's 500. Years, not months, but a database
+that grows without a rule fails on a day nobody chose.
+
+The rule is `RETENTION_DAYS`, 365 by default: at the end of each ingestion
+the run deletes that dataset's events that *occurred* more than that many
+days ago — by when they happened, not when they arrived, so an old event
+re-sent by a feed is still old — and logs how many went. The sweep rides
+on the ingestion so it needs no worker or schedule of its own, and a
+dataset is only ever swept by its own runs. `0` keeps everything. The
+import history is not swept: a run is a few hundred bytes and the
+history is the record of what happened.
 
 ## Database schema
 

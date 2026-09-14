@@ -55,3 +55,22 @@ def ingest_cooldown_minutes() -> int:
     if value < 0:
         raise RuntimeError("INGEST_COOLDOWN_MINUTES cannot be negative")
     return value
+
+
+def retention_days() -> int:
+    """How long an event is kept after it happened; zero keeps everything.
+
+    Feeds are rolling windows, so re-ingesting refreshes the recent past and
+    older rows only ever accumulate. On the hosted database's half a
+    gigabyte that is years, not months — but a database that grows without
+    a rule is one that fails on a day nobody chose. The sweep runs at the
+    end of each ingestion, for that dataset, so it needs no worker.
+    """
+    raw = os.getenv("RETENTION_DAYS", "365").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        raise RuntimeError("RETENTION_DAYS must be a whole number of days, not {0!r}".format(raw))
+    if value < 0:
+        raise RuntimeError("RETENTION_DAYS cannot be negative")
+    return value
