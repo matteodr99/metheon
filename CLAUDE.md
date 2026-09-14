@@ -126,8 +126,16 @@ Everything is up (2026-09-14):
   `dist` as the assets directory and `npx wrangler deploy` as the deploy
   command, nothing in the code
 
-What remains is a scheduled ingestion, since production has no worker to
-keep the data fresh.
+- `.github/workflows/ingest.yml`, the stand-in for the worker: every six
+  hours it lists the datasets on the deployed API and posts `/ingest` for
+  each. It is a separate workflow from `ci.yml` because it verifies
+  nothing about the code; it fails when a run does not complete, so the
+  Actions tab is where a dead ingestion shows. `curl` retries the first
+  request because Render may be asleep. `/ingest` stays unauthenticated,
+  a known and accepted limit for public, idempotent, recorded runs
+
+Deployment is complete. Nothing above changes how the project runs
+locally, in CI or on Kind.
 
 ## Repository structure
 

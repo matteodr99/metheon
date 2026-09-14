@@ -874,6 +874,21 @@ The frontend has its own suite, run from `frontend/` with `npm test`. It uses
 Vitest and Testing Library in jsdom, with `fetch` replaced, so it needs
 nothing running either.
 
+### Scheduled ingestion
+
+Production has no worker, so `.github/workflows/ingest.yml` keeps the data
+fresh instead: every six hours (and on demand from the Actions tab) it lists
+the deployed API's datasets and calls `POST /ingest` on each, inline. The
+feeds cover the last seven days, so a late run leaves no gap. The job fails
+when a run does not complete, which makes a broken ingestion visible under
+Actions rather than as data that quietly stops moving. It retries the first
+request, since the API may be asleep and take a minute to wake.
+
+`POST /ingest` needs no authentication, on the deployed API as much as
+locally: anyone can trigger a run. The operation is idempotent and every
+run is recorded, which is why that is acceptable for public data today; a
+token would be the change if it ever stops being so.
+
 ### The backend image
 
 `backend/Dockerfile` builds one image for the whole backend. It starts the
@@ -998,7 +1013,9 @@ The dashboard is at `https://metheon.pages.dev`, a Cloudflare Pages project
 built from `frontend/` on every push to `main` with
 `VITE_API_URL=https://metheon.onrender.com`; the API allows that one origin
 through `CORS_ORIGINS`. Pressing **Ingest now** there runs the ingestion
-inline on Render against Neon and refreshes the page when it finishes.
+inline on Render against Neon and refreshes the page when it finishes;
+between presses, the [scheduled ingestion](#scheduled-ingestion) does the
+same every six hours.
 
 ### Inspecting the database directly
 

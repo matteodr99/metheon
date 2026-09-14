@@ -1,0 +1,46 @@
+# Production has no worker: the free plans run one web service and nothing
+# else. This is what keeps the data fresh instead — every six hours it asks
+# the deployed API to ingest each dataset, inline. The feeds cover the last
+# seven days, so a run that is late by hours leaves no gap.
+#
+# The job fails when a run does not complete, so a broken ingestion shows
+# up under Actions rather than as data that quietly stops moving.
+name: Ingest
+
+on:
+  schedule:
+    # Off the hour on purpose: GitHub delays jobs that all start at :00.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+env:
+  API_URL: https://metheon.onrender.com
+
+jobs:
+  ingest:
+    name: Ingest every dataset
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ingest
+        run: |
+          # The service sleeps after fifteen idle minutes and takes about a
+          # minute to wake, so the first request retries rather than fails.
+          get() {
+            curl --silent --show-error --fail \
+              --retry 3 --retry-all-errors --retry-delay 20 --max-time 120 "$@"
+          }
+
+          ids=$(get "$API_URL/api/datasets" | jq -r '.[].id')
+          if [ -z "$ids" ]; then
+            echo "no datasets to ingest"
+            exit 0
+          fi
+
+          failed=0
+          for id in $ids; do
+            run=$(get -X POST "$API_URL/api/datasets/$id/ingest") || { failed=1; continue; }
+            echo "$run" | jq -r '"dataset \(.dataset_id): \(.status), \(.fetched) fetched, \(.inserted) inserted, \(.updated) updated, \(.invalid) invalid\(.error | if . then " — " + . else "" end)"'
+            [ "$(echo "$run" | jq -r .status)" = "completed" ] || failed=1
+          done
+          exit $failed
