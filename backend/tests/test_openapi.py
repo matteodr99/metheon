@@ -25,7 +25,7 @@ def success_schema(operation):
 
 # Routes that never open a connection: health answers about the database
 # rather than through it, and the registry lives in memory.
-NO_DATABASE = ("/api/health", "/api/health/live", "/api/sources")
+NO_DATABASE = ("/api/health", "/api/health/live", "/api/sources", "/api/ai")
 
 
 def every_operation():

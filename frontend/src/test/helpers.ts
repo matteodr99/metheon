@@ -119,6 +119,7 @@ export function mockFetch(
     status = 200,
     summary = makeSummary(),
     imports = [] as ImportRun[],
+    ai = { configured: false, model: '' },
     sources = [makeSource()] as Source[],
   } = {},
 ) {
@@ -142,7 +143,9 @@ export function mockFetch(
       // route URLs it does not care about; pass `summary` or `imports` to
       // control them.
       let body: unknown
-      if (url.includes('/summary')) {
+      if (url === '/api/ai') {
+        body = ai
+      } else if (url.includes('/summary')) {
         body = summary
       } else if (url.includes('/imports')) {
         body = { dataset_id: 1, total: imports.length, limit: 5, offset: 0, filters: {}, items: imports }

@@ -7,6 +7,7 @@ import {
   type EarthquakeFilters,
   type Page,
 } from '../api'
+import { InsightsPanel } from './InsightsPanel'
 import { SummaryPanel } from './Summary'
 
 const PAGE_SIZE = 25
@@ -154,6 +155,7 @@ export function EarthquakeBrowser({
       {/* Given the applied filters, not the ones being typed, so the
           numbers always describe the table below. */}
       <SummaryPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
+      <InsightsPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
 
       {error !== null && (
         <p role="alert" className="error">

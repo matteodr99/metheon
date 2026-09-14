@@ -95,6 +95,21 @@ export function isActive(run: ImportRun): boolean {
   return run.status === 'queued' || run.status === 'processing'
 }
 
+export interface AIStatus {
+  configured: boolean
+  model: string
+}
+
+export interface Insights {
+  dataset_id: number
+  filters: Record<string, string | number>
+  model: string
+  summary: string
+  key_trends: string[]
+  anomalies: string[]
+  recommendations: string[]
+}
+
 export interface Summary {
   dataset_id: number
   filters: Record<string, string | number>
@@ -232,4 +247,19 @@ export function createDataset(
   signal?: AbortSignal,
 ): Promise<Dataset> {
   return postJson<Dataset>('/api/datasets', signal, payload)
+}
+
+export function fetchAIStatus(signal?: AbortSignal): Promise<AIStatus> {
+  return getJson<AIStatus>('/api/ai', signal)
+}
+
+export function fetchInsights(
+  datasetId: number,
+  filters: EarthquakeFilters,
+  signal?: AbortSignal,
+): Promise<Insights> {
+  return getJson<Insights>(
+    `/api/datasets/${datasetId}/insights?${queryFor(filters)}`,
+    signal,
+  )
 }

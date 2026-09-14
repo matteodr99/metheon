@@ -11,13 +11,14 @@ Public Data → Ingestion → Processing → PostgreSQL → API → Analytics �
 Metheon is a personal portfolio / open-source project. It works exclusively with
 public datasets and does not handle personal or sensitive user data.
 
-> **Project status: Phases 1 and 2 complete, Phase 3 in progress.**
+> **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
-> worker ingest USGS earthquake data asynchronously, with every run recorded.
-> The API supports filtering and aggregation, and a React dashboard browses
-> the events with filters, paging and charts, creates datasets, and starts
-> ingestions and follows them to completion — nothing needs a terminal. The
-> AI layer is not implemented yet — see [Roadmap](#roadmap).
+> worker ingest earthquake data from USGS and INGV asynchronously, with every
+> run recorded. The API supports filtering and aggregation; a React dashboard
+> browses the events with filters, paging and charts, creates datasets, starts
+> ingestions and follows them, and — with a Gemini key — asks the model what
+> the filtered data shows. Nothing needs a terminal. The whole system also
+> runs on a local Kind cluster. See [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -29,6 +30,7 @@ Currently implemented:
 - httpx
 - PostgreSQL 16
 - Redis 7
+- Gemini API, over plain HTTP, optional
 - Docker / Docker Compose
 - React 19 + TypeScript, built with Vite
 
@@ -228,6 +230,9 @@ project runs out of the box without any configuration.
 | `STALE_RUN_MINUTES` | `15` | A run at `processing` longer than this is failed at worker startup |
 | `LOG_LEVEL` | `INFO` | Log level for the API and the worker |
 | `TEST_POSTGRES_DB` | `metheon_test` | Database created by the test suite |
+| `GEMINI_API_KEY` | — | Enables insights; absent means off |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Model asked for insights |
+| `GEMINI_TIMEOUT_SECONDS` | `45` | HTTP timeout for the Gemini call |
 
 To override them, copy the example file and edit it:
 
@@ -537,6 +542,61 @@ On an empty result the totals are `null` and the groupings are empty lists.
 `total` here always agrees with the `total` the listing reports for the same
 filters — both are built from one shared `WHERE` clause.
 
+### `GET /api/ai`
+
+Whether insights are available, and which model would answer:
+
+```json
+{"configured": true, "model": "gemini-3.8-flash"}
+```
+
+`configured` is false until `GEMINI_API_KEY` is set; the dashboard reads
+this to show or hide the insights panel.
+
+### `GET /api/datasets/{id}/insights`
+
+Asks Gemini what the filtered data shows. Takes the same filters as the
+listing and the summary, so the model and the reader are looking at the
+same thing.
+
+```bash
+curl "http://127.0.0.1:8000/api/datasets/3/insights?min_magnitude=2"
+```
+
+```json
+{
+  "dataset_id": 3,
+  "filters": {"min_magnitude": 2.0},
+  "model": "gemini-3.8-flash",
+  "summary": "This INGV dataset contains 56 earthquake events recorded between September 4 and 13, 2026, with magnitudes from 2.0 to 6.3 …",
+  "key_trends": ["Daily event counts varied from a low of 2 on September 7 to a peak of 11 on September 5."],
+  "anomalies": ["A magnitude 6.3 earthquake at a depth of 318.8 km offshore Jawa, Indonesia, was far deeper and stronger than the 2.93 average."],
+  "recommendations": ["Apply a regional bounding box to separate domestic Italian events from global detections catalogued by INGV."]
+}
+```
+
+The model never sees the rows. It is given the same aggregate the summary
+endpoint returns — totals, magnitude statistics, counts per day and per type
+— plus the five strongest events, about 1.6 kB in all, with a system
+instruction that forbids inventing anything not in that data. The answer is
+constrained to a JSON Schema on Gemini's side and validated against the
+response model on ours.
+
+| Status | Meaning |
+| --- | --- |
+| `503` | No `GEMINI_API_KEY`; the feature is off, the rest of the API is up |
+| `502` | Gemini failed or answered outside its schema; `detail` carries Google's message |
+
+The free tier of the model is sometimes overloaded — the first real run of
+this endpoint answered in five seconds, the second met "currently
+experiencing high demand" after forty. That surfaces as a `502` with the
+reason, and the dashboard's button is the retry. There is no automatic
+retry: on a metered tier it would double the wait and, if the problem were
+quota, spend more of it.
+
+Calls are not stored on Google's side (`store: false`). The key travels in a
+header, never in a URL, and never reaches the log.
+
 ### `POST /api/datasets/{id}/ingest`
 
 Queues an ingestion run and returns `202` immediately. A worker picks the job
@@ -662,6 +722,9 @@ metheon/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
 │   │   ├── schemas.py           # Request and response models, what /docs shows
+│   │   ├── ai/
+│   │   │   ├── gemini.py        # The one HTTP call, with a response schema
+│   │   │   └── insights.py      # The digest the model sees, and the prompt
 │   │   ├── logging_config.py    # One log format for the API and the worker
 │   │   ├── jobs.py              # Redis queue: enqueue, dequeue, health
 │   │   ├── worker.py            # Background worker loop
@@ -699,7 +762,7 @@ metheon/
 │   ├── src/
 │   │   ├── api/                 # Types and fetch helpers for the API
 │   │   ├── components/          # Browser, ingestion panel, dataset form,
-│   │   │                        #   summary, chart — tests beside each
+│   │   │                        #   summary, chart, insights — tests beside each
 │   │   ├── theme/               # Light / dark / system
 │   │   ├── test/                # Fixtures and the fetch stand-in
 │   │   ├── App.tsx              # Dataset list, selection, refresh wiring
@@ -869,6 +932,12 @@ fault the API did not have.
 `init.sql` ConfigMap itself from `backend/app/db/init.sql`; copying the
 schema into `k8s/` would have left two of them to keep in step.
 
+The Gemini key is not in `k8s/config.yaml` and must never be: to enable
+insights in the cluster, add it to the Secret out of band —
+`kubectl -n metheon create secret generic metheon-ai --from-literal=GEMINI_API_KEY=…`
+and reference it from the API Deployment — or leave it out and the panel
+says so.
+
 Kubernetes has no role in the deployment stack chosen for this project. This
 is local study and demonstration: the manifests, the probes and the
 config/secret split are what they would be anywhere.
@@ -888,8 +957,9 @@ docker exec -it metheon-postgres psql -U metheon -d metheon
   transitions and a recorded history of every run
 - [x] **Phase 3 — Analytics:** pagination, filtering and aggregation in the
   API; a dashboard with filters, paging, summary tiles and charts
-- [ ] **Phase 4 — AI:** Gemini integration for summaries, trend and anomaly
-  analysis, with structured responses
+- [x] **Phase 4 — AI:** Gemini reads the filtered summary and answers with
+  a structured summary, trends, anomalies and recommendations; off without
+  a key
 - [ ] **Phase 5 — Engineering quality:** backend and frontend are both
   covered by tests, CI runs everything on every push, the worker logs its
   work, the API exposes readiness and liveness checks and answers failures

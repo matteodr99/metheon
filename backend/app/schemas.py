@@ -169,6 +169,28 @@ class IngestAccepted(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Insights
+# ---------------------------------------------------------------------------
+
+
+class Insights(BaseModel):
+    """What the model answered, in the structure it was asked for."""
+
+    dataset_id: int
+    filters: Dict[str, Any]
+    model: str = Field(description="The Gemini model that produced this.")
+    summary: str
+    key_trends: List[str]
+    anomalies: List[str]
+    recommendations: List[str]
+
+
+class AIStatus(BaseModel):
+    configured: bool = Field(description="Whether GEMINI_API_KEY is set.")
+    model: str
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 

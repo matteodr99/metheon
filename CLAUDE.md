@@ -32,6 +32,7 @@ The project is a personal portfolio/open-source project. It must not use persona
 - redis-py
 - PostgreSQL 16
 - Redis 7
+- Gemini API, optional, over HTTP
 - Docker / Docker Compose
 - Kubernetes, locally, via Kind
 - React 19 + TypeScript, built with Vite
@@ -41,7 +42,6 @@ The project is a personal portfolio/open-source project. It must not use persona
 
 ### Planned / intended
 
-- Gemini API for optional AI insights
 - Public deployment, per the table below
 
 Deployment and hosting are decided separately and are not to be implemented
@@ -103,6 +103,10 @@ metheon/
 │   │   ├── main.py
 │   │   ├── schemas.py
 │   │   ├── logging_config.py
+│   │   ├── ai/
+│   │   │   ├── __init__.py
+│   │   │   ├── gemini.py
+│   │   │   └── insights.py
 │   │   ├── jobs.py
 │   │   ├── worker.py
 │   │   ├── db/
@@ -134,6 +138,7 @@ metheon/
 │   │   │   ├── BarChart.tsx
 │   │   │   ├── EarthquakeBrowser.tsx
 │   │   │   ├── IngestionPanel.tsx
+│   │   │   ├── InsightsPanel.tsx
 │   │   │   ├── NewDatasetForm.tsx
 │   │   │   └── Summary.tsx
 │   │   ├── theme/
@@ -730,6 +735,35 @@ stretched to the container; text inside it gets distorted by that stretch, so
 the labels are HTML underneath. Reconsider the choice if several chart types
 with axes and tooltips are ever needed.
 
+## AI insights
+
+`app/ai/gemini.py` makes the one call: `POST /v1beta/interactions` on the
+Gemini Interactions API, with a JSON Schema in `response_format` so the
+answer is structured on Google's side, `store: false`, the key in the
+`x-goog-api-key` header and never in a URL. No SDK — one endpoint does not
+pay for a dependency tree, and httpx was already here. The key is read per
+call, so adding it to `.env` needs no restart.
+
+`app/ai/insights.py` decides what the model sees: the summary the API
+already computes plus the five strongest events, about 1.6 kB, never the
+rows. The system instruction forbids inventing anything not in the digest
+and tells the model what each source covers. `RESPONSE_SCHEMA` mirrors
+`schemas.Insights`.
+
+`AIError.configured` distinguishes "no key" (503: the feature is off, the
+API is up) from "the call failed" (502, with Google's message). The
+endpoint takes the same `EarthquakeFilters` as the summary, so the model
+describes exactly what the reader is looking at.
+
+No automatic retry. The free tier of the model overloads at times — seen
+live as a 500 "currently experiencing high demand" after forty seconds —
+and on a metered tier a retry would double the wait and spend quota. The
+dashboard's button is the retry. The 45-second timeout is there so an
+overloaded upstream cannot hold a request open indefinitely.
+
+The key never goes into `k8s/config.yaml`; `.env` is git-ignored and
+`.env.example` carries the variable empty.
+
 ## AI principles
 
 AI is an analytical layer, not the core ingestion mechanism.
@@ -791,11 +825,11 @@ Prefer structured AI responses where practical, for example:
 - [x] Charts
 
 ### Phase 4 — AI
-- [ ] Gemini integration
-- [ ] Data summaries
-- [ ] Trend analysis
-- [ ] Anomaly analysis
-- [ ] Structured responses
+- [x] Gemini integration
+- [x] Data summaries
+- [x] Trend analysis
+- [x] Anomaly analysis
+- [x] Structured responses
 
 ### Phase 5 — Engineering quality
 - [x] Automated tests

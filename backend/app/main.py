@@ -11,6 +11,7 @@ from app.db import repository
 from app import jobs
 from app.ingestion import sources
 from app import schemas
+from app.ai import AIError, gemini, insights
 from app.schemas import DatasetCreate
 from app.logging_config import configure_logging
 
@@ -50,11 +51,13 @@ app = FastAPI(
         {"name": "sources", "description": "What a dataset can be created for."},
         {"name": "datasets", "description": "Datasets and their ingestion."},
         {"name": "earthquakes", "description": "The events stored for a dataset."},
+        {"name": "insights", "description": "What Gemini makes of a dataset. Off until a key is set."},
     ],
 )
 
 # The refusals a client can meet, declared once and attached per route.
 NOT_FOUND = {404: {"model": schemas.Problem, "description": "No such dataset."}}
+UPSTREAM = {502: {"model": schemas.Problem, "description": "Gemini failed or answered in the wrong shape."}}
 INVALID = {422: {"model": schemas.Problem, "description": "The request was refused; `detail` says why."}}
 UNAVAILABLE = {503: {"model": schemas.Problem, "description": "A dependency is down."}}
 
@@ -388,6 +391,57 @@ def get_dataset_imports(
         "limit": limit,
         "offset": offset,
         "items": items,
+    }
+
+
+@app.get("/api/ai", tags=["insights"], response_model=schemas.AIStatus)
+def ai_status():
+    """Whether insights are available, so a client can show or hide them."""
+    return {"configured": gemini.is_configured(), "model": gemini.DEFAULT_MODEL}
+
+
+@app.get(
+    "/api/datasets/{dataset_id}/insights",
+    tags=["insights"],
+    response_model=schemas.Insights,
+    responses={**NOT_FOUND, **INVALID, **UNAVAILABLE, **UPSTREAM},
+)
+def get_dataset_insights(
+    dataset_id: int,
+    filters: EarthquakeFilters = Depends(),
+):
+    """Ask Gemini what the filtered data shows.
+
+    The model is given the same summary the summary endpoint returns, plus
+    the strongest events — never the rows. Same filters, so the reader and
+    the model are looking at the same thing.
+
+    503 when no key is configured: the feature is off, the rest of the API
+    is not. 502 when Gemini fails or answers outside its schema.
+    """
+    with get_connection() as connection:
+        dataset = _get_dataset_or_404(connection, dataset_id)
+        summary = repository.summarize_earthquakes(connection, dataset_id, filters.values)
+        strongest = repository.strongest_earthquakes(
+            connection, dataset_id, insights.STRONGEST_EVENTS, filters.values
+        )
+    summary["filters"] = filters.applied()
+
+    try:
+        answer = insights.generate_insights(dataset, summary, strongest)
+    except AIError as exc:
+        if not exc.configured:
+            logger.info("insights requested for dataset %s but AI is not configured", dataset_id)
+            raise HTTPException(status_code=503, detail=str(exc))
+        logger.warning("insights for dataset %s failed: %s", dataset_id, exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    logger.info("insights produced for dataset %s (%s)", dataset_id, gemini.DEFAULT_MODEL)
+    return {
+        "dataset_id": dataset_id,
+        "filters": filters.applied(),
+        "model": gemini.DEFAULT_MODEL,
+        **answer,
     }
 
 

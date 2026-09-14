@@ -441,6 +441,47 @@ def start_import(connection, import_id: int) -> None:
         )
 
 
+def strongest_earthquakes(
+    connection,
+    dataset_id: int,
+    limit: int,
+    filters: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """The largest-magnitude matching events, for the insights digest.
+
+    Same WHERE clause as the listing and the summary, so the model is told
+    about the same events the reader is looking at. Events with no magnitude
+    cannot rank and are left out.
+    """
+    where, parameters = _earthquake_where(dataset_id, filters)
+    parameters["limit"] = limit
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT external_id, magnitude, place, event_type, occurred_at, depth_km
+            FROM earthquakes
+            WHERE {0} AND magnitude IS NOT NULL
+            ORDER BY magnitude DESC, occurred_at DESC
+            LIMIT %(limit)s
+            """.format(where),
+            parameters,
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "external_id": row[0],
+            "magnitude": _to_float(row[1]),
+            "place": row[2],
+            "event_type": row[3],
+            "occurred_at": row[4],
+            "depth_km": _to_float(row[5]),
+        }
+        for row in rows
+    ]
+
+
 def summarize_earthquakes(
     connection,
     dataset_id: int,

@@ -611,3 +611,65 @@ td a:hover {
   font: inherit;
   padding: 0.4rem 0.55rem;
 }
+
+/* ---------- insights ---------- */
+
+.insights {
+  border-top: 1px solid var(--border);
+  margin-bottom: calc(var(--step) * 3);
+  padding-top: calc(var(--step) * 2);
+}
+
+.insights-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) * 1.5);
+  margin-bottom: var(--step);
+}
+
+.insights-bar .section-label {
+  margin: 0;
+}
+
+.insights-model {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-off code {
+  background: var(--surface-sunken);
+  border-radius: 3px;
+  font-size: 0.85em;
+  padding: 0.05rem 0.3rem;
+}
+
+.insights-body {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: calc(var(--step) * 2);
+}
+
+.insights-summary {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0 0 calc(var(--step) * 1.5);
+}
+
+.insights-list h4 {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: calc(var(--step) * 1.5) 0 calc(var(--step) * 0.5);
+  text-transform: uppercase;
+}
+
+.insights-list ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.insights-list li {
+  margin-bottom: 0.3rem;
+}

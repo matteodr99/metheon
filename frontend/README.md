@@ -46,6 +46,7 @@ src/
 ├── components/             # The dashboard, one component per concern,
 │   ├── EarthquakeBrowser   #   each with its test beside it
 │   ├── IngestionPanel
+│   ├── InsightsPanel
 │   ├── NewDatasetForm
 │   ├── Summary
 │   └── BarChart
@@ -99,6 +100,19 @@ source is a `422` naming the known ones — is shown with the API's reason and
 the form keeps its values.
 
 With this, nothing in the project needs a terminal any more.
+
+## Insights
+
+`InsightsPanel` asks `GET /api/ai` once and shows nothing more than a note
+when no key is configured. When one is, a button asks
+`GET /api/datasets/{id}/insights` with the current filters — never on its
+own, because every call is metered and a reader changing filters should not
+pay for an analysis they did not ask for.
+
+An answer is kept with the view it described. Change the filters or the
+data and it stops matching, so it disappears rather than sitting under
+numbers it no longer explains; return to the same view and it is back
+without another call.
 
 ## Charts
 
