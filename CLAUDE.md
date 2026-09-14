@@ -38,6 +38,7 @@ sensitive user data.
 - Docker / Docker Compose
 - Kubernetes, locally, via Kind
 - React 19 + TypeScript, built with Vite
+- Leaflet 1.9, for the map, with OpenStreetMap tiles
 - Pytest, Vitest and Testing Library
 - GitHub Actions
 - Git
@@ -185,6 +186,7 @@ metheon/
 │   │   ├── components/
 │   │   │   ├── BarChart.tsx
 │   │   │   ├── EarthquakeBrowser.tsx
+│   │   │   ├── EarthquakeMap.tsx
 │   │   │   ├── IngestionPanel.tsx
 │   │   │   ├── InsightsPanel.tsx
 │   │   │   ├── NewDatasetForm.tsx
@@ -771,9 +773,10 @@ Node is a local development tool. It does not go in Docker Compose, and the
 frontend is not containerized.
 
 Implemented so far: the dataset list, a form that creates a dataset for a
-registered source, a browser for one dataset's events with the five API
-filters and paging, and an ingestion panel that starts a run and follows it.
-Every operation the API offers can be done from the browser.
+registered source, a browser for one dataset's events with the API's
+filters and paging, a map of the same events, and an ingestion panel that
+starts a run and follows it. Every operation the API offers can be done
+from the browser.
 
 The panel polls `/imports` only while a run is in flight, and reports a run
 finishing exactly once, through `onRunFinished`; `App` answers by bumping a
@@ -805,6 +808,29 @@ for a dependency tree. Only the bars are drawn in the SVG, whose viewBox is
 stretched to the container; text inside it gets distorted by that stretch, so
 the labels are HTML underneath. Reconsider the choice if several chart types
 with axes and tooltips are ever needed.
+
+The map is the one place that rule gave way. `EarthquakeMap.tsx` uses
+Leaflet — zoom, pan and tiles are a project of their own — pinned to `~1.9`
+so the 2.0 rewrite (ES modules, no `L` global) arrives only when chosen.
+Leaflet is used directly, not through `react-leaflet`: one dependency, not
+two. It owns the DOM inside its container, so the component creates the map
+in an effect with a `ref`, keeps markers in a layer group it clears and
+refills, and removes the map on unmount. Colours go through class names,
+because Leaflet writes them as SVG attributes and those cannot read CSS
+variables; in the dark theme the tiles are inverted with a CSS filter rather
+than fetched from a second, dark tile set.
+
+The map reads `/earthquakes/points` with the applied filters, so it shows
+exactly what the table and the summary show; when the endpoint's limit cuts
+it says "N strongest of M". A dashed rectangle outlines an applied box.
+**Filter to this view** applies the visible bounds at once, clamped to
+±90/±180 because a zoomed-out view runs past the globe and the API would
+refuse it; it keeps whatever else is typed in the form, as Apply would.
+
+Under test Leaflet is replaced by a recording stand-in (`vi.mock`): jsdom
+has no layout, and what the component owns is which markers, bounds and
+frames it asked for. The browser-level tests run the real library, which
+works far enough in jsdom for `getBounds` to answer.
 
 ## AI insights
 

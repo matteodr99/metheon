@@ -56,6 +56,10 @@ export interface EarthquakeFilters {
   start_time: string
   end_time: string
   event_type: string
+  min_latitude: string
+  max_latitude: string
+  min_longitude: string
+  max_longitude: string
 }
 
 export const EMPTY_FILTERS: EarthquakeFilters = {
@@ -64,6 +68,27 @@ export const EMPTY_FILTERS: EarthquakeFilters = {
   start_time: '',
   end_time: '',
   event_type: '',
+  min_latitude: '',
+  max_latitude: '',
+  min_longitude: '',
+  max_longitude: '',
+}
+
+/** The four bounding-box filters, as the map hands them over. */
+export type BoundingBox = Pick<
+  EarthquakeFilters,
+  'min_latitude' | 'max_latitude' | 'min_longitude' | 'max_longitude'
+>
+
+/** `[longitude, latitude, magnitude, id]`, as the points endpoint sends it. */
+export type Point = [number, number, number | null, number]
+
+export interface Points {
+  dataset_id: number
+  total: number
+  limit: number
+  filters: Record<string, string | number>
+  points: Point[]
 }
 
 export interface Source {
@@ -206,6 +231,17 @@ export function fetchEarthquakes(
   })
   return getJson<Page<Earthquake>>(
     `/api/datasets/${datasetId}/earthquakes?${query}`,
+    signal,
+  )
+}
+
+export function fetchPoints(
+  datasetId: number,
+  filters: EarthquakeFilters,
+  signal?: AbortSignal,
+): Promise<Points> {
+  return getJson<Points>(
+    `/api/datasets/${datasetId}/earthquakes/points?${queryFor(filters)}`,
     signal,
   )
 }

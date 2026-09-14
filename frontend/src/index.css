@@ -673,3 +673,63 @@ td a:hover {
 .insights-list li {
   margin-bottom: 0.3rem;
 }
+
+/* ---------- map ---------- */
+
+.map {
+  margin: 0 0 calc(var(--step) * 3);
+}
+
+.map-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) * 1.5);
+  margin-bottom: var(--step);
+}
+
+.map-caption {
+  color: var(--muted);
+  flex: 1;
+  font-size: 0.8rem;
+}
+
+.map-canvas {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  height: 22rem;
+  /* Leaflet positions its panes absolutely and sets z-indexes of its own;
+     isolating keeps them below the app's popovers. */
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Leaflet writes colours as SVG attributes, which cannot read CSS variables;
+   a class lets the stroke and fill follow the theme instead. */
+.map-marker {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.map-frame {
+  stroke: var(--accent);
+}
+
+/* The tiles are drawn for a light page. In the dark theme they are inverted
+   and desaturated rather than swapped for a dark tile set: same provider,
+   same attribution, no second URL. */
+:root[data-theme='dark'] .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9) saturate(0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .leaflet-tile {
+    filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9) saturate(0.4);
+  }
+}
+
+.leaflet-container {
+  font: inherit;
+}

@@ -154,6 +154,67 @@ describe('applying filters', () => {
   })
 })
 
+describe('the bounding box', () => {
+  it('is typed like any other filter', async () => {
+    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const user = userEvent.setup()
+
+    render(<EarthquakeBrowser datasetId={1} />)
+    await screen.findByText('somewhere')
+
+    await user.type(screen.getByLabelText('Min latitude'), '36')
+    await user.type(screen.getByLabelText('Max longitude'), '19')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => {
+      expect(
+        urlsOf(calls).some((url) => url.includes('min_latitude=36&max_longitude=19')),
+      ).toBe(true)
+    })
+  })
+
+  it('applies the map view at once, together with what is being typed', async () => {
+    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const user = userEvent.setup()
+
+    render(<EarthquakeBrowser datasetId={1} />)
+    await screen.findByText('somewhere')
+
+    await user.type(screen.getByLabelText('Min magnitude'), '2')
+    await user.click(screen.getByRole('button', { name: 'Filter to this view' }))
+
+    await waitFor(() => {
+      const url = urlsOf(calls).find((candidate) => candidate.includes('min_latitude='))
+      expect(url).toBeDefined()
+      expect(url).toContain('min_magnitude=2')
+    })
+    // The fields show what was applied, so the reader can adjust it.
+    const filled = screen.getByLabelText('Max latitude') as HTMLInputElement
+    expect(filled.value).not.toBe('')
+    // And the table went back to the first page.
+    expect(urlsOf(calls).at(-1)).toContain('offset=0')
+  })
+
+  it('clears the box on reset', async () => {
+    const { calls } = mockFetch(() => makePage([makeEarthquake()]))
+    const user = userEvent.setup()
+
+    render(<EarthquakeBrowser datasetId={1} />)
+    await screen.findByText('somewhere')
+
+    await user.click(screen.getByRole('button', { name: 'Filter to this view' }))
+    await waitFor(() => {
+      expect(urlsOf(calls).some((url) => url.includes('min_latitude='))).toBe(true)
+    })
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    await waitFor(() => {
+      expect(urlsOf(calls).at(-1)).not.toContain('min_latitude=')
+    })
+    expect((screen.getByLabelText('Min latitude') as HTMLInputElement).value).toBe('')
+  })
+})
+
 describe('paging', () => {
   it('disables Previous on the first page', async () => {
     mockFetch(() => makePage(manyEvents(25), { total: 200 }))

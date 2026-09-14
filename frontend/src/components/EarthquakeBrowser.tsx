@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import {
   EMPTY_FILTERS,
   fetchEarthquakes,
+  type BoundingBox,
   type Earthquake,
   type EarthquakeFilters,
   type Page,
 } from '../api'
+import { EarthquakeMap } from './EarthquakeMap'
 import { InsightsPanel } from './InsightsPanel'
 import { SummaryPanel } from './Summary'
 
@@ -90,6 +92,16 @@ export function EarthquakeBrowser({
     setOffset(0)
   }
 
+  // The map's button is an explicit action like Apply, so it applies at
+  // once rather than only filling the fields; the other filters being
+  // typed come along, as they would on submit.
+  function filterToView(box: BoundingBox) {
+    const next = { ...form, ...box }
+    setForm(next)
+    setApplied(next)
+    setOffset(0)
+  }
+
   // Derived from the page on screen, never from the pending offset: while a
   // new page loads the old rows are still displayed, and a caption counting
   // the requested range would describe rows nobody can see.
@@ -144,6 +156,50 @@ export function EarthquakeBrowser({
             onChange={(event) => update('event_type', event.target.value)}
           />
         </label>
+        <label>
+          <span>Min latitude</span>
+          <input
+            type="number"
+            step="0.0001"
+            min="-90"
+            max="90"
+            value={form.min_latitude}
+            onChange={(event) => update('min_latitude', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Max latitude</span>
+          <input
+            type="number"
+            step="0.0001"
+            min="-90"
+            max="90"
+            value={form.max_latitude}
+            onChange={(event) => update('max_latitude', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Min longitude</span>
+          <input
+            type="number"
+            step="0.0001"
+            min="-180"
+            max="180"
+            value={form.min_longitude}
+            onChange={(event) => update('min_longitude', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Max longitude</span>
+          <input
+            type="number"
+            step="0.0001"
+            min="-180"
+            max="180"
+            value={form.max_longitude}
+            onChange={(event) => update('max_longitude', event.target.value)}
+          />
+        </label>
         <div className="filter-actions">
           <button type="submit">Apply</button>
           <button type="button" onClick={reset}>
@@ -155,6 +211,12 @@ export function EarthquakeBrowser({
       {/* Given the applied filters, not the ones being typed, so the
           numbers always describe the table below. */}
       <SummaryPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
+      <EarthquakeMap
+        datasetId={datasetId}
+        filters={applied}
+        dataVersion={dataVersion}
+        onFilterToView={filterToView}
+      />
       <InsightsPanel datasetId={datasetId} filters={applied} dataVersion={dataVersion} />
 
       {error !== null && (

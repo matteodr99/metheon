@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-import type { Dataset, Earthquake, ImportRun, Page, Source, Summary } from '../api'
+import type { Dataset, Earthquake, ImportRun, Page, Point, Points, Source, Summary } from '../api'
 
 export function makeDataset(overrides: Partial<Dataset> = {}): Dataset {
   return {
@@ -121,6 +121,9 @@ export function mockFetch(
     imports = [] as ImportRun[],
     ai = { configured: false, model: '' },
     sources = [makeSource()] as Source[],
+    // A list of points, or the whole body when a test needs `total` to
+    // differ from the number of points.
+    points = [] as Point[] | Points,
   } = {},
 ) {
   const calls: FetchCall[] = []
@@ -147,6 +150,10 @@ export function mockFetch(
         body = ai
       } else if (url.includes('/summary')) {
         body = summary
+      } else if (url.includes('/points')) {
+        body = Array.isArray(points)
+          ? { dataset_id: 1, total: points.length, limit: 5000, filters: {}, points }
+          : points
       } else if (url.includes('/imports')) {
         body = { dataset_id: 1, total: imports.length, limit: 5, offset: 0, filters: {}, items: imports }
       } else if (url === '/api/sources') {
