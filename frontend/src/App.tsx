@@ -83,7 +83,7 @@ function App() {
     <main>
       <header className="masthead">
         <h1>Metheon</h1>
-        <p>Public earthquake data from the USGS feeds</p>
+        <p>Public earthquake data, agency by agency</p>
         <ThemeToggle />
       </header>
 

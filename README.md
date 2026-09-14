@@ -3,14 +3,19 @@
 [![CI](https://github.com/matteodr99/metheon/actions/workflows/ci.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ci.yml)
 [![Ingest](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml)
 
-A cloud-native platform for ingesting, processing, and analyzing public datasets.
+A cloud-native platform for ingesting, processing, and analyzing public seismic
+data — today the earthquake catalogues of USGS and INGV, which observe the
+same earthquakes with different networks and report them differently.
 
 ```text
 Public Data → Ingestion → Processing → PostgreSQL → API → Analytics → AI Insights
 ```
 
 Metheon is a personal portfolio / open-source project. It works exclusively with
-public datasets and does not handle personal or sensitive user data.
+public datasets and does not handle personal or sensitive user data. The
+pipeline is generic; the schema is not: it stores earthquakes, and a source
+qualifies by publishing them. Other kinds of public data would need a wider
+model, which is a decision for when there is one worth having.
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background

@@ -2,7 +2,12 @@
 
 ## Project
 
-**Metheon** is a cloud-native platform for ingesting, processing, and analyzing public datasets.
+**Metheon** is a cloud-native platform for ingesting, processing, and
+analyzing public seismic data: earthquake catalogues from several agencies,
+stored in one schema so they can be filtered, aggregated and compared alike.
+The pipeline is generic, the schema is not; a non-seismic source would need a
+wider event model, and that is not to be built without a concrete dataset
+asking for it.
 
 Core idea:
 
