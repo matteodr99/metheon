@@ -13,7 +13,7 @@ describe('the landing page', () => {
     const doors = screen.getAllByRole('link', { name: 'Open the dashboard' })
     expect(doors.length).toBeGreaterThanOrEqual(2)
     for (const door of doors) {
-      expect(door).toHaveAttribute('href', '/app')
+      expect(door).toHaveAttribute('href', '/app/')
     }
   })
 

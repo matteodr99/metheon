@@ -1,4 +1,6 @@
-# The dashboard lives under /app and is a single page; Cloudflare Pages must
-# serve index.html for it rather than a 404. The landing page is the root.
-/app       /index.html   200
+# The dashboard lives under /app/ and is a single page: Pages must serve
+# index.html for it rather than a 404. A rewrite of the bare /app to
+# /index.html gets turned by Pages into a redirect to the root, so the bare
+# path is sent to the slash form instead and the links use that form.
+/app       /app/         301
 /app/*     /index.html   200

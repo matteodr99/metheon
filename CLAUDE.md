@@ -125,7 +125,7 @@ Everything is up (2026-09-14):
   the same variable. `CORS_ORIGINS=https://metheon.pages.dev` is set on
   Render, and only that origin gets the headers. The site is at
   `https://metheon.pages.dev`: the landing page at the root, the dashboard
-  at `/app`
+  at `/app/`
 
   Cloudflare now labels the Pages Git workflow "legacy" and steers new
   projects to Workers with static assets. Pages still builds and serves;
@@ -994,9 +994,12 @@ the composition, not a component among others.
 
 Two pages, no router. `routes.pageFor(pathname)` — a pure function, tested
 — picks `Landing` for the root and `App` for `/app`; `main.tsx` mounts the
-one the path names. Cloudflare Pages serves `index.html` for `/app`
+one the path names. Cloudflare Pages serves `index.html` for `/app/`
 through `public/_redirects` (Vite copies `public/` into `dist/`), and
-Vite's dev server does so for any path. `Landing.tsx` is the front door
+Vite's dev server does so for any path. The links say `/app/`, with the
+slash: a `_redirects` rewrite of the bare `/app` to `/index.html` is
+turned by Pages into a redirect to the root — seen live — so the bare
+path is redirected to the slash form instead. `Landing.tsx` is the front door
 for someone arriving from a portfolio: the offer in one sentence, one
 action repeated down the page (*Open the dashboard*), and only real,
 dated figures — the counts that would drift (tests, events) are left out.

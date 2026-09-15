@@ -25,7 +25,7 @@ export function Landing() {
           <a href={REPO}>GitHub</a>
         </nav>
         <ThemeToggle />
-        <a href="/app" className="cta">
+        <a href="/app/" className="cta">
           Open the dashboard
         </a>
       </header>
@@ -42,7 +42,7 @@ export function Landing() {
             Gemini can say what the data shows.
           </p>
           <div className="hero-actions">
-            <a href="/app" className="cta">
+            <a href="/app/" className="cta">
               Open the dashboard
             </a>
             <a href={REPO} className="cta-secondary">
@@ -286,7 +286,7 @@ export function Landing() {
           <span>Metheon · a portfolio project by Matteo De Ronzis · MIT</span>
         </span>
         <nav className="landing-links" aria-label="Elsewhere">
-          <a href="/app">Dashboard</a>
+          <a href="/app/">Dashboard</a>
           <a href={API_DOCS}>API docs</a>
           <a href={REPO}>GitHub</a>
         </nav>
