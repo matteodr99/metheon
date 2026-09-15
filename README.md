@@ -22,10 +22,10 @@ Measurements over time — river levels, air quality — are the next shape
 of data, designed and not yet built in
 [docs/design/time-series.md](docs/design/time-series.md).
 
-It was built in pair with Claude Code, step by step: I decided what to
-build and why, the assistant wrote and tested it, and every step was
-verified before the next — the commits carry both names. The reasoning
-behind each decision, including the ones reversed, is in the commit
+It was built using Claude Code, in a week of evenings. An assistant makes
+writing fast; it does not decide what is worth building, where to stop, or
+when a shortcut costs more than it saves. Those decisions — including the
+ones reversed along the way — are documented one by one, in the commit
 messages, in `CLAUDE.md` and in `docs/design/`.
 
 > **Project status: all six phases of the roadmap are complete.**
