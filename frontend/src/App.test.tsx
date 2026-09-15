@@ -3,7 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import App from './App'
-import { makeDataset, makeEvent, makePage, mockFetch } from './test/helpers'
+import { deferred, makeDataset, makeEvent, makePage, mockFetch } from './test/helpers'
 
 function respondWith(datasets: ReturnType<typeof makeDataset>[]) {
   return (url: string) => {
@@ -207,6 +207,45 @@ describe('creating a dataset from the dashboard', () => {
     expect(
       await screen.findByRole('option', { name: 'Quakes (USGS)' }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('while the API wakes up', () => {
+  it('explains the wait after a few seconds, and stops once the data arrives', async () => {
+    vi.useFakeTimers()
+    const pending = deferred<unknown>()
+    mockFetch((url) => (url === '/api/datasets' ? pending.promise : makePage([])))
+    try {
+      render(<App />)
+
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(2900)
+      })
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(screen.getByText(/Waking up the API/)).toBeInTheDocument()
+
+      // Two datasets, so none is opened on its own and nothing else loads.
+      await act(async () => {
+        pending.resolve([makeDataset({ id: 1, name: 'Quakes' }), makeDataset({ id: 2, name: 'Fires' })])
+      })
+      expect(screen.queryByText(/Waking up the API/)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Quakes/ })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('never appears when the API answers at once', async () => {
+    mockFetch(respondWith([makeDataset({ name: 'Quakes' })]))
+
+    render(<App />)
+
+    await screen.findByRole('button', { name: /Quakes/ })
+    expect(screen.queryByText(/Waking up/)).not.toBeInTheDocument()
   })
 })
 

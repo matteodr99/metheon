@@ -1011,7 +1011,17 @@ for headlines.
 `Logo.tsx` is the mark — the M as an instrument's trace, flat, one spike,
 flat — as inline SVG so it takes `currentColor` or the accent tile;
 `public/favicon.svg` is the same drawing. The masthead wears it and links
-to the landing. It owns the one
+to the landing. `public/social.png` (1200×630) is the Open Graph image
+`index.html` names, drawn once from `frontend/social/social.svg` — the
+source of truth if the words change — with `@resvg/resvg-js` run outside
+the repository; it is not a build step.
+
+The hosted API sleeps after an hour without visitors and takes up to a
+minute to start. `App` keeps a timer while the dataset list is pending:
+after `WAKING_AFTER_MS` (3 s) the plain "Loading…" becomes a sentence
+that says so. A test drives the timer with fake timers and checks the
+sentence comes and goes; a second checks it never shows when the API
+answers at once. It owns the one
 irreversible action, deleting a dataset: `window.confirm` first, then
 `DELETE`, then the list is re-read and the panel closes because the
 selection is derived from the list. `src/time.ts` turns the API's naive

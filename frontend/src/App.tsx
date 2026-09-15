@@ -40,6 +40,9 @@ function DatasetCard({
   )
 }
 
+/** How long "Loading…" may stand before it explains itself. */
+const WAKING_AFTER_MS = 3000
+
 function App() {
   const [datasets, setDatasets] = useState<Dataset[] | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -65,6 +68,18 @@ function App() {
   useEffect(() => {
     loadDatasets(true)
   }, [loadDatasets])
+
+  // The hosted API sleeps after an hour without visitors and takes up to a
+  // minute to start; the first request of a visit then hangs. After a few
+  // seconds the plain "Loading…" says so, instead of looking broken.
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (datasets !== null || error !== null) {
+      return
+    }
+    const timer = window.setTimeout(() => setSlow(true), WAKING_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [datasets, error])
 
   // A finished run changes the dataset's status badge and its events, so
   // both the list and the browser are refreshed.
@@ -119,7 +134,13 @@ function App() {
         </p>
       )}
 
-      {error === null && datasets === null && <p className="muted">Loading…</p>}
+      {error === null && datasets === null && (
+        <p className="muted">
+          {slow
+            ? 'Waking up the API — it sleeps after an hour without visitors and takes up to a minute to start. Everything after that is fast.'
+            : 'Loading…'}
+        </p>
+      )}
 
       {datasets !== null && (
         <>
