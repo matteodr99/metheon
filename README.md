@@ -22,6 +22,12 @@ Measurements over time — river levels, air quality — are the next shape
 of data, designed and not yet built in
 [docs/design/time-series.md](docs/design/time-series.md).
 
+It was built in pair with Claude Code, step by step: I decided what to
+build and why, the assistant wrote and tested it, and every step was
+verified before the next — the commits carry both names. The reasoning
+behind each decision, including the ones reversed, is in the commit
+messages, in `CLAUDE.md` and in `docs/design/`.
+
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
 > worker ingest earthquakes from USGS, INGV and EMSC, natural events from
