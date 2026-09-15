@@ -210,6 +210,18 @@ describe('creating a dataset from the dashboard', () => {
   })
 })
 
+describe('the masthead', () => {
+  it('wears the mark and links back to the landing', async () => {
+    mockFetch(respondWith([]))
+
+    render(<App />)
+
+    const home = await screen.findByRole('link', { name: 'Metheon home' })
+    expect(home).toHaveAttribute('href', '/')
+    expect(within(home).getByRole('img', { name: 'Metheon' })).toBeInTheDocument()
+  })
+})
+
 describe('what a card says about ingestion', () => {
   it('says when the data last arrived, or that it never did', async () => {
     vi.useFakeTimers({ now: new Date('2026-09-15T12:00:00Z'), toFake: ['Date'] })

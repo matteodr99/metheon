@@ -4,6 +4,7 @@ import { deleteDataset, fetchDatasets, type Dataset } from './api'
 import { EventBrowser } from './components/EventBrowser'
 import { IngestionPanel } from './components/IngestionPanel'
 import { NewDatasetForm } from './components/NewDatasetForm'
+import { Logo } from './Logo'
 import { ThemeToggle } from './theme/ThemeToggle'
 import { timeAgo } from './time'
 
@@ -104,7 +105,10 @@ function App() {
   return (
     <main>
       <header className="masthead">
-        <h1>Metheon</h1>
+        <a href="/" className="brand" aria-label="Metheon home">
+          <Logo size={26} />
+          <h1>Metheon</h1>
+        </a>
         <p>Public natural-event data, agency by agency</p>
         <ThemeToggle />
       </header>

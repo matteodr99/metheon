@@ -31,7 +31,9 @@ of data, designed and not yet built in
 > ingestions and follows them, and — with a Gemini key — asks the model what
 > the filtered data shows. Nothing needs a terminal. The whole system also
 > runs on a local Kind cluster, and it is live at
-> [metheon.pages.dev](https://metheon.pages.dev). See [Roadmap](#roadmap).
+> [metheon.pages.dev](https://metheon.pages.dev) — the front page — with the
+> dashboard at [metheon.pages.dev/app](https://metheon.pages.dev/app). See
+> [Roadmap](#roadmap).
 
 ## Tech stack
 
@@ -237,7 +239,9 @@ npm install
 npm run dev
 ```
 
-The dashboard is then at `http://localhost:5173`. It shows each dataset's
+The site is then at `http://localhost:5173`: the landing page at the root
+and the dashboard at `/app` — two pages, no router, chosen from the path in
+`src/routes.ts`. The dashboard shows each dataset's
 events in a table, a summary with charts, a map and, with a second dataset
 of the same kind, a comparison of how the two agencies reported the same
 events; the filters — magnitude, time, type and a bounding box — apply to
@@ -1265,7 +1269,9 @@ about a minute to wake it, so the first request after a pause is slow; the
 ones after it are not. Render hands a service its port through `PORT`, set
 to `8000` to match the Dockerfile.
 
-The dashboard is at `https://metheon.pages.dev`, a Cloudflare Pages project
+The site is at `https://metheon.pages.dev` — the landing page, with the
+dashboard at `/app` (`public/_redirects` makes Pages serve `index.html`
+there) — a Cloudflare Pages project
 built from `frontend/` on every push to `main` with
 `VITE_API_URL=https://metheon.onrender.com`; the API allows that one origin
 through `CORS_ORIGINS`. Pressing **Ingest now** there runs the ingestion

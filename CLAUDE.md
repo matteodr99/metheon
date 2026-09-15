@@ -123,8 +123,9 @@ Everything is up (2026-09-14):
   `NODE_VERSION=20.19.5` (the `.nvmrc` version; Cloudflare does not read
   the file). The bundle it builds is byte-identical to a local build with
   the same variable. `CORS_ORIGINS=https://metheon.pages.dev` is set on
-  Render, and only that origin gets the headers. The dashboard is at
-  `https://metheon.pages.dev`
+  Render, and only that origin gets the headers. The site is at
+  `https://metheon.pages.dev`: the landing page at the root, the dashboard
+  at `/app`
 
   Cloudflare now labels the Pages Git workflow "legacy" and steers new
   projects to Workers with static assets. Pages still builds and serves;
@@ -223,6 +224,9 @@ metheon/
 │   │   │   └── ThemeToggle.tsx
 │   │   ├── test/
 │   │   ├── App.tsx
+│   │   ├── Landing.tsx
+│   │   ├── Logo.tsx
+│   │   ├── routes.ts
 │   │   ├── kinds.ts
 │   │   ├── index.css
 │   │   └── main.tsx
@@ -986,7 +990,25 @@ Fixtures and the fetch stand-in live in `src/test/helpers.ts`.
 `src/` is split by responsibility: `api/` for the client and its types,
 `components/` for the dashboard's pieces, `theme/` for the colour scheme.
 Tests sit beside the code they cover. `App.tsx` stays at the root: it is
-the composition, not a component among others. It owns the one
+the composition, not a component among others.
+
+Two pages, no router. `routes.pageFor(pathname)` — a pure function, tested
+— picks `Landing` for the root and `App` for `/app`; `main.tsx` mounts the
+one the path names. Cloudflare Pages serves `index.html` for `/app`
+through `public/_redirects` (Vite copies `public/` into `dist/`), and
+Vite's dev server does so for any path. `Landing.tsx` is the front door
+for someone arriving from a portfolio: the offer in one sentence, one
+action repeated down the page (*Open the dashboard*), and only real,
+dated figures — the counts that would drift (tests, events) are left out.
+It reads the same tokens as the dashboard, so the theme toggle and the
+system preference govern it identically; the one thing it adds is a
+display serif (Instrument Serif, from Google Fonts, Georgia as fallback)
+for headlines.
+
+`Logo.tsx` is the mark — the M as an instrument's trace, flat, one spike,
+flat — as inline SVG so it takes `currentColor` or the accent tile;
+`public/favicon.svg` is the same drawing. The masthead wears it and links
+to the landing. It owns the one
 irreversible action, deleting a dataset: `window.confirm` first, then
 `DELETE`, then the list is re-read and the panel closes because the
 selection is derived from the list. `src/time.ts` turns the API's naive
