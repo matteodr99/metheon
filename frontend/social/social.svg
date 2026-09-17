@@ -7,6 +7,6 @@
   <text x="210" y="158" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="44" font-weight="650" fill="#eaeaf0" letter-spacing="-0.5">Metheon</text>
   <text x="96" y="326" font-family="Georgia, 'Times New Roman', serif" font-size="84" fill="#eaeaf0" letter-spacing="-1.5">Public natural-event data,</text>
   <text x="96" y="424" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-style="italic" fill="#7d9dff" letter-spacing="-1.5">agency by agency.</text>
-  <text x="96" y="516" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24" fill="#9494a4">USGS · INGV · EMSC · NASA EONET · GDACS — one schema, one map, one comparison.</text>
+  <text x="96" y="516" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24" fill="#9494a4">USGS · INGV · NASA EONET · GDACS — one schema, one map, one comparison.</text>
   <text x="96" y="566" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" fill="#6a6a7a">metheon.pages.dev · open source, MIT, free to run</text>
 </svg>

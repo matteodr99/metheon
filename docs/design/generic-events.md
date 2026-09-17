@@ -91,7 +91,6 @@ What moves where, for the existing seismic rows:
 | `place` | `title` |
 | `magnitude_type` | `magnitude_unit` |
 | `depth_km`, `tsunami`, `significance` | `attributes.depth_km`, `attributes.tsunami`, `attributes.significance` |
-| — | `attributes.network` (EMSC's `auth`, dropped today for lack of a column) |
 
 Everything a filter, a sort, a chart or a join reads stays a typed column:
 time, position, magnitude, event type. `attributes` is displayed and
@@ -137,7 +136,7 @@ not proposed.
 A module gains one declaration and one parameter:
 
 ```python
-KINDS = ("earthquake",)                     # usgs, ingv, emsc
+KINDS = ("earthquake",)                     # usgs, ingv
 KINDS = ("wildfire", "storm", "volcano", …) # eonet
 
 def fetch_feed(url=None, timeout=None, kind=None): …
@@ -145,7 +144,7 @@ def normalize_feed(payload, kind) -> (records, errors): …
 ```
 
 The registry checks that a dataset's kind is one its source offers, at
-creation (422 otherwise) and at each run. The three seismic modules return
+creation (422 otherwise) and at each run. The two seismic modules return
 the record they return today under the new names, with the seismic fields
 under `attributes`. `geojson.parse_point_feature` is unchanged; a source
 whose geometry is not a point (EONET storm tracks, GDACS polygons) computes

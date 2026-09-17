@@ -1,9 +1,8 @@
-"""What the FDSN event services have in common.
+"""Helpers for FDSN event queries.
 
-INGV and EMSC both implement the FDSN `event` web service: a query with
-`starttime`, not a feed, answering GeoJSON with ISO 8601 times. The two
-differ in their properties, which stay in each module; this is the shared
-part.
+INGV's FDSN `event` service is a query, not a feed: it accepts `starttime`
+and returns GeoJSON with ISO 8601 times. These helpers build the requested
+time window and parse timestamps into the shared UTC representation.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -31,8 +30,7 @@ def with_time_window(url: str, days: int, now: Optional[datetime] = None) -> str
 def parse_iso_utc(value: Any) -> Optional[datetime]:
     """An ISO 8601 time as naive UTC; None when it is not one.
 
-    INGV writes no zone and means UTC; EMSC writes `Z`. Both end up the
-    same, which is what the shared column expects.
+    INGV writes no zone and means UTC.
     """
     if not isinstance(value, str) or not value:
         return None

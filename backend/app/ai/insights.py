@@ -69,8 +69,7 @@ the data. Keep every item to one sentence. Do not give safety advice or
 speculate about future events; describe what the data shows.
 
 Sources differ: USGS covers the world above roughly magnitude 4 plus finer
-detail in the United States; INGV covers Italy in fine detail; EMSC
-aggregates dozens of national networks around Europe and the Mediterranean;
+detail in the United States; INGV covers Italy in fine detail;
 NASA EONET curates natural events worldwide from satellite and partner
 reports; GDACS grades events by humanitarian impact and takes its seismic
 data from USGS. Read the dataset's source and judge the coverage

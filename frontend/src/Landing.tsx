@@ -160,7 +160,7 @@ export function Landing() {
       <section id="sources" className="band split">
         <div className="band-head">
           <p className="section-label">Sources</p>
-          <h2 className="display">Five agencies, one table.</h2>
+          <h2 className="display">Four agencies, one table.</h2>
           <p className="muted">
             A dataset holds events of one kind. The kind names the measure and decides the
             columns; the agencies decide nothing about the schema.
@@ -176,11 +176,6 @@ export function Landing() {
             <span className="dot kind-earthquake" />
             <strong>INGV</strong>
             <span>Italy in fine detail, down to magnitude 1, plus the strong events elsewhere.</span>
-          </li>
-          <li>
-            <span className="dot kind-earthquake" />
-            <strong>EMSC</strong>
-            <span>Dozens of national networks around Europe and the Mediterranean, in one catalogue.</span>
           </li>
           <li>
             <span className="dot kind-wildfire" />
@@ -208,10 +203,6 @@ export function Landing() {
             side: epicentres kilometres apart, a fire three times larger in one catalogue than
             the other, a magnitude that agrees to the decimal because one agency takes its
             seismic data from the other.
-          </p>
-          <p className="muted">
-            In one week: 219 of USGS's events had an EMSC counterpart within a minute and 100 km,
-            on average 4 km and 0.12 magnitude apart.
           </p>
         </div>
         <figure className="hero-card">

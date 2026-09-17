@@ -35,13 +35,13 @@ describe('the landing page', () => {
     expect(within(footer).getByRole('link', { name: 'API docs' }).getAttribute('href')).toMatch(/\/docs$/)
   })
 
-  it('names all five agencies', () => {
+  it('names all four agencies', () => {
     render(<Landing />)
 
     // The agencies also appear in the Vanuatu readings; the sources list
     // is where each is introduced.
-    const sources = screen.getByRole('heading', { name: 'Five agencies, one table.' }).closest('section')!
-    for (const agency of ['USGS', 'INGV', 'EMSC', 'NASA EONET', 'GDACS']) {
+    const sources = screen.getByRole('heading', { name: 'Four agencies, one table.' }).closest('section')!
+    for (const agency of ['USGS', 'INGV', 'NASA EONET', 'GDACS']) {
       expect(within(sources).getByText(agency)).toBeInTheDocument()
     }
   })

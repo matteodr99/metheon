@@ -193,7 +193,6 @@ metheon/
 │   │       ├── fdsn.py
 │   │       ├── usgs.py
 │   │       ├── ingv.py
-│   │       ├── emsc.py
 │   │       ├── eonet.py
 │   │       ├── gdacs.py
 │   │       └── runner.py
@@ -807,7 +806,7 @@ endpoint refuses to queue one with `422`.
 
 Nothing else in the pipeline knows which sources exist.
 
-Registered: `usgs`, `ingv`, `emsc`, `eonet` and `gdacs`. The three seismic ones
+Registered: `usgs`, `ingv`, `eonet` and `gdacs`. The two seismic ones
 publish GeoJSON point features, so the envelope checks — id, geometry,
 coordinate ranges, duplicate ids in one feed — live once in `geojson.py`;
 each module maps only its own properties. `collect_records` takes the name
@@ -817,21 +816,10 @@ errors rather than reading a GeoJSON key. INGV ids are integers, times ISO 8601 
 case, all normalized to match USGS so the sources share one table and one
 set of filters.
 
-INGV and EMSC are both FDSN event services: a query, not a feed. What they
-share — adding a `starttime` for the last N days unless the url has one,
-parsing ISO 8601 into naive UTC — lives in `fdsn.py`; each module keeps its
-own window length (`INGV_DAYS`, `EMSC_DAYS`) and its own properties. The
-base url is what `imports.feed_url` records.
-
-EMSC has two traps. Its event types are QuakeML codes (`ke` known
-earthquake, `se` suspected, `qb` quarry blast…), mapped in `emsc.EVENT_TYPES`
-to the words USGS uses and passed through unchanged when unknown. And the
-third coordinate of its geometry is an elevation — `-13.0` for 13 km down —
-so `depth_km` comes from the `depth` property, not from `parse_point_feature`;
-a test asserts every captured depth is non-negative. The reporting network
-(`auth`) is dropped: the schema has no column for it, and that is the kind
-of source-specific attribute the generic event model is for — proposed,
-not built, in `docs/design/generic-events.md`.
+INGV uses an FDSN event service: a query, not a feed. Adding a `starttime`
+for the last N days unless the URL has one, and parsing ISO 8601 into naive
+UTC, live in `fdsn.py`. Its window length is `INGV_DAYS`; the base URL is
+what `imports.feed_url` records.
 
 The same earthquake appears in several sources with different ids,
 magnitudes and epicentres. Datasets keep their own copies; reconciling
@@ -1213,4 +1201,3 @@ Before implementing a new feature:
 6. Do not silently introduce new infrastructure or dependencies without explaining why.
 
 When a requirement is ambiguous, prefer asking rather than inventing behavior.
-

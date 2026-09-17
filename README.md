@@ -4,7 +4,7 @@
 [![Ingest](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml/badge.svg)](https://github.com/matteodr99/metheon/actions/workflows/ingest.yml)
 
 A cloud-native platform for ingesting, processing, and analyzing public seismic
-data — the earthquake catalogues of USGS, INGV and EMSC, which observe the
+data — the earthquake catalogues of USGS and INGV, which observe the
 same earthquakes with different networks and report them differently, NASA
 EONET's curated wildfires, storms, floods and other natural events, and the
 graded disaster alerts of GDACS.
@@ -30,7 +30,7 @@ messages, in `CLAUDE.md` and in `docs/design/`.
 
 > **Project status: all six phases of the roadmap are complete.**
 > A FastAPI backend, a PostgreSQL database, a Redis queue and a background
-> worker ingest earthquakes from USGS, INGV and EMSC, natural events from
+> worker ingest earthquakes from USGS and INGV, natural events from
 > NASA EONET and graded alerts from GDACS asynchronously, with every
 > run recorded. The API supports filtering and aggregation; a React dashboard
 > browses the events with filters, paging and charts, creates datasets, starts
@@ -79,7 +79,7 @@ through `GET /api/datasets/{id}/imports`.
 
 ## Data sources
 
-Two sources are registered, both public, unauthenticated and free of personal
+Four sources are registered, all public, unauthenticated and free of personal
 data. A dataset names one of them, and `GET /api/sources` lists what is
 available.
 
@@ -106,21 +106,10 @@ default). INGV writes ids as integers, times as ISO 8601 and magnitude types
 in mixed case; all three are normalized to match USGS, so both sources share
 one table and one set of filters.
 
-**EMSC** — the [FDSN event service][emsc] of the Euro-Mediterranean
-Seismological Centre, which aggregates the bulletins of dozens of national
-networks (AFAD, BMKG, NEIC, OGS, …) into one catalogue. Same kind of query
-as INGV, `EMSC_DAYS` long. Its event types are QuakeML codes (`ke`, `se`,
-`qb`…), spelled out into the words USGS uses; its third coordinate is an
-elevation, negative underground, so the depth is taken from the `depth`
-property instead. Which network reported an event is not kept: the shared
-schema has no column for it.
-
-The same physical earthquake appears in several catalogues with different
-ids, slightly different magnitudes and epicentres kilometres apart — in one
-week's data, 219 USGS events had an EMSC counterpart within a minute and
-100 km, on average 4 km and 0.12 magnitude apart. Each dataset keeps its own
-copy: reconciling agencies is an analysis question, not something ingestion
-should guess at, and the [matches endpoint](#get-apidatasetsideventsmatchesotherid2)
+The same physical earthquake can appear in several catalogues with different
+ids, slightly different magnitudes and epicentres kilometres apart. Each
+dataset keeps its own copy: reconciling agencies is an analysis question, not
+something ingestion should guess at, and the [matches endpoint](#get-apidatasetsideventsmatchesotherid2)
 does it on request.
 
 **NASA EONET** — the [Earth Observatory Natural Event Tracker][eonet], which
@@ -157,7 +146,6 @@ registering it there; the GeoJSON envelope checks are shared in
 `geojson.py`.
 
 [ingv]: https://webservices.ingv.it/
-[emsc]: https://www.seismicportal.eu/fdsn-wsevent.html
 [eonet]: https://eonet.gsfc.nasa.gov/docs/v3
 [gdacs]: https://www.gdacs.org/
 
@@ -303,9 +291,6 @@ project runs out of the box without any configuration.
 | `INGV_FEED_URL` | `…/fdsnws/event/1/query?…` | INGV query; a `starttime` is added per run |
 | `INGV_TIMEOUT_SECONDS` | `30` | HTTP timeout for the INGV request |
 | `INGV_DAYS` | `7` | Length of the INGV window, in days |
-| `EMSC_FEED_URL` | `…/fdsnws/event/1/query?…` | EMSC query; a `starttime` is added per run |
-| `EMSC_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EMSC request |
-| `EMSC_DAYS` | `7` | Length of the EMSC window, in days |
 | `EONET_FEED_URL` | `…/api/v3/events?status=all` | EONET query; `category` and `days` are added per run |
 | `EONET_TIMEOUT_SECONDS` | `30` | HTTP timeout for the EONET request |
 | `EONET_DAYS` | `7` | Length of the EONET window, in days |

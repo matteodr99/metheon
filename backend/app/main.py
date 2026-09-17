@@ -47,7 +47,7 @@ app = FastAPI(
     title="Metheon API",
     description=(
         "Public datasets, ingested and queryable. Today: earthquakes from "
-        "USGS, INGV and EMSC; a dataset holds events of one kind.\n\n"
+        "USGS, INGV; a dataset holds events of one kind.\n\n"
         "Every refusal carries a `detail` sentence saying why."
     ),
     lifespan=lifespan,

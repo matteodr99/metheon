@@ -64,8 +64,9 @@ class TestRegistry:
         """Datasets created before the registry say 'USGS'."""
         assert sources.get_source(spelling).key == "usgs"
 
-    def test_an_unknown_source_is_none(self):
-        assert sources.get_source("meteorites") is None
+    @pytest.mark.parametrize("source", ["meteorites", "emsc"])
+    def test_an_unknown_source_is_none(self, source):
+        assert sources.get_source(source) is None
 
     def test_known_sources_are_listed_in_order(self, registered):
         registered()
@@ -245,11 +246,6 @@ class TestKinds:
 
 @requires_postgres
 class TestKindsThroughTheApi:
-    def test_a_dataset_gets_its_sources_only_kind(self, client):
-        created = client.post("/api/datasets", json={"name": "Quakes", "source": "emsc"}).json()
-
-        assert created["kind"] == "earthquake"
-
     def test_a_kind_may_be_named_when_it_is_the_right_one(self, client):
         response = client.post(
             "/api/datasets", json={"name": "Quakes", "source": "usgs", "kind": "earthquake"}
