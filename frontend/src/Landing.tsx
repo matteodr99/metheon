@@ -37,7 +37,7 @@ export function Landing() {
             Public natural-event data, <em>agency by agency.</em>
           </h1>
           <p className="lede">
-            Metheon ingests earthquake catalogues and disaster alerts from five public agencies
+            Metheon ingests earthquake catalogues and disaster alerts from four public agencies
             into one schema, so the same filters, map and comparison work on all of them — and
             Gemini can say what the data shows.
           </p>
@@ -51,7 +51,7 @@ export function Landing() {
           </div>
           <dl className="facts">
             <div>
-              <dd>5</dd>
+              <dd>4</dd>
               <dt>agencies</dt>
             </div>
             <div>
