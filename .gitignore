@@ -16,3 +16,5 @@ venv/
 
 # OS
 .DS_Store
+# Local, private files (a CV, notes); never committed.
+.local/
