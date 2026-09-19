@@ -134,3 +134,13 @@ class TestTheDescriptionMatchesReality:
 
         assert response.status_code == 500
         assert response.json() == {"detail": "Internal server error"}
+
+
+class TestGraphQLIsNotHere:
+    def test_the_graphql_route_stays_out_of_the_spec(self):
+        """`/api/graphql` documents itself, through introspection and
+        GraphiQL. A POST whose response shape is whatever the query asked
+        for has no model to name, and the tests above would rightly refuse
+        it; it is served, and it is not described here."""
+        assert "/api/graphql" not in spec()["paths"]
+        assert any(route.path == "/api/graphql" for route in app.routes)

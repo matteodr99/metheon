@@ -47,6 +47,7 @@ Currently implemented:
 
 - Python 3.12
 - FastAPI + Uvicorn
+- Strawberry, for the GraphQL schema beside the REST routes
 - psycopg 3
 - httpx
 - PostgreSQL 16
@@ -852,6 +853,46 @@ Deletes a dataset with its events and its import history, and answers
 the dataset fails when it next writes and is recorded as such. `404` for an
 unknown dataset. The dashboard's **Delete dataset** button asks first.
 
+### `POST /api/graphql`
+
+The same data as the routes above, as a GraphQL schema, read-only. A
+`GET` serves GraphiQL, the way `/docs` serves the REST API, and the schema
+documents itself through introspection; it is deliberately absent from the
+OpenAPI document, which describes the REST routes.
+
+```graphql
+{
+  dataset(id: 1) {
+    name kind lastIngestedAt
+    events(filters: { minMagnitude: 5, minLatitude: 36, maxLatitude: 47,
+                      minLongitude: 6, maxLongitude: 19 }, limit: 10) {
+      total
+      items { externalId title occurredAt magnitude magnitudeUnit attributes }
+    }
+    summary(filters: { minMagnitude: 5 }) { total magnitude { max average } }
+    imports(limit: 3) { status finishedAt inserted updated }
+  }
+}
+```
+
+`datasets` and `dataset(id)` are the roots; a dataset has `events`,
+`summary` and `imports`, taking the REST filters and paging under camelCase
+names (`externalId` for `external_id`, and so on). Every resolver calls the
+repository function its REST counterpart calls with the same filter
+dictionary, so the two APIs cannot disagree about a filter — a test asks
+both and compares.
+
+Errors follow GraphQL rather than HTTP: an unknown dataset is `null`, and a
+refused filter or page — an inverted range, a coordinate off the globe, a
+`limit` outside 1–500 — is an entry in `errors` carrying the sentence the
+REST route would put in `detail`, with the status still `200`. The failing
+field is `null` and its siblings still answer. An unreachable database says
+so in the same words as the REST `503`; anything else unexpected is masked
+as *Unexpected error* and logged with its traceback, as a `500` is.
+
+The connection is opened on the first resolver that needs one, so
+introspection — what GraphiQL asks for when it loads — wakes no database.
+
 ### Retention
 
 Every feed is a rolling window of the recent past, so re-ingesting
@@ -987,6 +1028,8 @@ metheon/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI application and routes
 │   │   ├── schemas.py           # Request and response models, what /docs shows
+│   │   ├── filters.py           # The filter and paging rules REST and GraphQL share
+│   │   ├── graphql.py           # The Strawberry schema at /api/graphql, read-only
 │   │   ├── settings.py          # Deployment switches, inert by default
 │   │   ├── ai/
 │   │   │   ├── gemini.py        # The one HTTP call, with a response schema

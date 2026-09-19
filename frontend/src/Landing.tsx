@@ -147,7 +147,7 @@ export function Landing() {
           <li>
             <span className="step-number">05</span>
             <strong>Query</strong>
-            <span>A FastAPI with filters, aggregates, map points and cross-agency pairing, documented at /docs.</span>
+            <span>A FastAPI with filters, aggregates, map points and cross-agency pairing, documented at /docs — and the same data as a GraphQL schema.</span>
           </li>
           <li>
             <span className="step-number">06</span>

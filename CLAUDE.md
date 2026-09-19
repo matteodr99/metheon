@@ -33,6 +33,7 @@ sensitive user data.
 
 - Python 3.12
 - FastAPI
+- Strawberry GraphQL, for the schema at `/api/graphql`
 - Uvicorn
 - psycopg 3
 - httpx
@@ -170,6 +171,8 @@ metheon/
 │   │   ├── __init__.py
 │   │   ├── main.py
 │   │   ├── schemas.py
+│   │   ├── filters.py
+│   │   ├── graphql.py
 │   │   ├── settings.py
 │   │   ├── logging_config.py
 │   │   ├── ai/
@@ -323,6 +326,19 @@ Routes that never open a connection — the two health checks and `/sources`
 — do not declare `503`; every other one does, because the handler for a dead
 database applies to all of them.
 
+`/api/graphql` is the one route outside this contract: it is mounted with
+`include_in_schema=False`, documents itself through introspection and
+GraphiQL, and `test_openapi` asserts it stays out of the spec while being
+served. See *GraphQL* below.
+
+`app/filters.py` holds what a set of event filters may say — the degree
+bounds, the inverted-range rule, the page limits — as functions returning
+a sentence or `None`. `main.EventFilters` turns the sentence into a `422`,
+`graphql.EventFilterInput` into a GraphQL error; the rules exist once so
+the two APIs cannot accept different filters. FastAPI still checks the
+degree bounds on the query string first, so for REST only the inverted
+messages can come from here.
+
 ## Current API
 
 ### GET /api/health
@@ -475,6 +491,50 @@ other settings). A failed run does not count. The endpoint stays public
 rather than taking a token because the dashboard's button is a public
 caller; the cooldown is what bounds the cost of that. `repository.latest_import`
 is one `list_imports` of length one.
+
+### POST /api/graphql
+
+`app/graphql.py`, added 2026-09-19: the same data as the REST routes as a
+Strawberry schema, read-only. Roots `datasets` and `dataset(id)`; a
+dataset has `events(filters, limit, offset)`, `summary(filters)` and
+`imports(limit, offset)`. Every resolver calls the repository function its
+REST counterpart calls with the same filter dictionary, and
+`tests/test_graphql.py` asks both APIs the same eight filters and compares
+the ids and totals. No SQL of its own; `repository.py` stays the one place
+for SQL.
+
+Decisions, each with a test:
+
+- **Nullable failable fields.** `events`, `summary` and `imports` are
+  `Optional` so a refusal nulls that field and leaves its siblings —
+  a non-null field that errors takes its parent down in GraphQL.
+  `dataset(id)` is `null` for an unknown id: GraphQL's 404.
+- **Errors carry the REST sentences**, from `filters.problem` and
+  `filters.page_problem`, in `errors` with status 200. `psycopg.
+  OperationalError` becomes `DATABASE_UNAVAILABLE`, the same words as the
+  REST 503. Everything else is masked by `MaskErrors` as *Unexpected
+  error* — `_mask` lets through what was raised as a `GraphQLError` and
+  what has no original (parse and validation errors) — because a psycopg
+  message carries the connection string and a traceback carries whatever
+  it carries. Strawberry logs the original with its traceback.
+- **One lazy connection per request.** `Context.connection` opens on
+  first use and the yield-dependency `get_context` closes it, so
+  introspection — GraphiQL's first request — wakes no database. A test
+  replaces `get_connection` with an assertion and introspects.
+- **Resolvers are `async` and the repository runs in the threadpool**
+  (`query` → `run_in_threadpool`): psycopg is synchronous and a Neon
+  round-trip would otherwise hold the event loop. Sibling fields resolve
+  concurrently on the one connection; psycopg 3 connections serialise
+  that with their own lock.
+- Field names are camelCase on the wire, Strawberry's default and the
+  GraphQL convention; the Python side keeps the repository's names.
+
+The dependency is `strawberry-graphql` with its `fastapi` extra, pinned
+in `requirements.txt` with its transitive `graphql-core`, `cross-web`,
+`python-dateutil`, `six`, `python-multipart`; `packaging` moved from the
+dev set to the runtime set because Strawberry imports it. No mutations
+yet: `ingest`, create and delete would need the cooldown and the status
+rules the REST routes hold, and are a second step if wanted.
 
 ### DELETE /api/datasets/{id}
 

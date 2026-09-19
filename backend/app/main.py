@@ -11,17 +11,18 @@ from app.db.database import get_connection
 from app.db import repository
 from app import jobs
 from app import settings
+from app import filters as event_filters
+from app.filters import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.ingestion import IngestionError, runner, sources
 from app import schemas
 from app.ai import AIError, gemini, insights
 from app.schemas import DatasetCreate
 from app.logging_config import configure_logging
+from app import graphql
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-DEFAULT_PAGE_SIZE = 50
-MAX_PAGE_SIZE = 500
 # Markers a map is asked to draw at most; a week of USGS data is about 2,200.
 MAX_POINTS = 5000
 
@@ -46,8 +47,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Metheon API",
     description=(
-        "Public datasets, ingested and queryable. Today: earthquakes from "
-        "USGS, INGV; a dataset holds events of one kind.\n\n"
+        "Public natural-event data, ingested and queryable: earthquakes, "
+        "wildfires, storms and more from USGS, INGV, NASA EONET and GDACS; "
+        "a dataset holds events of one kind. The same data is served as a "
+        "GraphQL schema at `/api/graphql`, with GraphiQL on GET.\n\n"
         "Every refusal carries a `detail` sentence saying why."
     ),
     lifespan=lifespan,
@@ -74,6 +77,9 @@ def configure_cors(application: FastAPI, origins: list) -> None:
 
 
 configure_cors(app, settings.cors_origins())
+
+# The same data as a GraphQL schema, read-only; see `app/graphql.py`.
+app.include_router(graphql.router, prefix="/api/graphql")
 
 
 # The refusals a client can meet, declared once and attached per route.
@@ -192,11 +198,6 @@ class EventFilters:
         min_longitude: Optional[float] = Query(None, ge=-180, le=180),
         max_longitude: Optional[float] = Query(None, ge=-180, le=180),
     ):
-        self._reject_inverted(min_magnitude, max_magnitude, "magnitude")
-        self._reject_inverted(start_time, end_time, "time")
-        self._reject_inverted(min_latitude, max_latitude, "latitude")
-        self._reject_inverted(min_longitude, max_longitude, "longitude")
-
         self.values = {
             "min_magnitude": min_magnitude,
             "max_magnitude": max_magnitude,
@@ -208,21 +209,11 @@ class EventFilters:
             "min_longitude": min_longitude,
             "max_longitude": max_longitude,
         }
-
-    @staticmethod
-    def _reject_inverted(lower: Any, upper: Any, label: str) -> None:
-        """Refuse a range whose bounds are the wrong way round.
-
-        Such a range silently matches nothing, which reads as "no data"
-        rather than as the mistake it is.
-        """
-        if lower is not None and upper is not None and lower > upper:
-            raise HTTPException(
-                status_code=422,
-                detail="The {0} range is inverted: {1} is greater than {2}".format(
-                    label, lower, upper
-                ),
-            )
+        # The rules live in `filters` so the GraphQL schema applies the
+        # same ones; here a refusal is a 422, there a GraphQL error.
+        problem = event_filters.problem(self.values)
+        if problem is not None:
+            raise HTTPException(status_code=422, detail=problem)
 
     def applied(self):
         """Only the filters the caller actually set, for echoing back."""

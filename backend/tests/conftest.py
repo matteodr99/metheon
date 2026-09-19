@@ -109,9 +109,13 @@ def test_database():
     """
     import psycopg
 
+    # FORCE (PostgreSQL 13+): a connection the client has closed can still
+    # be a session on the server for a moment — Docker Desktop's port
+    # proxy delays the close — and a plain DROP then fails with "being
+    # accessed by other users", leaving a database that blocks the next run.
     with psycopg.connect(_admin_dsn(), autocommit=True) as connection:
         with connection.cursor() as cursor:
-            cursor.execute("DROP DATABASE IF EXISTS {0}".format(TEST_DB_NAME))
+            cursor.execute("DROP DATABASE IF EXISTS {0} WITH (FORCE)".format(TEST_DB_NAME))
             cursor.execute("CREATE DATABASE {0}".format(TEST_DB_NAME))
 
     previous = os.environ.get("POSTGRES_DB")
@@ -134,7 +138,7 @@ def test_database():
 
     with psycopg.connect(_admin_dsn(), autocommit=True) as connection:
         with connection.cursor() as cursor:
-            cursor.execute("DROP DATABASE IF EXISTS {0}".format(TEST_DB_NAME))
+            cursor.execute("DROP DATABASE IF EXISTS {0} WITH (FORCE)".format(TEST_DB_NAME))
 
 
 @pytest.fixture
