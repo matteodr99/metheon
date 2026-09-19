@@ -69,51 +69,52 @@ export function Landing() {
           </dl>
         </div>
         <figure className="hero-card">
-          <figcaption className="section-label">Compare · GDACS wildfires with NASA EONET</figcaption>
+          <figcaption className="section-label">Compare · USGS earthquakes with INGV</figcaption>
           <p className="hero-card-caption">
-            45 of 222 events also reported by EONET · positions 4 km apart on average · areas
-            differ by 2,752.7 ha on average
+            7 of 4,072 events also reported by INGV, which lists only the strong ones outside
+            Italy · epicentres 12 km apart on average · magnitudes differ by 0.17 on average
           </p>
           <table className="pairs">
             <tbody>
               <tr>
                 <td>
-                  <span>Forest fires in Namibia</span>
-                  <span className="muted">Wildfire in Namibia 1031888</span>
+                  <span>169 km W of Nikolski, Alaska</span>
+                  <span className="muted">INGV · depth 99 km vs 98 km</span>
                 </td>
                 <td className="numeric">
-                  <span>61,629 ha</span>
-                  <span className="muted">10,146 ha</span>
+                  <span>6.5 mww</span>
+                  <span className="muted">6.5 mwp</span>
                 </td>
-                <td className="numeric delta">−51,483</td>
+                <td className="numeric delta">0.0</td>
               </tr>
               <tr>
                 <td>
-                  <span>Forest fires in Angola</span>
-                  <span className="muted">Wildfire in Angola 1031901</span>
+                  <span>126 km NNE of Teluknaga, Indonesia</span>
+                  <span className="muted">INGV · depth 319 km vs 372 km</span>
                 </td>
                 <td className="numeric">
-                  <span>22,193 ha</span>
-                  <span className="muted">7,070 ha</span>
+                  <span>6.5 mww</span>
+                  <span className="muted">6.3 mwp</span>
                 </td>
-                <td className="numeric delta">−15,123</td>
+                <td className="numeric delta">−0.2</td>
               </tr>
               <tr>
                 <td>
-                  <span>Forest fires in Botswana</span>
-                  <span className="muted">Wildfire in Botswana 1031898</span>
+                  <span>253 km ENE of Lospalos, Timor-Leste</span>
+                  <span className="muted">INGV · depth 77 km vs 112 km</span>
                 </td>
                 <td className="numeric">
-                  <span>15,357 ha</span>
-                  <span className="muted">11,123 ha</span>
+                  <span>5.9 mww</span>
+                  <span className="muted">6.1 mwp</span>
                 </td>
-                <td className="numeric delta">−4,234</td>
+                <td className="numeric delta">+0.2</td>
               </tr>
             </tbody>
           </table>
           <p className="muted small">
-            Real pairs from the dashboard, 15 September 2026. Different networks explain most
-            differences; neither agency is wrong.
+            Real pairs from the dashboard, 19 September 2026: the nearest INGV report within a
+            minute and 100 km of each USGS event. Different networks and magnitude scales
+            explain the differences; neither agency is wrong.
           </p>
         </figure>
       </section>
