@@ -47,6 +47,15 @@ class SourceInfo(BaseModel):
         description="The kinds of event this source serves; a dataset gets one of them.",
         examples=[["earthquake"]],
     )
+    homepage: str = Field(description="The agency's site, to link to.", examples=["https://earthquake.usgs.gov"])
+    licence: str = Field(
+        description="The terms the data comes under.",
+        examples=["U.S. government work, public domain", "CC BY 4.0"],
+    )
+    credit: Optional[str] = Field(
+        description="The line the licence asks to be shown; null where none is required.",
+        examples=["INGV (Istituto Nazionale di Geofisica e Vulcanologia)"],
+    )
 
 
 class DatasetCreate(BaseModel):

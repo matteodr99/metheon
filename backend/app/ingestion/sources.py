@@ -55,10 +55,25 @@ class Source:
     pipeline honour it.
     """
 
-    def __init__(self, key: str, name: str, module: ModuleType):
+    def __init__(
+        self,
+        key: str,
+        name: str,
+        module: ModuleType,
+        homepage: str,
+        licence: str,
+        credit: Optional[str] = None,
+    ):
         self.key = key
         self.name = name
         self.module = module
+        # Where the data comes from and on what terms. `credit` is the line
+        # the licence asks to be shown, None where none is legally required;
+        # the dashboard's footer and the README read these, so they are
+        # spelled once, here.
+        self.homepage = homepage
+        self.licence = licence
+        self.credit = credit
 
     @property
     def default_feed_url(self) -> str:
@@ -104,11 +119,40 @@ class Source:
         return self.module.normalize_feed(payload, kind=kind)
 
 
+# Licence terms as confirmed on 2026-09-19. The two U.S. government sources
+# are public domain and ask for nothing; INGV and GDACS are CC BY 4.0 (or
+# its equivalent) and ask to be credited by name with a link.
 SOURCES: Dict[str, Source] = {
-    "usgs": Source("usgs", "USGS Earthquake Hazards Program", usgs),
-    "ingv": Source("ingv", "INGV Istituto Nazionale di Geofisica e Vulcanologia", ingv),
-    "eonet": Source("eonet", "NASA EONET Earth Observatory Natural Event Tracker", eonet),
-    "gdacs": Source("gdacs", "GDACS Global Disaster Alert and Coordination System", gdacs),
+    "usgs": Source(
+        "usgs",
+        "USGS Earthquake Hazards Program",
+        usgs,
+        homepage="https://earthquake.usgs.gov",
+        licence="U.S. government work, public domain",
+    ),
+    "ingv": Source(
+        "ingv",
+        "INGV Istituto Nazionale di Geofisica e Vulcanologia",
+        ingv,
+        homepage="https://data.ingv.it",
+        licence="CC BY 4.0",
+        credit="INGV (Istituto Nazionale di Geofisica e Vulcanologia)",
+    ),
+    "eonet": Source(
+        "eonet",
+        "NASA EONET Earth Observatory Natural Event Tracker",
+        eonet,
+        homepage="https://eonet.gsfc.nasa.gov",
+        licence="U.S. government work, openly available without restriction",
+    ),
+    "gdacs": Source(
+        "gdacs",
+        "GDACS Global Disaster Alert and Coordination System",
+        gdacs,
+        homepage="https://www.gdacs.org",
+        licence="European Commission / JRC reuse policy, equivalent to CC BY 4.0",
+        credit="GDACS (Global Disaster Alert and Coordination System – UN OCHA / European Commission)",
+    ),
 }
 
 

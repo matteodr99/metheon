@@ -82,7 +82,8 @@ through `GET /api/datasets/{id}/imports`.
 
 Four sources are registered, all public, unauthenticated and free of personal
 data. A dataset names one of them, and `GET /api/sources` lists what is
-available.
+available, with each source's homepage and licence terms; see
+[Licence](#licence) for what each one asks in return.
 
 **USGS** — the [USGS earthquake feeds][usgs], worldwide. The default is the
 past week:
@@ -406,7 +407,10 @@ logged".
 ### `GET /api/sources`
 
 Lists the sources a dataset can be created for, with the feed each one
-ingests by default and the kinds of event it serves.
+ingests by default, the kinds of event it serves, and where the data comes
+from and on what terms — `homepage`, `licence` and `credit`, the last being
+the line the licence asks to be shown, or `null` where none is required.
+The dashboard's *Data sources* footer is generated from this answer.
 
 ```bash
 curl http://127.0.0.1:8000/api/sources
@@ -418,7 +422,19 @@ curl http://127.0.0.1:8000/api/sources
     "key": "usgs",
     "name": "USGS Earthquake Hazards Program",
     "default_feed_url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
-    "kinds": ["earthquake"]
+    "kinds": ["earthquake"],
+    "homepage": "https://earthquake.usgs.gov",
+    "licence": "U.S. government work, public domain",
+    "credit": null
+  },
+  {
+    "key": "ingv",
+    "name": "INGV Istituto Nazionale di Geofisica e Vulcanologia",
+    "default_feed_url": "https://webservices.ingv.it/fdsnws/event/1/query?format=geojson&limit=5000",
+    "kinds": ["earthquake"],
+    "homepage": "https://data.ingv.it",
+    "licence": "CC BY 4.0",
+    "credit": "INGV (Istituto Nazionale di Geofisica e Vulcanologia)"
   }
 ]
 ```
@@ -1072,7 +1088,8 @@ metheon/
 │   ├── src/
 │   │   ├── api/                 # Types and fetch helpers for the API
 │   │   ├── components/          # Browser, ingestion panel, dataset form,
-│   │   │                        #   summary, chart, insights — tests beside each
+│   │   │                        #   summary, chart, insights, data-sources
+│   │   │                        #   footer — tests beside each
 │   │   ├── theme/               # Light / dark / system
 │   │   ├── test/                # Fixtures and the fetch stand-in
 │   │   ├── App.tsx              # Dataset list, selection, refresh wiring
@@ -1349,5 +1366,18 @@ See [CLAUDE.md](CLAUDE.md) for the detailed architecture and design principles.
 
 [MIT](LICENSE). Use it, change it, ship it; keep the copyright notice.
 
-The licence covers the code, not the data the project ingests: USGS data is
-in the public domain, and INGV data carries INGV's own terms.
+The licence covers the code, not the data the project ingests. Each source
+keeps its own terms, confirmed on 2026-09-19:
+
+| Source | Terms | Attribution |
+| --- | --- | --- |
+| [USGS](https://earthquake.usgs.gov) | U.S. government work, public domain | not required |
+| [NASA EONET](https://eonet.gsfc.nasa.gov) | U.S. government work, openly available without restriction | not required |
+| [INGV](https://data.ingv.it) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | required: *INGV (Istituto Nazionale di Geofisica e Vulcanologia)*, linking to data.ingv.it |
+| [GDACS](https://www.gdacs.org) | European Commission / JRC reuse policy, equivalent to CC BY 4.0 | required: *GDACS (Global Disaster Alert and Coordination System – UN OCHA / European Commission)*, linking to gdacs.org |
+
+These facts live once, in the registry (`backend/app/ingestion/sources.py`),
+and `GET /api/sources` exposes them as `homepage`, `licence` and `credit`;
+the dashboard's footer is generated from that answer, so adding or removing
+a source updates the attribution with it. Anyone redistributing data taken
+from Metheon inherits the same obligations towards INGV and GDACS.

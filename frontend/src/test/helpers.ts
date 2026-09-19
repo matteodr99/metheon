@@ -155,6 +155,9 @@ export function makeSource(overrides: Partial<Source> = {}): Source {
     name: 'USGS Earthquake Hazards Program',
     default_feed_url: 'https://example.invalid/usgs.geojson',
     kinds: ['earthquake'],
+    homepage: 'https://earthquake.usgs.gov',
+    licence: 'U.S. government work, public domain',
+    credit: null,
     ...overrides,
   }
 }

@@ -344,6 +344,9 @@ def get_sources():
             "name": source.name,
             "default_feed_url": source.default_feed_url,
             "kinds": list(source.kinds),
+            "homepage": source.homepage,
+            "licence": source.licence,
+            "credit": source.credit,
         }
         for source in sorted(sources.SOURCES.values(), key=lambda s: s.key)
     ]

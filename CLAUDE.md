@@ -215,6 +215,7 @@ metheon/
 │   │   ├── components/
 │   │   │   ├── BarChart.tsx
 │   │   │   ├── ComparePanel.tsx
+│   │   │   ├── DataSources.tsx
 │   │   │   ├── EventBrowser.tsx
 │   │   │   ├── EventMap.tsx
 │   │   │   ├── IngestionPanel.tsx
@@ -364,7 +365,14 @@ process, which does not revive the database. Keep the two separate.
 
 ### GET /api/sources
 
-Lists the registered sources: key, name and default feed url.
+Lists the registered sources: key, name, default feed url, kinds, and the
+provenance fields `homepage`, `licence` and `credit`. Those three are set
+on each `Source` in the registry and nowhere else; the dashboard's
+`DataSources` footer renders whatever the endpoint answers, so attribution
+follows the registry. Confirmed terms (2026-09-19): USGS and NASA EONET are
+U.S. government works, public domain, `credit` null; INGV is CC BY 4.0 and
+GDACS follows the Commission/JRC policy equivalent to it, and both carry
+the credit line their licence asks for. A test asserts all four.
 
 ### GET /api/datasets
 

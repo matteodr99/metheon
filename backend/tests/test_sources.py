@@ -48,7 +48,12 @@ def registered(monkeypatch):
     def register(**kwargs):
         module, calls = fake_source_module(**kwargs)
         monkeypatch.setitem(
-            sources.SOURCES, "fake", sources.Source("fake", "A fake source", module)
+            sources.SOURCES,
+            "fake",
+            sources.Source(
+                "fake", "A fake source", module,
+                homepage="https://fake.example", licence="CC0",
+            ),
         )
         return calls
 
@@ -64,6 +69,8 @@ class TestRegistry:
         """Datasets created before the registry say 'USGS'."""
         assert sources.get_source(spelling).key == "usgs"
 
+    # "emsc" was a registered source until 2026-09-18 and is kept here on
+    # purpose: a removed source must be unknown, not quietly still there.
     @pytest.mark.parametrize("source", ["meteorites", "emsc"])
     def test_an_unknown_source_is_none(self, source):
         assert sources.get_source(source) is None
@@ -131,6 +138,26 @@ class TestCreatingDatasets:
         usgs_entry = next(entry for entry in body if entry["key"] == "usgs")
         assert usgs_entry["default_feed_url"].startswith("https://")
         assert usgs_entry["name"]
+
+    def test_every_source_says_where_it_comes_from_and_on_what_terms(self, client):
+        """The dashboard's footer is generated from this; a source without
+        a homepage or a licence would be a hole in the attribution."""
+        for entry in client.get("/api/sources").json():
+            assert entry["homepage"].startswith("https://"), entry["key"]
+            assert entry["licence"], entry["key"]
+
+    def test_the_sources_that_require_attribution_carry_a_credit(self, client):
+        """Confirmed on 2026-09-19: INGV is CC BY 4.0 and GDACS follows the
+        equivalent Commission policy, so both must be credited; the two
+        U.S. government sources are public domain and ask for nothing."""
+        by_key = {entry["key"]: entry for entry in client.get("/api/sources").json()}
+
+        assert by_key["ingv"]["credit"] == "INGV (Istituto Nazionale di Geofisica e Vulcanologia)"
+        assert by_key["ingv"]["homepage"] == "https://data.ingv.it"
+        assert by_key["gdacs"]["credit"].startswith("GDACS (Global Disaster Alert and Coordination System")
+        assert by_key["gdacs"]["homepage"] == "https://www.gdacs.org"
+        assert by_key["usgs"]["credit"] is None
+        assert by_key["eonet"]["credit"] is None
 
 
 @requires_postgres

@@ -4,6 +4,7 @@ import { deleteDataset, fetchDatasets, type Dataset } from './api'
 import { EventBrowser } from './components/EventBrowser'
 import { IngestionPanel } from './components/IngestionPanel'
 import { NewDatasetForm } from './components/NewDatasetForm'
+import { DataSources } from './components/DataSources'
 import { Logo } from './Logo'
 import { ThemeToggle } from './theme/ThemeToggle'
 import { timeAgo } from './time'
@@ -183,6 +184,8 @@ function App() {
           />
         </section>
       )}
+
+      <DataSources />
     </main>
   )
 }

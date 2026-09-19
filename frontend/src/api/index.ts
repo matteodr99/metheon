@@ -151,6 +151,12 @@ export interface Source {
   default_feed_url: string
   /** The kinds of event it serves; a dataset gets one of them. */
   kinds: string[]
+  /** The agency's site, to link to. */
+  homepage: string
+  /** The terms the data comes under. */
+  licence: string
+  /** The line the licence asks to be shown; null where none is required. */
+  credit: string | null
 }
 
 export interface DatasetCreate {

@@ -1211,6 +1211,27 @@ button.danger:hover {
   text-align: right;
 }
 
+/* Where the data comes from, at the foot of the dashboard. */
+.data-sources {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: calc(var(--step) * 4);
+  padding-top: calc(var(--step) * 2);
+}
+
+.data-sources ul {
+  display: grid;
+  gap: calc(var(--step) * 0.5);
+  list-style: none;
+  margin: 0 0 var(--step);
+  padding: 0;
+}
+
+.data-sources a {
+  color: var(--text);
+}
+
 .landing-foot {
   align-items: center;
   border-top: 1px solid var(--border);
